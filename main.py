@@ -260,40 +260,54 @@ def _gh_token():
     return None
 
 
+def _python_base():
+    """Python REAL para crear venvs: el mismo intérprete que corre el ERP
+    (`sys.executable`), priorizando python.exe sobre pythonw.exe. NUNCA usar
+    'python' pelado: en muchas PC es el stub de la Microsoft Store, que crea
+    venvs rotos y hace fallar el pip install (por eso las deps no se instalaban
+    en algunas máquinas)."""
+    base = sys.executable or "python"
+    consola = base.replace("pythonw.exe", "python.exe")
+    return consola if os.path.isfile(consola) else base
+
+
 def _pip_update(dir_):
-    """Instala dependencias (en .venv si existe, o python del sistema). Crea el
-    .venv si falta. Devuelve True si quedaron instaladas, False si algo falló."""
+    """Instala/actualiza las dependencias de la app en su `.venv` (lo crea si
+    falta). Devuelve (ok: bool, detalle: str) para poder mostrar el motivo real
+    si algo falla."""
     req = os.path.join(dir_, "requirements.txt")
     if not os.path.isfile(req):
-        return True
+        return True, "sin requirements.txt"
     venv_py = os.path.join(dir_, ".venv", "Scripts", "python.exe")
     if not os.path.isfile(venv_py):
-        # Intentar crear el .venv (la app lo usa para correr).
+        # Crear el .venv con el Python real que corre el ERP (no 'python' pelado).
         try:
-            subprocess.run(["python", "-m", "venv", os.path.join(dir_, ".venv")],
-                           capture_output=True, text=True, timeout=300,
-                           creationflags=_NO_WINDOW)
-        except Exception:                              # noqa: BLE001
-            pass
-    if os.path.isfile(venv_py):
-        py = venv_py
-    else:
-        # No se pudo crear el .venv: avisar en vez de contaminar en silencio el
-        # Python global del sistema con las dependencias de la app.
-        print(f"[Suite] AVISO: no se pudo preparar el .venv en {dir_}; se "
-              "instalan las dependencias en el Python global. Verificá que "
-              "'python -m venv' funcione en esta PC.", file=sys.stderr)
-        py = "python"
+            cv = subprocess.run([_python_base(), "-m", "venv",
+                                 os.path.join(dir_, ".venv")],
+                                capture_output=True, text=True, timeout=300,
+                                creationflags=_NO_WINDOW)
+            if cv.returncode != 0:
+                return False, ("no pude crear el entorno .venv: "
+                               + (cv.stderr or cv.stdout or "").strip()[-200:])
+        except Exception as e:                          # noqa: BLE001
+            return False, f"no pude crear el entorno .venv: {e}"
+    if not os.path.isfile(venv_py):
+        return False, ("no quedó el .venv de la app; revisá que Python esté "
+                       "instalado (no sólo el atajo de la Microsoft Store).")
     try:
-        subprocess.run([py, "-m", "pip", "install", "--upgrade", "pip"],
+        subprocess.run([venv_py, "-m", "pip", "install", "--upgrade", "pip"],
                        capture_output=True, text=True, timeout=300,
                        creationflags=_NO_WINDOW)
-        r = subprocess.run([py, "-m", "pip", "install", "-r", req],
-                           capture_output=True, text=True, timeout=900,
+        r = subprocess.run([venv_py, "-m", "pip", "install", "-r", req],
+                           capture_output=True, text=True, timeout=1200,
                            creationflags=_NO_WINDOW)
-        return r.returncode == 0
-    except Exception:                                   # noqa: BLE001
-        return False
+        if r.returncode == 0:
+            return True, "dependencias al día"
+        return False, (r.stderr or r.stdout or "").strip()[-250:]
+    except subprocess.TimeoutExpired:
+        return False, "se agotó el tiempo instalando dependencias (conexión lenta)"
+    except Exception as e:                              # noqa: BLE001
+        return False, str(e)[:200]
 
 
 def _actualizar_app_core(app):
@@ -345,11 +359,12 @@ def _actualizar_app_core(app):
             if rs.returncode != 0:
                 return "error", (rs.stderr or "").strip()[:300]
 
-        deps_ok = _pip_update(dir_)
+        deps_ok, deps_detalle = _pip_update(dir_)
     except Exception as e:                              # noqa: BLE001
         return "error", str(e)[:300]
-    return ("ok", "al día") if deps_ok else \
-        ("aviso", "código al día, faltan dependencias")
+    if deps_ok:
+        return "ok", "al día"
+    return "aviso", "código al día, pero fallaron las dependencias:\n" + deps_detalle
 
 
 class _UpdateAllWorker(QObject):
