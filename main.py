@@ -291,8 +291,22 @@ class Launcher(QWidget):
 
 
 def main():
+    # En Windows, para que la barra de tareas muestre el ícono propio (y no el
+    # de python/pythonw) hay que declarar un AppUserModelID antes de crear la
+    # ventana.
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+                "mrasoc.suitecontable")
+        except Exception:                              # noqa: BLE001
+            pass
+
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+    ico = os.path.join(_BASE, "assets", "suite.ico")
+    if os.path.isfile(ico):
+        app.setWindowIcon(QIcon(ico))
     w = Launcher()
     w.show()
     sys.exit(app.exec())
