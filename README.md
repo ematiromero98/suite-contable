@@ -9,8 +9,12 @@ Launcher único para abrir los programas del estudio desde un solo lugar:
 - **👥 Employee Pro** — gestión de RR.HH. (legajos, ausencias, sueldos).
 
 Es solo un lanzador: no toca datos ni bases. Cada programa sigue viviendo en su
-propio proyecto; esta app solamente los **abre, actualiza e instala**. Ver
-[ARQUITECTURA.md](ARQUITECTURA.md) para el porqué de mantenerlos separados.
+propio proyecto; esta app solamente los **abre, actualiza e instala**.
+
+- **[GUIA.md](GUIA.md)** — cómo instalar, usar, actualizar y **desarrollar/publicar
+  cambios** (credenciales por Drive, login de `gh`, flujo commit → release,
+  dependencias, problemas comunes). Empezá por acá.
+- [ARQUITECTURA.md](ARQUITECTURA.md) — el porqué de mantener los repos separados.
 
 Para sumar una app nueva al menú, agregá una entrada en `config.py` (`APPS`).
 
