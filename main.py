@@ -228,19 +228,19 @@ def _pip_update(dir_):
         return False
 
 
-def _actualizar(app, parent):
-    """Actualiza la app entera desde el ERP, sin depender de su .bat ni del CMD:
-    baja los cambios, y si la copia local divergió, respalda y realinea con el
-    código oficial; después instala dependencias nuevas. Los DATOS no se tocan
-    (viven en Supabase y en .env/.venv, fuera de git)."""
+def _actualizar_app_core(app):
+    """Actualiza una app (sin interfaz). Baja los cambios y, si la copia local
+    divergió, respalda y realinea con el código oficial; después instala
+    dependencias. Los DATOS no se tocan (viven en Supabase y en .env/.venv).
+
+    Devuelve (estado, detalle):
+      'ok'       — quedó al día
+      'aviso'    — código al día pero deps con problemas
+      'saltada'  — no está instalada (no hay repo git)
+      'error'    — falló (detalle = motivo)"""
     dir_ = app["dir"]
     if not os.path.isdir(os.path.join(dir_, ".git")):
-        QMessageBox.warning(
-            parent, "Actualizar",
-            f"{app['nombre']} no es un repo git en:\n{dir_}")
-        return
-
-    parent.setCursor(Qt.CursorShape.WaitCursor)
+        return "saltada", "no está instalada en esta PC"
     try:
         token, repo = _leer_token_env(dir_), app.get("repo")
         # Preferir git normal: usa el credential helper de `gh` (si está
@@ -254,11 +254,7 @@ def _actualizar(app, parent):
             f = _git(dir_, ["fetch", f"https://{token}@github.com/{repo}.git"])
             target = "FETCH_HEAD"
         if f.returncode != 0:
-            parent.unsetCursor()
-            QMessageBox.critical(parent, "Error",
-                                 f"No pude traer cambios de {app['nombre']}:\n"
-                                 f"{(f.stderr or '')[:400]}")
-            return
+            return "error", (f.stderr or "").strip()[:300]
 
         # Caso normal: avanzar en línea recta.
         if _git(dir_, ["merge", "--ff-only", target]).returncode != 0:
@@ -268,30 +264,30 @@ def _actualizar(app, parent):
             _git(dir_, ["stash", "push", "-u", "-m", "respaldo-antes-de-actualizar"])
             rs = _git(dir_, ["reset", "--hard", target])
             if rs.returncode != 0:
-                parent.unsetCursor()
-                QMessageBox.critical(parent, "Error",
-                                     f"No pude alinear {app['nombre']}:\n"
-                                     f"{(rs.stderr or '')[:400]}")
-                return
+                return "error", (rs.stderr or "").strip()[:300]
 
         deps_ok = _pip_update(dir_)
     except Exception as e:                              # noqa: BLE001
-        parent.unsetCursor()
-        QMessageBox.critical(parent, "Error",
-                             f"No pude actualizar {app['nombre']}:\n{e}")
-        return
-    parent.unsetCursor()
-    if deps_ok:
-        QMessageBox.information(
-            parent, "Actualizado",
-            f"{app['nombre']} quedó al día. Abrila cuando quieras.")
-    else:
-        QMessageBox.warning(
-            parent, "Actualizado con aviso",
-            f"{app['nombre']}: el código quedó al día, pero algunas "
-            f"dependencias no se instalaron del todo.\n\nSi algo no funciona "
-            f"(por ejemplo el QR), corré «setup.bat» en la carpeta de la app, "
-            f"o reintentá Actualizar con buena conexión.")
+        return "error", str(e)[:300]
+    return ("ok", "al día") if deps_ok else \
+        ("aviso", "código al día, faltan dependencias")
+
+
+class _UpdateAllWorker(QObject):
+    """Actualiza TODAS las apps instaladas en segundo plano (los pull/pip
+    bloquean, no pueden correr en el hilo de la interfaz)."""
+    progreso = pyqtSignal(str)          # nombre de la app que se está tocando
+    listo = pyqtSignal(list)            # [(nombre, estado, detalle), ...]
+
+    def start(self, apps):
+        def _run():
+            resultados = []
+            for a in apps:
+                self.progreso.emit(a["nombre"])
+                estado, detalle = _actualizar_app_core(a)
+                resultados.append((a["nombre"], estado, detalle))
+            self.listo.emit(resultados)
+        threading.Thread(target=_run, daemon=True).start()
 
 
 class Launcher(QWidget):
@@ -386,6 +382,49 @@ class Launcher(QWidget):
         else:
             QMessageBox.warning(self, "No se pudo", msg)
 
+    def _actualizar_todo(self):
+        """Actualiza de una sola vez todos los programas instalados en la PC."""
+        apps = [a for a in config.APPS
+                if os.path.isdir(os.path.join(a["dir"], ".git"))]
+        if not apps:
+            QMessageBox.information(
+                self, "Actualizar todo",
+                "No hay programas instalados para actualizar en esta PC.\n\n"
+                "Instalá los que falten con su botón «⬇ Instalar».")
+            return
+        self._btn_upd_all.setEnabled(False)
+        self._btn_upd_all.setText("Actualizando…")
+        self.setCursor(Qt.CursorShape.WaitCursor)
+        self._upd_worker = _UpdateAllWorker()
+        self._upd_worker.progreso.connect(self._update_all_progreso)
+        self._upd_worker.listo.connect(self._update_all_done)
+        self._upd_worker.start(apps)
+
+    def _update_all_progreso(self, nombre):
+        self._btn_upd_all.setText(f"Actualizando {nombre}…")
+
+    def _update_all_done(self, resultados):
+        self.unsetCursor()
+        self._btn_upd_all.setEnabled(True)
+        self._btn_upd_all.setText("⟳ Actualizar todo")
+        # Refrescar la versión que muestra cada tarjeta y limpiar los avisos.
+        for card in self._cards.values():
+            app = card["app"]
+            ver = _leer_version(app)
+            card["nombre"].setText(app["nombre"] + (f"   v{ver}" if ver else ""))
+            card["lbl"].setVisible(False)
+        iconos = {"ok": "✅", "aviso": "⚠️", "saltada": "•", "error": "❌"}
+        cuerpo = "\n".join(f"{iconos.get(e, '•')} {n}: {d}"
+                           for n, e, d in resultados)
+        if any(e == "error" for _n, e, _d in resultados):
+            QMessageBox.warning(self, "Actualizar todo", "Resultado:\n\n" + cuerpo)
+        elif any(e == "aviso" for _n, e, _d in resultados):
+            QMessageBox.warning(self, "Actualizar todo",
+                                "Actualizado, con algún aviso:\n\n" + cuerpo)
+        else:
+            QMessageBox.information(self, "Actualizar todo",
+                                    "Todo quedó al día:\n\n" + cuerpo)
+
     @staticmethod
     def _auto_update_suite():
         try:
@@ -407,6 +446,18 @@ class Launcher(QWidget):
         sub.setStyleSheet("color:#5D6D7E; font-size:13px;")
         fila.addWidget(sub)
         fila.addStretch()
+        self._btn_upd_all = QPushButton("⟳ Actualizar todo")
+        self._btn_upd_all.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_upd_all.setToolTip(
+            "Baja la última versión de todos los programas instalados en esta "
+            "PC y reinstala dependencias. Los datos no se tocan.")
+        self._btn_upd_all.setStyleSheet(
+            "QPushButton { background:#1E8E4E; color:white; border:none;"
+            "border-radius:8px; padding:7px 14px; font-size:12px;"
+            "font-weight:bold; } QPushButton:hover { background:#1B7E45; }"
+            "QPushButton:disabled { background:#B7C4CE; }")
+        self._btn_upd_all.clicked.connect(self._actualizar_todo)
+        fila.addWidget(self._btn_upd_all)
         self._btn_cred = QPushButton("🔑 Traer credenciales")
         self._btn_cred.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_cred.clicked.connect(lambda: self._traer_credenciales(auto=False))
@@ -491,32 +542,19 @@ class Launcher(QWidget):
             btn_inst.clicked.connect(lambda _, a=app: _instalar_app(a, self))
             botones.addWidget(btn_inst)
 
-        btn_upd = QPushButton("⟳ Actualizar")
-        btn_upd.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_upd.setFixedWidth(120)
-        btn_upd.setStyleSheet(
-            "QPushButton { background:#F2C14E; color:#5A3E00; border:none;"
-            "border-radius:8px; padding:8px 0; font-size:12px; font-weight:bold; }"
-            "QPushButton:hover { background:#E6B33E; }")
-        btn_upd.setVisible(False)
-        btn_upd.clicked.connect(lambda _, a=app: _actualizar(a, self))
-        botones.addWidget(btn_upd)
         h.addLayout(botones)
 
-        self._cards[app["key"]] = {"lbl": lbl_update, "btn": btn_upd, "app": app}
+        # La actualización se hace desde el botón "Actualizar todo" de arriba;
+        # cada tarjeta sólo muestra el aviso de que hay versión nueva.
+        self._cards[app["key"]] = {"lbl": lbl_update, "nombre": nombre, "app": app}
         return card
 
     def _on_update(self, key, latest):
         card = self._cards.get(key)
         if not card or not latest:
             return
-        card["lbl"].setText(f"🔔 ACTUALIZACIÓN DISPONIBLE (v{latest})")
+        card["lbl"].setText(f"🔔 ACTUALIZACIÓN DISPONIBLE (v{latest}) — usá «Actualizar todo»")
         card["lbl"].setVisible(True)
-        # Mostrar Actualizar si la app tiene su propio actualizador o si es un
-        # repo git (en ese caso el ERP hace el git pull directo).
-        app = card["app"]
-        if _script_update(app) or os.path.isdir(os.path.join(app["dir"], ".git")):
-            card["btn"].setVisible(True)
 
 
 def main():
