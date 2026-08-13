@@ -159,21 +159,49 @@ def _instalar_app(app, parent):
 
 
 def _actualizar(app, parent):
+    # 1. Si la app trae su propio actualizador (update.bat / Actualizar.bat), lo
+    #    usamos: hace el pull + deps + relanzar como corresponde a esa app.
     script = _script_update(app)
-    if not script:
+    if script:
+        try:
+            subprocess.Popen(f'"{script}"', cwd=app["dir"], shell=True)
+        except Exception as e:                          # noqa: BLE001
+            QMessageBox.critical(parent, "Error",
+                                 f"No pude actualizar {app['nombre']}:\n{e}")
+            return
+        QMessageBox.information(
+            parent, "Actualizando",
+            f"Se está actualizando {app['nombre']}.\nCuando termine, se abre solo.")
+        return
+
+    # 2. Si no tiene actualizador propio pero es un repo git, el ERP hace el
+    #    git pull directo (usa las credenciales de gh ya configuradas).
+    if not os.path.isdir(os.path.join(app["dir"], ".git")):
         QMessageBox.warning(
             parent, "Actualizar",
-            f"No encontré el actualizador de {app['nombre']} en:\n{app['dir']}")
+            f"{app['nombre']} no tiene actualizador ni es un repo git en:\n"
+            f"{app['dir']}\nActualizala a mano.")
         return
+    parent.setCursor(Qt.CursorShape.WaitCursor)
     try:
-        subprocess.Popen(f'"{script}"', cwd=app["dir"], shell=True)
+        r = subprocess.run(["git", "-C", app["dir"], "pull", "--ff-only"],
+                           capture_output=True, text=True, timeout=180,
+                           creationflags=_NO_WINDOW)
     except Exception as e:                              # noqa: BLE001
+        parent.unsetCursor()
         QMessageBox.critical(parent, "Error",
                              f"No pude actualizar {app['nombre']}:\n{e}")
         return
-    QMessageBox.information(
-        parent, "Actualizando",
-        f"Se está actualizando {app['nombre']}.\nCuando termine, se abre solo.")
+    parent.unsetCursor()
+    if r.returncode == 0:
+        QMessageBox.information(
+            parent, "Actualizado",
+            f"{app['nombre']} quedó actualizado.\nAbrila de nuevo para usar la "
+            f"versión nueva.\n\n{(r.stdout or '').strip()[-300:]}")
+    else:
+        QMessageBox.critical(
+            parent, "Error",
+            f"No se pudo actualizar {app['nombre']}:\n{(r.stderr or '')[:400]}")
 
 
 class Launcher(QWidget):
@@ -299,10 +327,12 @@ class Launcher(QWidget):
         card = self._cards.get(key)
         if not card or not latest:
             return
-        card["lbl"].setText(f"🔔 Hay una versión nueva: v{latest}")
+        card["lbl"].setText(f"🔔 ACTUALIZACIÓN DISPONIBLE (v{latest})")
         card["lbl"].setVisible(True)
-        # El botón Actualizar solo si esa app tiene un actualizador conocido.
-        if _script_update(card["app"]):
+        # Mostrar Actualizar si la app tiene su propio actualizador o si es un
+        # repo git (en ese caso el ERP hace el git pull directo).
+        app = card["app"]
+        if _script_update(app) or os.path.isdir(os.path.join(app["dir"], ".git")):
             card["btn"].setVisible(True)
 
 
