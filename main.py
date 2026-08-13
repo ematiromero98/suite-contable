@@ -179,18 +179,31 @@ def _git(dir_, args, timeout=240):
 
 
 def _pip_update(dir_):
-    """Instala dependencias nuevas (en .venv si existe, o python del sistema)."""
+    """Instala dependencias (en .venv si existe, o python del sistema). Crea el
+    .venv si falta. Devuelve True si quedaron instaladas, False si algo falló."""
     req = os.path.join(dir_, "requirements.txt")
     if not os.path.isfile(req):
-        return
-    py = os.path.join(dir_, ".venv", "Scripts", "python.exe")
-    py = py if os.path.isfile(py) else "python"
+        return True
+    venv_py = os.path.join(dir_, ".venv", "Scripts", "python.exe")
+    if not os.path.isfile(venv_py):
+        # Intentar crear el .venv (la app lo usa para correr).
+        try:
+            subprocess.run(["python", "-m", "venv", os.path.join(dir_, ".venv")],
+                           capture_output=True, text=True, timeout=300,
+                           creationflags=_NO_WINDOW)
+        except Exception:                              # noqa: BLE001
+            pass
+    py = venv_py if os.path.isfile(venv_py) else "python"
     try:
-        subprocess.run([py, "-m", "pip", "install", "-r", req],
-                       capture_output=True, text=True, timeout=600,
+        subprocess.run([py, "-m", "pip", "install", "--upgrade", "pip"],
+                       capture_output=True, text=True, timeout=300,
                        creationflags=_NO_WINDOW)
+        r = subprocess.run([py, "-m", "pip", "install", "-r", req],
+                           capture_output=True, text=True, timeout=900,
+                           creationflags=_NO_WINDOW)
+        return r.returncode == 0
     except Exception:                                   # noqa: BLE001
-        pass
+        return False
 
 
 def _actualizar(app, parent):
@@ -235,16 +248,24 @@ def _actualizar(app, parent):
                                      f"{(rs.stderr or '')[:400]}")
                 return
 
-        _pip_update(dir_)
+        deps_ok = _pip_update(dir_)
     except Exception as e:                              # noqa: BLE001
         parent.unsetCursor()
         QMessageBox.critical(parent, "Error",
                              f"No pude actualizar {app['nombre']}:\n{e}")
         return
     parent.unsetCursor()
-    QMessageBox.information(
-        parent, "Actualizado",
-        f"{app['nombre']} quedó al día. Abrila cuando quieras.")
+    if deps_ok:
+        QMessageBox.information(
+            parent, "Actualizado",
+            f"{app['nombre']} quedó al día. Abrila cuando quieras.")
+    else:
+        QMessageBox.warning(
+            parent, "Actualizado con aviso",
+            f"{app['nombre']}: el código quedó al día, pero algunas "
+            f"dependencias no se instalaron del todo.\n\nSi algo no funciona "
+            f"(por ejemplo el QR), corré «setup.bat» en la carpeta de la app, "
+            f"o reintentá Actualizar con buena conexión.")
 
 
 class Launcher(QWidget):
