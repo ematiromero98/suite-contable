@@ -4,9 +4,15 @@ Launcher único para abrir los programas del estudio desde un solo lugar:
 
 - **📑 DDJJ Impuestos** — DDJJ de IVA + SIRCREB en ARCA.
 - **🧾 RetencionesPro** — retenciones, órdenes de pago y conciliación de compras.
+- **💰 Cobranzas OSECAC** — cobranzas: retenciones, asientos y facturación.
+- **📄 Facturador ARCA** — facturación electrónica (WSFEV1).
+- **👥 Employee Pro** — gestión de RR.HH. (legajos, ausencias, sueldos).
 
 Es solo un lanzador: no toca datos ni bases. Cada programa sigue viviendo en su
-propio proyecto; esta app solamente los abre.
+propio proyecto; esta app solamente los **abre, actualiza e instala**. Ver
+[ARQUITECTURA.md](ARQUITECTURA.md) para el porqué de mantenerlos separados.
+
+Para sumar una app nueva al menú, agregá una entrada en `config.py` (`APPS`).
 
 ## Uso
 

@@ -13,7 +13,7 @@ import subprocess
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFrame, QMessageBox,
+    QFrame, QMessageBox, QScrollArea,
 )
 from PyQt6.QtCore import Qt, QObject, pyqtSignal
 from PyQt6.QtGui import QIcon
@@ -28,17 +28,21 @@ _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
 def _leer_version(app):
-    """Lee la versión de una app desde su archivo de versión (soporta
-    VERSION = "x" y __version__ = "x")."""
+    """Lee la versión de una app: soporta `__version__ = "x"` / `VERSION = "x"`
+    en un .py, o un archivo VERSION con la versión en texto plano."""
     ruta = os.path.join(app["dir"], app["version_file"])
     try:
         with open(ruta, encoding="utf-8") as f:
             txt = f.read()
-        m = re.search(r'(?:__version__|VERSION)\s*=\s*["\']([^"\']+)["\']', txt)
-        if m:
-            return m.group(1)
     except OSError:
-        pass
+        return None
+    m = re.search(r'(?:__version__|VERSION)\s*=\s*["\']([^"\']+)["\']', txt)
+    if m:
+        return m.group(1)
+    # Archivo VERSION plano (ej. "2.0.9").
+    linea = txt.strip().splitlines()[0].strip() if txt.strip() else ""
+    if re.match(r"^v?\d+(\.\d+)*$", linea):
+        return linea.lstrip("vV")
     return None
 
 
@@ -176,7 +180,7 @@ class Launcher(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Suite Contable — MR & Asociados")
-        self.setMinimumWidth(560)
+        self.setMinimumSize(580, 640)
         self._cards = {}
         ico = os.path.join(_BASE, "assets", "suite.ico")
         if os.path.isfile(ico):
@@ -199,10 +203,20 @@ class Launcher(QWidget):
         sub.setStyleSheet("color:#5D6D7E; font-size:13px;")
         lay.addWidget(sub)
 
+        # Tarjetas dentro de un área con scroll (por si crece la lista de apps).
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        cont = QWidget()
+        cl = QVBoxLayout(cont)
+        cl.setContentsMargins(0, 0, 8, 0)
+        cl.setSpacing(12)
         for app in config.APPS:
-            lay.addWidget(self._tarjeta(app))
+            cl.addWidget(self._tarjeta(app))
+        cl.addStretch()
+        scroll.setWidget(cont)
+        lay.addWidget(scroll, stretch=1)
 
-        lay.addStretch()
         pie = QLabel(f"Suite Contable v{VERSION}")
         pie.setStyleSheet("color:#9AA5B1; font-size:11px;")
         pie.setAlignment(Qt.AlignmentFlag.AlignRight)
@@ -278,7 +292,7 @@ class Launcher(QWidget):
         botones.addWidget(btn_upd)
         h.addLayout(botones)
 
-        self._cards[app["key"]] = {"lbl": lbl_update, "btn": btn_upd}
+        self._cards[app["key"]] = {"lbl": lbl_update, "btn": btn_upd, "app": app}
         return card
 
     def _on_update(self, key, latest):
@@ -287,7 +301,9 @@ class Launcher(QWidget):
             return
         card["lbl"].setText(f"🔔 Hay una versión nueva: v{latest}")
         card["lbl"].setVisible(True)
-        card["btn"].setVisible(True)
+        # El botón Actualizar solo si esa app tiene un actualizador conocido.
+        if _script_update(card["app"]):
+            card["btn"].setVisible(True)
 
 
 def main():
