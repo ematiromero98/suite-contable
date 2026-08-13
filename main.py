@@ -200,6 +200,21 @@ def _git(dir_, args, timeout=240):
                           text=True, timeout=timeout, creationflags=_NO_WINDOW)
 
 
+def _gh_token():
+    """Token del `gh` logueado en esta PC (cubre TODOS los repos privados del
+    estudio). None si `gh` no está instalado o no hay sesión. Sirve para bajar
+    los repos aunque no se haya corrido `gh auth setup-git`."""
+    try:
+        r = subprocess.run(["gh", "auth", "token"], capture_output=True,
+                           text=True, timeout=10, creationflags=_NO_WINDOW)
+        if r.returncode == 0:
+            t = r.stdout.strip()
+            return t or None
+    except Exception:                                       # noqa: BLE001
+        pass
+    return None
+
+
 def _pip_update(dir_):
     """Instala dependencias (en .venv si existe, o python del sistema). Crea el
     .venv si falta. Devuelve True si quedaron instaladas, False si algo falló."""
@@ -242,17 +257,28 @@ def _actualizar_app_core(app):
     if not os.path.isdir(os.path.join(dir_, ".git")):
         return "saltada", "no está instalada en esta PC"
     try:
-        token, repo = _leer_token_env(dir_), app.get("repo")
-        # Preferir git normal: usa el credential helper de `gh` (si está
-        # logueado) y sirve para TODOS los repos privados. Si falla y hay token
-        # en el .env, reintentar con el token en la URL — eso rescata a
-        # RetencionesPro (origin de sólo lectura). OJO: el token del .env sólo
-        # cubre RetencionesPro, por eso NO se fuerza en las demás apps (daba 403).
+        repo = app.get("repo")
+        # 1) git normal: usa el credential helper si está configurado
+        #    (`gh auth setup-git`). Sirve para todos los repos si está bien.
         f = _git(dir_, ["fetch"])
         target = "@{u}"                                  # rama remota trackeada
-        if f.returncode != 0 and token and repo:
-            f = _git(dir_, ["fetch", f"https://{token}@github.com/{repo}.git"])
-            target = "FETCH_HEAD"
+        # 2) Si falla, usar el token del `gh` logueado (cubre TODOS los repos
+        #    privados del estudio) aunque no se haya corrido setup-git. Esto
+        #    evita el 403 típico en una PC recién configurada.
+        if f.returncode != 0 and repo:
+            ght = _gh_token()
+            if ght:
+                f = _git(dir_, ["fetch",
+                                f"https://x-access-token:{ght}@github.com/{repo}.git"])
+                target = "FETCH_HEAD"
+        # 3) Último recurso: token del .env (rescata RetencionesPro, cuyo origin
+        #    es de sólo lectura). Ese token sólo cubre RetencionesPro.
+        if f.returncode != 0 and repo:
+            envtok = _leer_token_env(dir_)
+            if envtok:
+                f = _git(dir_, ["fetch",
+                                f"https://{envtok}@github.com/{repo}.git"])
+                target = "FETCH_HEAD"
         if f.returncode != 0:
             return "error", (f.stderr or "").strip()[:300]
 
