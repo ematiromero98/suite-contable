@@ -100,6 +100,13 @@ siempre instala dependencias nuevas.
 RetencionesPro usa además un token del `.env` para el pull; las otras usan las
 credenciales de `gh`.
 
+**Divergencia:** si la copia local de una app tiene commits distintos a los de
+GitHub (`--ff-only` no puede avanzar), el `update.bat` **respalda** (rama
+`backup-local-*` + `stash`) y hace `reset --hard` al código oficial. Es seguro
+porque los **datos no están en git** (viven en Supabase y en `.env`/`.venv`,
+gitignored): solo se realinea el código. Pasa típicamente en PCs donde se
+commiteó algo local o que quedaron con una historia vieja.
+
 ---
 
 ## 5. Requisitos por máquina
