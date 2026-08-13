@@ -43,7 +43,7 @@ APPS = [
         "entradas": ["Iniciar Cobranzas.bat", "cobranzas_qt.py"],
         "version_file": "VERSION",
         "repo": "ematiromero98/cobranzas-osecac",
-        "actualizar": [],
+        "actualizar": ["update.bat"],
     },
     {
         "key": "facturador",
@@ -55,7 +55,7 @@ APPS = [
         "entradas": ["main.py"],
         "version_file": "VERSION",
         "repo": "ematiromero98/facturador-arca",
-        "actualizar": [],
+        "actualizar": ["update.bat"],
     },
     {
         "key": "employee",
@@ -67,6 +67,6 @@ APPS = [
         "entradas": ["main.py"],
         "version_file": "version.py",
         "repo": "ematiromero98/employee-pro",
-        "actualizar": [],
+        "actualizar": ["update.bat"],
     },
 ]
