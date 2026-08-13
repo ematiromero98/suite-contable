@@ -15,12 +15,19 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QFrame, QMessageBox, QScrollArea,
 )
-from PyQt6.QtCore import Qt, QObject, pyqtSignal
+from PyQt6.QtCore import Qt, QObject, pyqtSignal, QTimer
 from PyQt6.QtGui import QIcon
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config
 from version import VERSION
+
+# Traída de credenciales (.env) desde el Drive del estudio. Import defensivo:
+# si algo faltara, el ERP igual abre (sólo se desactiva ese botón).
+try:
+    import credenciales
+except Exception:                                          # noqa: BLE001
+    credenciales = None
 
 _BASE = os.path.dirname(os.path.abspath(__file__))
 # Evitar que se abran consolas negras al llamar a gh/.bat en Windows.
@@ -88,6 +95,21 @@ def _ultima_release(repo):
     except Exception:                                   # noqa: BLE001
         pass
     return None
+
+
+class _CredWorker(QObject):
+    """Trae el `.env` en segundo plano (la parte del OAuth abre el navegador y
+    bloquea, por eso no puede correr en el hilo de la interfaz)."""
+    done = pyqtSignal(bool, str)
+
+    def start(self):
+        def _run():
+            try:
+                ok, msg = credenciales.traer()
+            except Exception as e:                          # noqa: BLE001
+                ok, msg = False, f"Error inesperado:\n{e}"
+            self.done.emit(ok, msg)
+        threading.Thread(target=_run, daemon=True).start()
 
 
 class _Chequeador(QObject):
@@ -285,6 +307,47 @@ class Launcher(QWidget):
         self._chequeador = _Chequeador()
         self._chequeador.listo.connect(self._on_update)
         self._chequeador.correr(config.APPS)
+        # Si esta PC no tiene el .env, ofrecer traerlo apenas abre la ventana.
+        if credenciales is not None and not credenciales.env_presente():
+            QTimer.singleShot(700, lambda: self._traer_credenciales(auto=True))
+
+    def _traer_credenciales(self, auto=False):
+        """Ofrece/ejecuta la traída del `.env` desde el Drive del estudio."""
+        if credenciales is None:
+            return
+        cuenta = credenciales.CUENTA_ESTUDIO
+        if auto:
+            texto = ("Esta PC no tiene el archivo de credenciales (.env), por "
+                     "eso las apps no abren.\n\n¿Traerlas ahora desde Google "
+                     "Drive?\n\nSe va a abrir el navegador: iniciá sesión con "
+                     f"la cuenta del estudio\n{cuenta}\ny tocá \"Permitir\".")
+            titulo = "Faltan las credenciales"
+        else:
+            texto = ("Se va a traer el archivo .env desde el Google Drive del "
+                     "estudio.\n\nSe abrirá el navegador: iniciá sesión con la "
+                     f"cuenta del estudio\n{cuenta}\ny tocá \"Permitir\".\n\n"
+                     "¿Continuar?")
+            titulo = "Traer credenciales"
+        r = QMessageBox.question(
+            self, titulo, texto,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if r != QMessageBox.StandardButton.Yes:
+            return
+        self._btn_cred.setEnabled(False)
+        self._btn_cred.setText("Trayendo…")
+        self.setCursor(Qt.CursorShape.WaitCursor)
+        self._cred_worker = _CredWorker()
+        self._cred_worker.done.connect(self._cred_done)
+        self._cred_worker.start()
+
+    def _cred_done(self, ok, msg):
+        self.unsetCursor()
+        self._btn_cred.setEnabled(True)
+        self._btn_cred.setText("🔑 Traer credenciales")
+        if ok:
+            QMessageBox.information(self, "Listo", msg)
+        else:
+            QMessageBox.warning(self, "No se pudo", msg)
 
     @staticmethod
     def _auto_update_suite():
@@ -302,9 +365,27 @@ class Launcher(QWidget):
         titulo = QLabel("Suite Contable")
         titulo.setStyleSheet("font-size:26px; font-weight:bold; color:#17375E;")
         lay.addWidget(titulo)
+        fila = QHBoxLayout()
         sub = QLabel("Elegí qué programa abrir.")
         sub.setStyleSheet("color:#5D6D7E; font-size:13px;")
-        lay.addWidget(sub)
+        fila.addWidget(sub)
+        fila.addStretch()
+        self._btn_cred = QPushButton("🔑 Traer credenciales")
+        self._btn_cred.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_cred.setToolTip(
+            "Baja el archivo .env (credenciales) desde el Google Drive del "
+            "estudio a esta PC. Pide acceso a Google una sola vez.")
+        self._btn_cred.setStyleSheet(
+            "QPushButton { background:#EAF1FB; color:#17375E;"
+            "border:1px solid #C7D8EF; border-radius:8px; padding:7px 12px;"
+            "font-size:12px; font-weight:bold; }"
+            "QPushButton:hover { background:#DCE8F8; }"
+            "QPushButton:disabled { color:#9AA5B1; }")
+        if credenciales is None:
+            self._btn_cred.setEnabled(False)
+        self._btn_cred.clicked.connect(lambda: self._traer_credenciales(auto=False))
+        fila.addWidget(self._btn_cred)
+        lay.addLayout(fila)
 
         # Tarjetas dentro de un área con scroll (por si crece la lista de apps).
         scroll = QScrollArea()
