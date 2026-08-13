@@ -243,12 +243,16 @@ def _actualizar(app, parent):
     parent.setCursor(Qt.CursorShape.WaitCursor)
     try:
         token, repo = _leer_token_env(dir_), app.get("repo")
-        if token and repo:
+        # Preferir git normal: usa el credential helper de `gh` (si está
+        # logueado) y sirve para TODOS los repos privados. Si falla y hay token
+        # en el .env, reintentar con el token en la URL — eso rescata a
+        # RetencionesPro (origin de sólo lectura). OJO: el token del .env sólo
+        # cubre RetencionesPro, por eso NO se fuerza en las demás apps (daba 403).
+        f = _git(dir_, ["fetch"])
+        target = "@{u}"                                  # rama remota trackeada
+        if f.returncode != 0 and token and repo:
             f = _git(dir_, ["fetch", f"https://{token}@github.com/{repo}.git"])
             target = "FETCH_HEAD"
-        else:
-            f = _git(dir_, ["fetch"])
-            target = "@{u}"                              # rama remota trackeada
         if f.returncode != 0:
             parent.unsetCursor()
             QMessageBox.critical(parent, "Error",
@@ -311,6 +315,38 @@ class Launcher(QWidget):
         if credenciales is not None and not credenciales.env_presente():
             QTimer.singleShot(700, lambda: self._traer_credenciales(auto=True))
 
+    def _refrescar_boton_cred(self):
+        """Estilo del botón según si las credenciales ya están en esta PC:
+        apagado/gris cuando ya están, llamativo (ámbar) cuando faltan."""
+        if credenciales is None:
+            self._btn_cred.setEnabled(False)
+            self._btn_cred.setStyleSheet(
+                "QPushButton { background:#F1F3F5; color:#B0B8C1;"
+                "border:1px solid #E5E9F0; border-radius:8px;"
+                "padding:7px 12px; font-size:12px; }")
+            return
+        if credenciales.env_presente():
+            # Ya están: sin color, discreto (pero clickeable por si querés
+            # volver a bajarlas).
+            self._btn_cred.setToolTip(
+                "Las credenciales ya están en esta PC. Tocá sólo si querés "
+                "volver a bajarlas del Drive.")
+            self._btn_cred.setStyleSheet(
+                "QPushButton { background:#F1F3F5; color:#9AA5B1;"
+                "border:1px solid #E5E9F0; border-radius:8px;"
+                "padding:7px 12px; font-size:12px; }"
+                "QPushButton:hover { background:#E9ECEF; color:#6B7580; }")
+        else:
+            # Faltan: llamativo para que se note que hay que tocarlo.
+            self._btn_cred.setToolTip(
+                "Baja el archivo .env (credenciales) desde el Google Drive "
+                "del estudio a esta PC. Pide acceso a Google una sola vez.")
+            self._btn_cred.setStyleSheet(
+                "QPushButton { background:#F2C14E; color:#5A3E00;"
+                "border:none; border-radius:8px; padding:7px 12px;"
+                "font-size:12px; font-weight:bold; }"
+                "QPushButton:hover { background:#E6B33E; }")
+
     def _traer_credenciales(self, auto=False):
         """Ofrece/ejecuta la traída del `.env` desde el Drive del estudio."""
         if credenciales is None:
@@ -344,6 +380,7 @@ class Launcher(QWidget):
         self.unsetCursor()
         self._btn_cred.setEnabled(True)
         self._btn_cred.setText("🔑 Traer credenciales")
+        self._refrescar_boton_cred()
         if ok:
             QMessageBox.information(self, "Listo", msg)
         else:
@@ -372,18 +409,8 @@ class Launcher(QWidget):
         fila.addStretch()
         self._btn_cred = QPushButton("🔑 Traer credenciales")
         self._btn_cred.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_cred.setToolTip(
-            "Baja el archivo .env (credenciales) desde el Google Drive del "
-            "estudio a esta PC. Pide acceso a Google una sola vez.")
-        self._btn_cred.setStyleSheet(
-            "QPushButton { background:#EAF1FB; color:#17375E;"
-            "border:1px solid #C7D8EF; border-radius:8px; padding:7px 12px;"
-            "font-size:12px; font-weight:bold; }"
-            "QPushButton:hover { background:#DCE8F8; }"
-            "QPushButton:disabled { color:#9AA5B1; }")
-        if credenciales is None:
-            self._btn_cred.setEnabled(False)
         self._btn_cred.clicked.connect(lambda: self._traer_credenciales(auto=False))
+        self._refrescar_boton_cred()
         fila.addWidget(self._btn_cred)
         lay.addLayout(fila)
 
