@@ -22,6 +22,15 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config
 from version import VERSION
 
+# Comparación de versiones robusta si está `packaging`; si no, fallback numérico.
+try:
+    from packaging.version import Version as _Version
+except Exception:                                          # noqa: BLE001
+    _Version = None
+
+# Repo oficial esperado de la Suite (defensa supply-chain del auto-update).
+_REPO_OFICIAL = "ematiromero98/suite-contable"
+
 # Traída de credenciales (.env) desde el Drive del estudio. Import defensivo:
 # si algo faltara, el ERP igual abre (sólo se desactiva ese botón).
 try:
@@ -62,21 +71,27 @@ def _entrada(app):
     return None
 
 
-def _script_update(app):
-    """Primer script de actualización existente de la app, o None."""
-    for e in app.get("actualizar", []):
-        p = os.path.join(app["dir"], e)
-        if os.path.isfile(p):
-            return p
-    return None
-
-
 def _vtuple(v):
     return tuple(int(x) for x in re.findall(r"\d+", v or ""))
 
 
 def _es_mayor(latest, installed):
-    return bool(latest) and bool(installed) and _vtuple(latest) > _vtuple(installed)
+    """True si `latest` es una versión posterior a `installed`. Normaliza a
+    longitud fija (rellenando con ceros) para que "1.2" y "1.2.0" se consideren
+    iguales y no se disparen updates fantasma. Usa `packaging.version` si está
+    disponible."""
+    if not latest or not installed:
+        return False
+    if _Version is not None:
+        try:
+            return _Version(latest) > _Version(installed)
+        except Exception:                                   # noqa: BLE001
+            pass                                            # fallback numérico
+    a, b = _vtuple(latest), _vtuple(installed)
+    n = max(len(a), len(b))
+    a += (0,) * (n - len(a))
+    b += (0,) * (n - len(b))
+    return a > b
 
 
 def _ultima_release(repo):
@@ -121,7 +136,14 @@ class _Chequeador(QObject):
             for a in apps:
                 latest = _ultima_release(a.get("repo"))
                 inst = _leer_version(a)
-                hay = latest if _es_mayor(latest, inst) else ""
+                if latest and inst is None:
+                    # Versión instalada ilegible: igual avisamos que hay release
+                    # publicado (en vez de callar y no ofrecer la actualización).
+                    hay = latest
+                elif _es_mayor(latest, inst):
+                    hay = latest
+                else:
+                    hay = ""
                 self.listo.emit(a["key"], hay)
         threading.Thread(target=_run, daemon=True).start()
 
@@ -129,15 +151,20 @@ class _Chequeador(QObject):
 def _abrir(app, parent):
     entrada = _entrada(app)
     if not entrada:
+        env = app.get("env_dir")
+        sugerencia = (f"Fijá la ruta con la variable de entorno {env}."
+                      if env else
+                      "Fijá la ruta con la variable de entorno correspondiente.")
         QMessageBox.warning(
             parent, f"{app['nombre']} no encontrado",
-            f"No encontré {app['nombre']} en:\n{app['dir']}\n\n"
-            f"Fijá la ruta con la variable de entorno correspondiente "
-            f"({'DDJJ_IMPUESTOS_DIR' if app['key']=='ddjj' else 'RETENCIONESPRO_DIR'}).")
+            f"No encontré {app['nombre']} en:\n{app['dir']}\n\n{sugerencia}")
         return
     try:
         if entrada.lower().endswith(".bat"):
-            subprocess.Popen(f'"{entrada}"', cwd=app["dir"], shell=True)
+            # Sin shell=True (evita inyección vía la ruta). os.startfile lo lanza
+            # como si se hiciera doble clic: el directorio de trabajo queda en la
+            # carpeta del .bat (= app["dir"]), igual que antes.
+            os.startfile(entrada)                          # noqa: S606 (Windows)
         else:
             exe = sys.executable or "python"
             pyw = exe.replace("python.exe", "pythonw.exe")
@@ -200,6 +227,24 @@ def _git(dir_, args, timeout=240):
                           text=True, timeout=timeout, creationflags=_NO_WINDOW)
 
 
+def _remote_oficial(dir_, repo):
+    """True si el remote `origin` de `dir_` apunta al repo oficial esperado
+    (`owner/repo` en github.com). Defensa supply-chain: si alguien cambió el
+    remote de esta instalación a otro host/repo, un `git pull` ejecutaría código
+    ajeno en el próximo arranque. Contempla URLs con o sin `.git`, credential
+    helpers embebidos (`x-access-token:...@`) y formato SSH. Espeja la
+    validación que ya usan los `update.bat` de las apps hijas."""
+    try:
+        r = _git(dir_, ["remote", "get-url", "origin"], timeout=10)
+    except Exception:                                       # noqa: BLE001
+        return False
+    if r.returncode != 0:
+        return False
+    url = (r.stdout or "").strip().lower()
+    owner, name = repo.lower().split("/", 1)
+    return bool(url) and "github.com" in url and f"{owner}/{name}" in url
+
+
 def _gh_token():
     """Token del `gh` logueado en esta PC (cubre TODOS los repos privados del
     estudio). None si `gh` no está instalado o no hay sesión. Sirve para bajar
@@ -230,7 +275,15 @@ def _pip_update(dir_):
                            creationflags=_NO_WINDOW)
         except Exception:                              # noqa: BLE001
             pass
-    py = venv_py if os.path.isfile(venv_py) else "python"
+    if os.path.isfile(venv_py):
+        py = venv_py
+    else:
+        # No se pudo crear el .venv: avisar en vez de contaminar en silencio el
+        # Python global del sistema con las dependencias de la app.
+        print(f"[Suite] AVISO: no se pudo preparar el .venv en {dir_}; se "
+              "instalan las dependencias en el Python global. Verificá que "
+              "'python -m venv' funcione en esta PC.", file=sys.stderr)
+        py = "python"
     try:
         subprocess.run([py, "-m", "pip", "install", "--upgrade", "pip"],
                        capture_output=True, text=True, timeout=300,
@@ -453,9 +506,25 @@ class Launcher(QWidget):
 
     @staticmethod
     def _auto_update_suite():
+        """Deja el propio ERP al día en cada arranque. Si la copia local divergió
+        (por eso a veces quedaba trabada sin actualizar), se realinea al oficial
+        por la fuerza — es seguro: el ERP es sólo código, sin datos. El cambio
+        recién se ve al reabrir la ventana."""
         try:
-            if os.path.isdir(os.path.join(_BASE, ".git")):
-                _git(_BASE, ["pull", "--ff-only"], timeout=60)
+            if not os.path.isdir(os.path.join(_BASE, ".git")):
+                return
+            # Validar que `origin` sea el repo oficial ANTES de traer/aplicar
+            # nada: sin este chequeo, un remote adulterado haría que el fetch +
+            # `reset --hard` de abajo ejecute código ajeno al reabrir el ERP.
+            if not _remote_oficial(_BASE, _REPO_OFICIAL):
+                print("[Suite] auto-update OMITIDO: el remote 'origin' no apunta "
+                      f"al repo oficial ({_REPO_OFICIAL}). No se actualiza por "
+                      "seguridad.", file=sys.stderr)
+                return
+            if _git(_BASE, ["fetch"], timeout=60).returncode != 0:
+                return
+            if _git(_BASE, ["merge", "--ff-only", "@{u}"], timeout=30).returncode != 0:
+                _git(_BASE, ["reset", "--hard", "@{u}"], timeout=30)
         except Exception:                              # noqa: BLE001
             pass
 

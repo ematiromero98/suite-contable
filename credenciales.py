@@ -17,6 +17,7 @@ PÚBLICO. Entonces un clon nuevo no lo trae y las apps fallan con
 IMPORTANTE: acá NO hay ninguna credencial. Sólo la lógica que pide el acceso.
 Los secretos viven en el Drive privado del estudio y en Supabase.
 """
+import hashlib
 import os
 import shutil
 import subprocess
@@ -24,8 +25,15 @@ import tempfile
 
 import config
 
-# rclone oficial (open-source). "current" = última versión estable.
-RCLONE_URL = "https://downloads.rclone.org/rclone-current-windows-amd64.zip"
+# rclone oficial (open-source). VERSIÓN FIJA + hash SHA256 verificado antes de
+# extraer/ejecutar el binario (defensa supply-chain: no correr un ejecutable
+# bajado sin validar su integridad). Antes se bajaba "rclone-current-...zip",
+# que apunta a un binario que cambia sin aviso y no se podía verificar.
+# El hash sale del SHA256SUMS oficial: downloads.rclone.org/<version>/SHA256SUMS
+RCLONE_VERSION = "v1.68.2"
+RCLONE_ZIP = f"rclone-{RCLONE_VERSION}-windows-amd64.zip"
+RCLONE_URL = f"https://downloads.rclone.org/{RCLONE_VERSION}/{RCLONE_ZIP}"
+RCLONE_SHA256 = "812bf76cc02c04cf6327f3683f3d5a88e47d36c39db84c1a745777496be7d993"
 
 # Remoto de rclone y ruta del archivo dentro del Drive del estudio.
 REMOTO = "suite"
@@ -35,7 +43,12 @@ DRIVE_PATH = "suite:Suite Contable/.env"
 # elija ESA cuenta en la pantalla de permiso de Google, no la personal de la PC.
 CUENTA_ESTUDIO = "ematiromero98@gmail.com"
 
-# Apps que leen un `.env` local (las demás usan otros mecanismos).
+# Apps que leen un `.env` local en su carpeta: sólo RetencionesPro y DDJJ
+# Impuestos. Las demás NO usan `.env` y por eso NO se les distribuye:
+#   - Cobranzas OSECAC  -> lee `secretos.json` / `config.json` (ver configurar.py)
+#   - Employee Pro      -> lee `secretos.json` (config/settings.py)
+#   - Facturador ARCA   -> lee `nube.json`
+# Si alguna migrara a `.env`, sumá su key acá para que reciba las credenciales.
 _APPS_ENV = ("reten", "ddjj")
 
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -87,6 +100,21 @@ def _ensure_rclone():
     import zipfile
     tmpzip = os.path.join(tempfile.gettempdir(), "rclone_dl.zip")
     urllib.request.urlretrieve(RCLONE_URL, tmpzip)
+    # Verificar la integridad del ZIP ANTES de abrirlo/extraerlo/ejecutarlo.
+    h = hashlib.sha256()
+    with open(tmpzip, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    digest = h.hexdigest()
+    if digest.lower() != RCLONE_SHA256.lower():
+        try:
+            os.remove(tmpzip)
+        except OSError:
+            pass
+        raise RuntimeError(
+            "El ZIP de rclone descargado NO coincide con el hash SHA256 "
+            f"esperado ({RCLONE_VERSION}); se aborta por seguridad.\n"
+            f"  esperado: {RCLONE_SHA256}\n  obtenido: {digest}")
     tmpdir = tempfile.mkdtemp(prefix="rclone_")
     try:
         with zipfile.ZipFile(tmpzip) as z:

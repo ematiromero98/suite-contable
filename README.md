@@ -27,14 +27,24 @@ pip install -r requirements.txt
 
 ## Rutas de las apps
 
-Por defecto busca:
+Por defecto busca cada app en su carpeta. Si están en otro lado, fijá la
+variable de entorno correspondiente (o editá `config.py`). La ventana avisa en
+rojo si no encuentra alguna.
 
-- DDJJ Impuestos en `D:\ddjj-impuestos`
-- RetencionesPro en `D:\RetencionesPro`
+| App | Ruta por defecto | Variable de entorno |
+| --- | --- | --- |
+| DDJJ Impuestos | `D:\ddjj-impuestos` | `DDJJ_IMPUESTOS_DIR` |
+| RetencionesPro | `D:\RetencionesPro` | `RETENCIONESPRO_DIR` |
+| Cobranzas OSECAC | `D:\PROYECTOS CLAUDE\cobranzas-osecac` | `COBRANZAS_DIR` |
+| Facturador ARCA | `D:\PROYECTOS CLAUDE\facturador-arca` | `FACTURADOR_DIR` |
+| Employee Pro | `D:\PROYECTOS CLAUDE\employee-pro` | `EMPLOYEE_PRO_DIR` |
 
-Si están en otro lado, fijá las variables de entorno **`DDJJ_IMPUESTOS_DIR`** y
-**`RETENCIONESPRO_DIR`** (o editá `config.py`). La ventana avisa en rojo si no
-encuentra alguna.
+## Seguridad
+
+- El **auto-update** de la propia Suite sólo corre si el remote `origin` apunta
+  al repo oficial (`ematiromero98/suite-contable`); si no, se omite y avisa.
+- La descarga de **rclone** (para traer el `.env`) usa una versión fija y se
+  valida su **SHA256** antes de ejecutarla.
 
 ## Acceso directo en el Escritorio
 
