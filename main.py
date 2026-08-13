@@ -122,6 +122,38 @@ def _abrir(app, parent):
                              f"No pude abrir {app['nombre']}:\n{e}")
 
 
+def _instalar_app(app, parent):
+    """Clona una app que falta (vía gh, ya autenticado). Bloquea un momento."""
+    import shutil
+    repo, dest = app.get("repo"), app["dir"]
+    if not repo:
+        return
+    if shutil.which("gh") is None:
+        QMessageBox.warning(
+            parent, "Instalar",
+            f"No encontré 'gh' para instalar {app['nombre']}.\n"
+            f"Instalalo una vez a mano:\n  gh repo clone {repo} \"{dest}\"")
+        return
+    parent.setCursor(Qt.CursorShape.WaitCursor)
+    try:
+        r = subprocess.run(["gh", "repo", "clone", repo, dest],
+                           capture_output=True, text=True, timeout=300,
+                           creationflags=_NO_WINDOW)
+    except Exception as e:                              # noqa: BLE001
+        parent.unsetCursor()
+        QMessageBox.critical(parent, "Error",
+                             f"No pude instalar {app['nombre']}:\n{e}")
+        return
+    parent.unsetCursor()
+    if r.returncode != 0:
+        QMessageBox.critical(parent, "Error",
+                             f"No pude clonar {app['nombre']}:\n{(r.stderr or '')[:400]}")
+        return
+    QMessageBox.information(
+        parent, "Instalado",
+        f"{app['nombre']} se instaló en:\n{dest}\n\nReabrí la Suite para usarla.")
+
+
 def _actualizar(app, parent):
     script = _script_update(app)
     if not script:
@@ -210,15 +242,29 @@ class Launcher(QWidget):
 
         botones = QVBoxLayout()
         botones.setSpacing(6)
+        falta = not os.path.isdir(app["dir"])
         btn = QPushButton("Abrir")
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setFixedWidth(120)
         btn.setStyleSheet(
             f"QPushButton {{ background:{app['color']}; color:white; border:none;"
             "border-radius:8px; padding:10px 0; font-size:14px; font-weight:bold; }}"
-            "QPushButton:hover { opacity:.9; }")
+            "QPushButton:hover { opacity:.9; }"
+            "QPushButton:disabled { background:#C4CDD5; }")
         btn.clicked.connect(lambda _, a=app: _abrir(a, self))
+        btn.setEnabled(not falta)
         botones.addWidget(btn)
+
+        if falta:
+            btn_inst = QPushButton("⬇ Instalar")
+            btn_inst.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_inst.setFixedWidth(120)
+            btn_inst.setStyleSheet(
+                "QPushButton { background:#F2C14E; color:#5A3E00; border:none;"
+                "border-radius:8px; padding:8px 0; font-size:12px; font-weight:bold; }"
+                "QPushButton:hover { background:#E6B33E; }")
+            btn_inst.clicked.connect(lambda _, a=app: _instalar_app(a, self))
+            botones.addWidget(btn_inst)
 
         btn_upd = QPushButton("⟳ Actualizar")
         btn_upd.setCursor(Qt.CursorShape.PointingHandCursor)
