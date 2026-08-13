@@ -371,7 +371,7 @@ class _UpdateAllWorker(QObject):
     """Actualiza TODAS las apps instaladas en segundo plano (los pull/pip
     bloquean, no pueden correr en el hilo de la interfaz)."""
     progreso = pyqtSignal(str)          # nombre de la app que se está tocando
-    listo = pyqtSignal(list)            # [(nombre, estado, detalle), ...]
+    listo = pyqtSignal(list)            # [(key, nombre, estado, detalle), ...]
 
     def start(self, apps):
         def _run():
@@ -379,7 +379,7 @@ class _UpdateAllWorker(QObject):
             for a in apps:
                 self.progreso.emit(a["nombre"])
                 estado, detalle = _actualizar_app_core(a)
-                resultados.append((a["nombre"], estado, detalle))
+                resultados.append((a["key"], a["nombre"], estado, detalle))
             self.listo.emit(resultados)
         threading.Thread(target=_run, daemon=True).start()
 
@@ -390,6 +390,7 @@ class Launcher(QWidget):
         self.setWindowTitle("Suite Contable — MR & Asociados")
         self.setMinimumSize(580, 640)
         self._cards = {}
+        self._pendientes = {}   # key -> versión nueva disponible (apps instaladas)
         ico = os.path.join(_BASE, "assets", "suite.ico")
         if os.path.isfile(ico):
             self.setWindowIcon(QIcon(ico))
@@ -476,18 +477,37 @@ class Launcher(QWidget):
         else:
             QMessageBox.warning(self, "No se pudo", msg)
 
+    def _refrescar_boton_todo(self):
+        """Prende «Actualizar todo» sólo si hay actualizaciones pendientes; si no,
+        queda apagado (gris). Muestra cuántas hay."""
+        n = len(self._pendientes)
+        self._btn_upd_all.setEnabled(n > 0)
+        if n > 0:
+            self._btn_upd_all.setText(f"⟳ Actualizar todo ({n})")
+            self._btn_upd_all.setToolTip(
+                f"Hay {n} programa(s) con versión nueva. Los actualiza y "
+                "reinstala dependencias. Los datos no se tocan.")
+        else:
+            self._btn_upd_all.setText("⟳ Actualizar todo")
+            self._btn_upd_all.setToolTip("No hay actualizaciones pendientes.")
+
     def _actualizar_todo(self):
-        """Actualiza de una sola vez todos los programas instalados en la PC."""
-        apps = [a for a in config.APPS
-                if os.path.isdir(os.path.join(a["dir"], ".git"))]
-        if not apps:
-            QMessageBox.information(
-                self, "Actualizar todo",
-                "No hay programas instalados para actualizar en esta PC.\n\n"
-                "Instalá los que falten con su botón «⬇ Instalar».")
-            return
+        """Actualiza las apps que tienen una versión nueva pendiente."""
+        apps = [a for a in config.APPS if a["key"] in self._pendientes
+                and os.path.isdir(os.path.join(a["dir"], ".git"))]
+        if apps:
+            self._iniciar_update(apps)
+
+    def _actualizar_uno(self, app):
+        """Actualiza una sola app (botón de su tarjeta)."""
+        if os.path.isdir(os.path.join(app["dir"], ".git")):
+            self._iniciar_update([app])
+
+    def _iniciar_update(self, apps):
         self._btn_upd_all.setEnabled(False)
         self._btn_upd_all.setText("Actualizando…")
+        for c in self._cards.values():
+            c["btn"].setEnabled(False)
         self.setCursor(Qt.CursorShape.WaitCursor)
         self._upd_worker = _UpdateAllWorker()
         self._upd_worker.progreso.connect(self._update_all_progreso)
@@ -499,25 +519,33 @@ class Launcher(QWidget):
 
     def _update_all_done(self, resultados):
         self.unsetCursor()
-        self._btn_upd_all.setEnabled(True)
-        self._btn_upd_all.setText("⟳ Actualizar todo")
-        # Refrescar la versión que muestra cada tarjeta y limpiar los avisos.
-        for card in self._cards.values():
+        for key, _nombre, estado, _detalle in resultados:
+            card = self._cards.get(key)
+            if not card:
+                continue
             app = card["app"]
             ver = _leer_version(app)
             card["nombre"].setText(app["nombre"] + (f"   v{ver}" if ver else ""))
-            card["lbl"].setVisible(False)
+            if estado in ("ok", "aviso"):
+                # Quedó al día: sale de pendientes y se oculta su aviso/botón.
+                self._pendientes.pop(key, None)
+                card["lbl"].setVisible(False)
+                card["btn"].setVisible(False)
+            # Si hubo error, la app sigue pendiente (aviso y botón quedan).
+        for c in self._cards.values():
+            c["btn"].setEnabled(True)
+        self._refrescar_boton_todo()
         iconos = {"ok": "✅", "aviso": "⚠️", "saltada": "•", "error": "❌"}
         cuerpo = "\n".join(f"{iconos.get(e, '•')} {n}: {d}"
-                           for n, e, d in resultados)
-        if any(e == "error" for _n, e, _d in resultados):
-            QMessageBox.warning(self, "Actualizar todo", "Resultado:\n\n" + cuerpo)
-        elif any(e == "aviso" for _n, e, _d in resultados):
-            QMessageBox.warning(self, "Actualizar todo",
+                           for _k, n, e, d in resultados)
+        if any(e == "error" for _k, _n, e, _d in resultados):
+            QMessageBox.warning(self, "Actualizar", "Resultado:\n\n" + cuerpo)
+        elif any(e == "aviso" for _k, _n, e, _d in resultados):
+            QMessageBox.warning(self, "Actualizar",
                                 "Actualizado, con algún aviso:\n\n" + cuerpo)
         else:
-            QMessageBox.information(self, "Actualizar todo",
-                                    "Todo quedó al día:\n\n" + cuerpo)
+            QMessageBox.information(self, "Actualizar",
+                                    "Listo, quedó al día:\n\n" + cuerpo)
 
     @staticmethod
     def _auto_update_suite():
@@ -568,6 +596,7 @@ class Launcher(QWidget):
             "QPushButton:disabled { background:#B7C4CE; }")
         self._btn_upd_all.clicked.connect(self._actualizar_todo)
         fila.addWidget(self._btn_upd_all)
+        self._refrescar_boton_todo()   # arranca apagado hasta detectar pendientes
         self._btn_cred = QPushButton("🔑 Traer credenciales")
         self._btn_cred.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn_cred.clicked.connect(lambda: self._traer_credenciales(auto=False))
@@ -652,19 +681,40 @@ class Launcher(QWidget):
             btn_inst.clicked.connect(lambda _, a=app: _instalar_app(a, self))
             botones.addWidget(btn_inst)
 
+        # Botón para actualizar SOLO esta app. Oculto hasta que se detecte que
+        # tiene una versión nueva (ver _on_update).
+        btn_upd = QPushButton("⟳ Actualizar")
+        btn_upd.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_upd.setFixedWidth(120)
+        btn_upd.setStyleSheet(
+            "QPushButton { background:#F2C14E; color:#5A3E00; border:none;"
+            "border-radius:8px; padding:8px 0; font-size:12px; font-weight:bold; }"
+            "QPushButton:hover { background:#E6B33E; }"
+            "QPushButton:disabled { background:#E5E9F0; color:#9AA5B1; }")
+        btn_upd.setVisible(False)
+        btn_upd.clicked.connect(lambda _, a=app: self._actualizar_uno(a))
+        botones.addWidget(btn_upd)
+
         h.addLayout(botones)
 
-        # La actualización se hace desde el botón "Actualizar todo" de arriba;
-        # cada tarjeta sólo muestra el aviso de que hay versión nueva.
-        self._cards[app["key"]] = {"lbl": lbl_update, "nombre": nombre, "app": app}
+        self._cards[app["key"]] = {"lbl": lbl_update, "nombre": nombre,
+                                   "btn": btn_upd, "app": app}
         return card
 
     def _on_update(self, key, latest):
+        """Llega desde el chequeo en segundo plano: `latest` = versión nueva o ''."""
         card = self._cards.get(key)
         if not card or not latest:
             return
-        card["lbl"].setText(f"🔔 ACTUALIZACIÓN DISPONIBLE (v{latest}) — usá «Actualizar todo»")
+        app = card["app"]
+        card["lbl"].setText(f"🔔 Actualización disponible (v{latest})")
         card["lbl"].setVisible(True)
+        # Sólo se puede actualizar si está instalada (hay repo git). Si no, se
+        # usa «⬇ Instalar». Marcar pendiente y mostrar su botón + prender «todo».
+        if os.path.isdir(os.path.join(app["dir"], ".git")):
+            self._pendientes[key] = latest
+            card["btn"].setVisible(True)
+            self._refrescar_boton_todo()
 
 
 def main():
