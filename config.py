@@ -18,6 +18,8 @@ APPS = [
         "entradas": ["DDJJ Impuestos.bat", "APP IVA.bat",
                      os.path.join("scripts", "main.py")],
         "version_file": os.path.join("scripts", "version.py"),
+        "repo": "ematiromero98/ddjj-impuestos",
+        "actualizar": ["Actualizar.bat"],
     },
     {
         "key": "reten",
@@ -28,5 +30,7 @@ APPS = [
         "dir": os.environ.get("RETENCIONESPRO_DIR", r"D:\RetencionesPro"),
         "entradas": ["run.bat", "main.py"],
         "version_file": "version.py",
+        "repo": "ematiromero98/RetencionesPro",
+        "actualizar": ["update.bat"],
     },
 ]

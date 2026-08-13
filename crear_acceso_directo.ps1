@@ -5,8 +5,9 @@ $bat  = Join-Path $here "Suite Contable.bat"
 $desktop = [Environment]::GetFolderPath("Desktop")
 $lnk = Join-Path $desktop "Suite Contable.lnk"
 
-# Icono: reusa el del estudio si está disponible en DDJJ Impuestos.
-$ico = "D:\ddjj-impuestos\assets\mrasoc.ico"
+# Icono propio de la Suite (con fallback al del estudio).
+$ico = Join-Path $here "assets\suite.ico"
+if (-not (Test-Path $ico)) { $ico = "D:\ddjj-impuestos\assets\mrasoc.ico" }
 
 $sh = New-Object -ComObject WScript.Shell
 $s  = $sh.CreateShortcut($lnk)
