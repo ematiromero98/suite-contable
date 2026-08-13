@@ -158,50 +158,93 @@ def _instalar_app(app, parent):
         f"{app['nombre']} se instaló en:\n{dest}\n\nReabrí la Suite para usarla.")
 
 
-def _actualizar(app, parent):
-    # 1. Si la app trae su propio actualizador (update.bat / Actualizar.bat), lo
-    #    usamos: hace el pull + deps + relanzar como corresponde a esa app.
-    script = _script_update(app)
-    if script:
-        try:
-            subprocess.Popen(f'"{script}"', cwd=app["dir"], shell=True)
-        except Exception as e:                          # noqa: BLE001
-            QMessageBox.critical(parent, "Error",
-                                 f"No pude actualizar {app['nombre']}:\n{e}")
-            return
-        QMessageBox.information(
-            parent, "Actualizando",
-            f"Se está actualizando {app['nombre']}.\nCuando termine, se abre solo.")
-        return
+def _leer_token_env(dir_):
+    """Lee GITHUB_TOKEN del .env de la app (RetencionesPro lo usa para el pull
+    porque su remote no lleva credenciales). None si no hay."""
+    try:
+        with open(os.path.join(dir_, ".env"), encoding="utf-8") as f:
+            for linea in f:
+                if linea.strip().startswith("GITHUB_TOKEN="):
+                    t = linea.split("=", 1)[1].strip().strip('"').strip("'")
+                    if t and "REEMPLAZAR" not in t:
+                        return t
+    except OSError:
+        pass
+    return None
 
-    # 2. Si no tiene actualizador propio pero es un repo git, el ERP hace el
-    #    git pull directo (usa las credenciales de gh ya configuradas).
-    if not os.path.isdir(os.path.join(app["dir"], ".git")):
+
+def _git(dir_, args, timeout=240):
+    return subprocess.run(["git", "-C", dir_] + args, capture_output=True,
+                          text=True, timeout=timeout, creationflags=_NO_WINDOW)
+
+
+def _pip_update(dir_):
+    """Instala dependencias nuevas (en .venv si existe, o python del sistema)."""
+    req = os.path.join(dir_, "requirements.txt")
+    if not os.path.isfile(req):
+        return
+    py = os.path.join(dir_, ".venv", "Scripts", "python.exe")
+    py = py if os.path.isfile(py) else "python"
+    try:
+        subprocess.run([py, "-m", "pip", "install", "-r", req],
+                       capture_output=True, text=True, timeout=600,
+                       creationflags=_NO_WINDOW)
+    except Exception:                                   # noqa: BLE001
+        pass
+
+
+def _actualizar(app, parent):
+    """Actualiza la app entera desde el ERP, sin depender de su .bat ni del CMD:
+    baja los cambios, y si la copia local divergió, respalda y realinea con el
+    código oficial; después instala dependencias nuevas. Los DATOS no se tocan
+    (viven en Supabase y en .env/.venv, fuera de git)."""
+    dir_ = app["dir"]
+    if not os.path.isdir(os.path.join(dir_, ".git")):
         QMessageBox.warning(
             parent, "Actualizar",
-            f"{app['nombre']} no tiene actualizador ni es un repo git en:\n"
-            f"{app['dir']}\nActualizala a mano.")
+            f"{app['nombre']} no es un repo git en:\n{dir_}")
         return
+
     parent.setCursor(Qt.CursorShape.WaitCursor)
     try:
-        r = subprocess.run(["git", "-C", app["dir"], "pull", "--ff-only"],
-                           capture_output=True, text=True, timeout=180,
-                           creationflags=_NO_WINDOW)
+        token, repo = _leer_token_env(dir_), app.get("repo")
+        if token and repo:
+            f = _git(dir_, ["fetch", f"https://{token}@github.com/{repo}.git"])
+            target = "FETCH_HEAD"
+        else:
+            f = _git(dir_, ["fetch"])
+            target = "@{u}"                              # rama remota trackeada
+        if f.returncode != 0:
+            parent.unsetCursor()
+            QMessageBox.critical(parent, "Error",
+                                 f"No pude traer cambios de {app['nombre']}:\n"
+                                 f"{(f.stderr or '')[:400]}")
+            return
+
+        # Caso normal: avanzar en línea recta.
+        if _git(dir_, ["merge", "--ff-only", target]).returncode != 0:
+            # Divergió: respaldar (rama backup + stash) y realinear al oficial.
+            import time
+            _git(dir_, ["branch", f"backup-local-{int(time.time())}"])
+            _git(dir_, ["stash", "push", "-u", "-m", "respaldo-antes-de-actualizar"])
+            rs = _git(dir_, ["reset", "--hard", target])
+            if rs.returncode != 0:
+                parent.unsetCursor()
+                QMessageBox.critical(parent, "Error",
+                                     f"No pude alinear {app['nombre']}:\n"
+                                     f"{(rs.stderr or '')[:400]}")
+                return
+
+        _pip_update(dir_)
     except Exception as e:                              # noqa: BLE001
         parent.unsetCursor()
         QMessageBox.critical(parent, "Error",
                              f"No pude actualizar {app['nombre']}:\n{e}")
         return
     parent.unsetCursor()
-    if r.returncode == 0:
-        QMessageBox.information(
-            parent, "Actualizado",
-            f"{app['nombre']} quedó actualizado.\nAbrila de nuevo para usar la "
-            f"versión nueva.\n\n{(r.stdout or '').strip()[-300:]}")
-    else:
-        QMessageBox.critical(
-            parent, "Error",
-            f"No se pudo actualizar {app['nombre']}:\n{(r.stderr or '')[:400]}")
+    QMessageBox.information(
+        parent, "Actualizado",
+        f"{app['nombre']} quedó al día. Abrila cuando quieras.")
 
 
 class Launcher(QWidget):
@@ -214,10 +257,21 @@ class Launcher(QWidget):
         if os.path.isfile(ico):
             self.setWindowIcon(QIcon(ico))
         self._build()
-        # Chequear actualizaciones en segundo plano y avisar en cada tarjeta.
+        # Auto-actualizar la propia Suite (git pull) en segundo plano, para que
+        # el ERP quede siempre al día en cualquier PC. Best-effort.
+        threading.Thread(target=self._auto_update_suite, daemon=True).start()
+        # Chequear actualizaciones de las apps y avisar en cada tarjeta.
         self._chequeador = _Chequeador()
         self._chequeador.listo.connect(self._on_update)
         self._chequeador.correr(config.APPS)
+
+    @staticmethod
+    def _auto_update_suite():
+        try:
+            if os.path.isdir(os.path.join(_BASE, ".git")):
+                _git(_BASE, ["pull", "--ff-only"], timeout=60)
+        except Exception:                              # noqa: BLE001
+            pass
 
     def _build(self):
         lay = QVBoxLayout(self)
