@@ -1,53 +1,145 @@
-# Arquitectura y decisión: repos separados + launcher (no monolito)
+# Arquitectura de la Suite Contable (ERP) — MR & Asociados
 
-**Decisión (ago-2026):** mantener cada programa del estudio como un **repo/app
-separado**, y usar la **Suite Contable** (este proyecto) como **capa de
-unificación del acceso** — un único menú para abrir, actualizar e instalar. NO
-se fusionan los códigos en un solo programa.
+Referencia del ecosistema: cómo se relacionan los programas del estudio, por qué
+están separados, y cómo funcionan la **instalación** y la **actualización**.
 
-## Por qué separados (y no un solo ERP monolítico)
+---
 
-1. **Perfiles de riesgo distintos.** RetencionesPro maneja **plata**
-   (retenciones, órdenes de pago) con CI, tests y un updater endurecido. DDJJ
-   Impuestos es un **scraper de ARCA** que se rompe cuando ARCA cambia su HTML.
-   Juntarlos hace que un arreglo del scraper obligue a redeployar la app de
-   plata, y un bug pueda voltear las dos. Separados, el radio de daño es chico.
+## 1. Los programas
 
-2. **Dependencias pesadas no compartidas.** DDJJ arrastra **Playwright** (un
-   navegador). Un monolito lo cargaría siempre, aunque el usuario solo quiera
-   retenciones.
+| App | Repo | Rama | Qué hace | Runtime especial |
+|---|---|---|---|---|
+| **Suite Contable** (este) | `suite-contable` | main | Launcher/ERP: abre, actualiza e instala las demás | — |
+| **DDJJ Impuestos** | `ddjj-impuestos` | master | DDJJ de IVA + SIRCREB en ARCA | Playwright |
+| **RetencionesPro** | `RetencionesPro` | main | Retenciones, OP, conciliación de compras | — |
+| **Cobranzas OSECAC** | `cobranzas-osecac` | main | Cobranzas: retenciones, asientos, facturación | — |
+| **Facturador ARCA** | `facturador-arca` | master | Facturación electrónica (WSFEV1) | — |
+| **Employee Pro** | `employee-pro` | main | RR.HH.: legajos, ausencias, sueldos | — |
 
-3. **Modelo de actualización por app.** Cada app se actualiza sola por su
-   **GitHub Release** (botón ACTUALIZAR). Un repo único obligaría a actualizar
-   todo junto: más frágil y pesado.
+Todas son **PyQt6 + Supabase** y comparten la **misma base de Supabase** (ahí es
+donde la integración importa: la conciliación de compras cruza datos de DDJJ y
+RetencionesPro en la misma base).
 
-4. **Lo que importa ya está unificado: la base.** Todas escriben en la **misma
-   Supabase**. La conciliación cruza datos de DDJJ y RetencionesPro ahí mismo.
-   Ese es el 90% del valor "integrado" sin fusionar una línea.
+---
 
-5. **Costo/beneficio.** Fusionar apps grandes y maduras (p. ej. `form_orden` de
-   RetencionesPro son 113 KB) es un refactor caro y riesgoso, para algo que el
-   **launcher ya resuelve** a nivel de uso.
+## 2. Decisión: repos separados + launcher (NO monolito)
 
-## Cuándo SÍ convendría unificar
+Cada programa es su **propio repo/app**; la Suite unifica el **acceso**, no el
+código. Por qué:
 
-Si esto se volviera un **producto único** para terceros, con un **equipo**
-manteniéndolo, **mismo runtime** (sin el corte Playwright / no-Playwright) y una
-**sola cadencia de release**. No es el caso hoy (un solo mantenedor, apps con
-propósitos y riesgos distintos).
+1. **Riesgos distintos.** RetencionesPro maneja plata (CI, tests, updater
+   endurecido). DDJJ es un scraper de ARCA que se rompe cuando ARCA cambia el
+   HTML. Separados, el radio de daño es chico.
+2. **Dependencias pesadas no compartidas.** Solo DDJJ usa Playwright.
+3. **Actualización por app** (GitHub Releases). Un repo único obligaría a
+   actualizar todo junto.
+4. **Lo importante ya está unificado: la base.** Misma Supabase.
+5. **Costo/beneficio.** Fusionar apps maduras es caro para algo que el launcher
+   ya resuelve.
 
-## El punto intermedio (para cuando duela la duplicación)
+**Cuándo SÍ unificar:** producto único para terceros, con equipo, mismo runtime
+y una sola cadencia de release. No es el caso hoy.
 
-Lo único real a favor de unificar es el **código repetido** entre apps
-(conexión a Supabase, estilos de UI, formateadores de importes, el motor de
-conciliación). Si eso empieza a costar de mantener, la jugada **no** es
-fusionar todo: es extraer una **librería común** chica (`contable-core`) que
-cada app importe. Apps separadas, sin duplicar. **No hacerlo hasta que duela.**
+**Punto intermedio (para cuando duela la duplicación):** extraer una librería
+común (`contable-core`: conexión Supabase, estilos, formateadores, motor de
+conciliación). NO fusionar apps. No hacerlo hasta que duela.
 
-## Cómo agrego una app al menú del ERP
+---
 
-En `config.py`, sumar una entrada a `APPS` con: `dir` (carpeta local),
-`entradas` (puntos de entrada en orden de preferencia, ej. `run.bat`/`main.py`),
-`version_file` (`version.py` o un `VERSION` plano), `repo` (para chequear
-releases y para instalarla si falta) y `actualizar` (script de update, si tiene).
-No hace falta tocar nada del código de esa app: la Suite solo la **lanza**.
+## 3. Distribución: "abro cualquier app → aparece el ERP"
+
+Cada app trae un **`bootstrap_suite.py`** (en RetencionesPro es
+`instalar_suite.bat` + `_bootstrap_suite()`) que se llama al arrancar:
+
+```
+Abro CUALQUIER app (DDJJ / RetProp / Cobranzas / Facturador / Employee)
+        │  bootstrap: ¿está D:\suite-contable ?
+        ├── sí  → no-op (sigue abriendo la app)
+        └── no  → gh repo clone suite-contable  +  crea acceso directo
+```
+
+- Es **best-effort y no bloquea**: si falla (sin `gh`, sin red), la app abre igual.
+- En una máquina que ya tiene la Suite, es un **no-op instantáneo**.
+- Sirve para el caso real: las apps están instaladas sueltas en muchas PCs; al
+  abrir cualquiera, el ERP aparece solo.
+
+RetencionesPro además instala/actualiza la Suite en su `update.bat` (paso [5/5]).
+
+---
+
+## 4. Actualización: el ERP como centro de updates
+
+Al abrir la Suite, chequea (en segundo plano, vía `gh`) el **último GitHub
+Release** de cada app y lo compara con la versión instalada:
+
+```
+Abro la Suite
+   └── por cada app: ¿release > instalada?
+          └── sí → "🔔 ACTUALIZACIÓN DISPONIBLE (vX)" + botón ⟳ Actualizar
+```
+
+Al tocar **Actualizar**, la Suite:
+1. Si la app tiene actualizador propio (`update.bat` / `Actualizar.bat`), lo
+   ejecuta (pull + dependencias + relanzar).
+2. Si no, hace **`git pull` directo** en la carpeta de la app (usa las
+   credenciales de `gh`). *Ojo:* el git pull pelado NO instala dependencias.
+
+Hoy **las 5 apps tienen `update.bat`/`Actualizar.bat` propio**, así que el botón
+siempre instala dependencias nuevas.
+
+### Qué hace cada `update.bat`
+1. Se **auto-copia a `%TEMP%`** y corre desde ahí (para que el `git pull` pueda
+   reescribir el propio `.bat` sin corromperse).
+2. Verifica que el **remote `origin`** sea el repo oficial en github.com
+   (defensa supply-chain: no pullear de un remote ajeno).
+3. `git pull --ff-only`.
+4. `pip install -r requirements.txt` (en `.venv` si existe, o python del sistema).
+5. Instala la Suite si falta (`bootstrap_suite`).
+6. Reabre la app.
+
+RetencionesPro usa además un token del `.env` para el pull; las otras usan las
+credenciales de `gh`.
+
+---
+
+## 5. Requisitos por máquina
+
+- **`gh` (GitHub CLI) instalado y autenticado** — para clonar/actualizar los
+  repos privados sin manejar tokens a mano.
+- **Disco `D:`** por defecto (la Suite se instala en `D:\suite-contable`).
+  Configurable con la variable de entorno **`SUITE_CONTABLE_DIR`**.
+- Rutas de cada app configurables por env: `DDJJ_IMPUESTOS_DIR`,
+  `RETENCIONESPRO_DIR`, `COBRANZAS_DIR`, `FACTURADOR_DIR`, `EMPLOYEE_PRO_DIR`.
+
+**Borde conocido:** en una PC con una versión MUY vieja (sin `update.bat`
+todavía), el primer update lo hace la Suite con git pull (sin deps); del segundo
+en adelante ya usa el `update.bat` y maneja dependencias.
+
+---
+
+## 6. Cómo agregar una app al menú del ERP
+
+En `config.py`, sumar una entrada a `APPS`:
+
+```python
+{
+    "key": "miapp",
+    "nombre": "Mi App",
+    "emoji": "🔧",
+    "desc": "Qué hace.",
+    "color": "#2E86C1",
+    "dir": os.environ.get("MIAPP_DIR", r"D:\ruta\a\miapp"),
+    "entradas": ["run.bat", "main.py"],   # puntos de entrada, en orden
+    "version_file": "version.py",          # o "VERSION" (texto plano)
+    "repo": "ematiromero98/miapp",         # para releases + instalar si falta
+    "actualizar": ["update.bat"],          # updater propio; [] = git pull directo
+}
+```
+
+No hace falta tocar el código de esa app: la Suite solo la **lanza / actualiza /
+instala**. Para que el aviso "ACTUALIZACIÓN DISPONIBLE" funcione, la app tiene
+que tener **GitHub Releases** (aunque sea uno base con la versión actual).
+
+Para que se integre al circuito completo, conviene que la app tenga:
+- `bootstrap_suite.py` llamado en su arranque (instala el ERP si falta).
+- un `update.bat` propio (pull + deps + relanzar).
