@@ -45,7 +45,7 @@ CUENTA_ESTUDIO = "ematiromero98@gmail.com"
 
 # Apps que leen un `.env` local con las credenciales COMPARTIDAS de la Suite
 # (mismo proyecto Supabase): RetencionesPro, DDJJ Impuestos y Control de Juicios.
-_APPS_ENV = ("reten", "ddjj", "juicios")
+_APPS_ENV = ("reten", "ddjj", "juicios", "contabilidad")
 
 # Cobranzas OSECAC usa su PROPIO proyecto Supabase (distinto al compartido) y se
 # configura desde `secretos.json` (su configurar.py genera .env + config.json a

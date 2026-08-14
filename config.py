@@ -81,4 +81,16 @@ APPS = [
         "version_file": "VERSION",
         "repo": "ematiromero98/control-juicios",
     },
+    {
+        "key": "contabilidad",
+        "nombre": "Contabilidad",
+        "emoji": "📚",
+        "desc": "Libro Diario/Mayor y estados contables. Concilia contra Tango.",
+        "color": "#117864",
+        "env_dir": "CONTABILIDAD_DIR",
+        "dir": os.environ.get("CONTABILIDAD_DIR", r"D:\contabilidad"),
+        "entradas": ["run.bat", "main.py"],
+        "version_file": "version.py",
+        "repo": "ematiromero98/contabilidad",
+    },
 ]
