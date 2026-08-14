@@ -43,13 +43,13 @@ DRIVE_PATH = "suite:Suite Contable/.env"
 # elija ESA cuenta en la pantalla de permiso de Google, no la personal de la PC.
 CUENTA_ESTUDIO = "ematiromero98@gmail.com"
 
-# Apps que leen un `.env` local en su carpeta: sólo RetencionesPro y DDJJ
-# Impuestos. Las demás NO usan `.env` y por eso NO se les distribuye:
+# Apps que leen un `.env` local en su carpeta: RetencionesPro, DDJJ Impuestos y
+# Control de Juicios. Las demás NO usan `.env` y por eso NO se les distribuye:
 #   - Cobranzas OSECAC  -> lee `secretos.json` / `config.json` (ver configurar.py)
 #   - Employee Pro      -> lee `secretos.json` (config/settings.py)
 #   - Facturador ARCA   -> lee `nube.json`
 # Si alguna migrara a `.env`, sumá su key acá para que reciba las credenciales.
-_APPS_ENV = ("reten", "ddjj")
+_APPS_ENV = ("reten", "ddjj", "juicios")
 
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 

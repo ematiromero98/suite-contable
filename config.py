@@ -69,4 +69,16 @@ APPS = [
         "version_file": "version.py",
         "repo": "ematiromero98/employee-pro",
     },
+    {
+        "key": "juicios",
+        "nombre": "Control de Juicios",
+        "emoji": "⚖️",
+        "desc": "Juicios y contingencias laborales de las empresas clientes.",
+        "color": "#1F4E79",
+        "env_dir": "JUICIOS_DIR",
+        "dir": os.environ.get("JUICIOS_DIR", r"D:\control-juicios"),
+        "entradas": ["run.bat", "main.py"],
+        "version_file": "VERSION",
+        "repo": "ematiromero98/control-juicios",
+    },
 ]
