@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Suite Contable — MR & Asociados.
-Launcher: una ventana para abrir DDJJ Impuestos o RetencionesPro.
+Launcher/ERP: una ventana (Panel Oscuro) para abrir, actualizar e instalar los
+programas del estudio.
 
 Abrir con doble clic en «Suite Contable.bat» (o: pythonw main.py).
 """
@@ -12,8 +13,8 @@ import threading
 import subprocess
 
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QFrame, QMessageBox, QScrollArea,
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel,
+    QPushButton, QFrame, QMessageBox, QScrollArea, QStackedWidget, QButtonGroup,
 )
 from PyQt6.QtCore import Qt, QObject, pyqtSignal, QTimer
 from PyQt6.QtGui import QIcon
@@ -41,6 +42,108 @@ except Exception:                                          # noqa: BLE001
 _BASE = os.path.dirname(os.path.abspath(__file__))
 # Evitar que se abran consolas negras al llamar a gh/.bat en Windows.
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
+# ==========================================================================
+#  Paleta e identidad visual — Panel Oscuro (acento menta). Un solo lugar para
+#  tocar el tema. Se aplica por QSS (hojas de estilo de Qt), sin dependencias
+#  nuevas (importante: la Suite se auto-actualiza por git pull, sin pip).
+# ==========================================================================
+BG       = "#0f1218"
+SIDE     = "#12161e"
+PANEL    = "#171c26"
+PANEL2   = "#1d2430"
+SOFT     = "#1c222e"
+TEXT     = "#eef2f8"
+MUTED    = "#8a94a6"
+BORDER   = "#242c39"
+HAIR     = "#1d2530"
+ACCENT   = "#2ee6a6"
+ACCENT_INK = "#04120c"
+ACCENT_2 = "#5cf0bd"
+WARN     = "#f6b64b"
+BAD      = "#f6465d"
+
+QSS = """
+Launcher { background: #0f1218; }
+QWidget { color: #eef2f8; font-family: "Segoe UI", "Segoe UI Variable", sans-serif; font-size: 13px; }
+QToolTip { background:#1d2430; color:#eef2f8; border:1px solid #242c39; padding:5px 7px; }
+
+#sidebar { background:#12161e; border-right:1px solid #1d2530; }
+#brandMark { background:#2ee6a6; color:#04120c; border-radius:9px; font-size:13px; font-weight:800; }
+#brandName { font-size:15px; font-weight:600; color:#eef2f8; }
+#brandSub  { font-size:9px; color:#8a94a6; }
+#navLabel  { color:#8a94a6; font-size:9px; font-weight:700; }
+QPushButton#nav { text-align:left; padding:9px 12px; border:none; border-radius:10px;
+    background:transparent; color:#8a94a6; font-size:13px; font-weight:500; }
+QPushButton#nav:hover   { background:#1c222e; color:#eef2f8; }
+QPushButton#nav:checked { background:#12271f; color:#5cf0bd; font-weight:600; }
+#userMark { background:#12271f; color:#5cf0bd; border-radius:8px; font-weight:700; font-size:12px; }
+#userName { font-size:12px; font-weight:600; color:#eef2f8; }
+#userHandle { font-size:10px; color:#8a94a6; }
+#footVer { color:#5b6472; font-size:10px; }
+
+#content { background:#0f1218; }
+QStackedWidget { background:#0f1218; }
+#scrollbody { background:transparent; }
+
+#topbar { border-bottom:1px solid #1d2530; }
+#greet    { font-size:18px; font-weight:600; color:#eef2f8; }
+#greetSub { font-size:12px; color:#8a94a6; }
+
+#kpi { background:#171c26; border:1px solid #242c39; border-radius:14px; }
+#kpiLabel { color:#8a94a6; font-size:10px; font-weight:700; }
+#kpiValue { color:#eef2f8; font-size:26px; font-weight:400; }
+#kpiHint  { color:#8a94a6; font-size:10px; }
+
+#secTitle { font-size:12px; font-weight:700; color:#eef2f8; }
+#secCount { color:#8a94a6; font-size:12px; }
+
+#card { background:#171c26; border:1px solid #242c39; border-radius:16px; }
+#cardTitle { font-size:15px; font-weight:600; color:#eef2f8; }
+#cardDesc  { color:#8a94a6; font-size:11px; }
+#cardWarn  { color:#f6465d; font-size:11px; }
+#cardUpd   { color:#f6b64b; font-size:11px; font-weight:600; }
+
+QPushButton#abrir { background:#2ee6a6; color:#04120c; border:none; border-radius:10px;
+    padding:9px 16px; font-size:13px; font-weight:700; }
+QPushButton#abrir:hover    { background:#4fecb8; }
+QPushButton#abrir:disabled { background:#232c39; color:#5b6472; }
+QPushButton#ghost { background:transparent; color:#f6b64b; border:1px solid #4a3a1e;
+    border-radius:10px; padding:9px 14px; font-size:12px; font-weight:700; }
+QPushButton#ghost:hover    { background:#241d10; }
+QPushButton#ghost:disabled { color:#5b6472; border-color:#242c39; }
+
+#banner { background:#1d2430; border:1px solid #3a3320; border-radius:14px; }
+#bannerTitle { font-size:14px; font-weight:600; color:#eef2f8; }
+#bannerSub   { color:#8a94a6; font-size:12px; }
+#urow { background:#171c26; border:1px solid #242c39; border-radius:12px; }
+#uName { font-size:14px; font-weight:600; color:#eef2f8; }
+#uJump { color:#8a94a6; font-size:11px; }
+#emptyMsg { color:#8a94a6; font-size:14px; }
+
+#setRow { background:#171c26; border:1px solid #242c39; border-radius:12px; }
+#setName { font-size:13px; font-weight:600; color:#eef2f8; }
+#setPath { color:#8a94a6; font-size:11px; }
+QPushButton#action { background:#1c222e; color:#eef2f8; border:1px solid #242c39;
+    border-radius:10px; padding:8px 14px; font-size:12px; font-weight:600; }
+QPushButton#action:hover { border-color:#2ee6a6; color:#5cf0bd; }
+
+QScrollArea { background:transparent; border:none; }
+QScrollBar:vertical { background:transparent; width:10px; margin:2px; }
+QScrollBar::handle:vertical { background:#2a3340; border-radius:5px; min-height:30px; }
+QScrollBar::handle:vertical:hover { background:#3a4658; }
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background:transparent; }
+QScrollBar:horizontal { height:0px; }
+"""
+
+
+def _hex_rgba(h, pct):
+    """'#rrggbb' -> 'rgba(r,g,b,PCT%)' para tintes en QSS."""
+    h = h.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r},{g},{b},{pct})"
 
 
 def _leer_version(app):
@@ -388,9 +491,12 @@ class Launcher(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Suite Contable — MR & Asociados")
-        self.setMinimumSize(580, 640)
+        self.setMinimumSize(900, 600)
+        self.resize(1000, 680)
         self._cards = {}
         self._pendientes = {}   # key -> versión nueva disponible (apps instaladas)
+        self._kpi = {}          # key -> QLabel del valor (para refrescar)
+        self._nav_buttons = []
         ico = os.path.join(_BASE, "assets", "suite.ico")
         if os.path.isfile(ico):
             self.setWindowIcon(QIcon(ico))
@@ -406,37 +512,502 @@ class Launcher(QWidget):
         if credenciales is not None and not credenciales.env_presente():
             QTimer.singleShot(700, lambda: self._traer_credenciales(auto=True))
 
+    # ---------------------------------------------------------------- construcción
+    def _build(self):
+        self.setStyleSheet(QSS)
+        root = QHBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+        root.addWidget(self._build_sidebar())
+
+        right = QWidget()
+        right.setObjectName("content")
+        rv = QVBoxLayout(right)
+        rv.setContentsMargins(0, 0, 0, 0)
+        rv.setSpacing(0)
+        rv.addWidget(self._build_topbar())
+        self._stack = QStackedWidget()
+        self._stack.addWidget(self._page_panel())      # 0
+        self._stack.addWidget(self._page_updates())    # 1
+        self._stack.addWidget(self._page_settings())   # 2
+        self._stack.currentChanged.connect(self._on_page_change)
+        rv.addWidget(self._stack, stretch=1)
+        root.addWidget(right, stretch=1)
+
+        # Ahora que existen los widgets, refrescar estados iniciales.
+        self._refrescar_boton_todo()
+        self._refrescar_boton_cred()
+        self._refrescar_kpis()
+        self._nav_buttons[0].setChecked(True)
+        self._stack.setCurrentIndex(0)
+
+    def _build_sidebar(self):
+        side = QWidget()
+        side.setObjectName("sidebar")
+        side.setFixedWidth(230)
+        v = QVBoxLayout(side)
+        v.setContentsMargins(15, 20, 15, 15)
+        v.setSpacing(4)
+
+        # Marca
+        brand = QHBoxLayout()
+        brand.setSpacing(11)
+        mark = QLabel("MR")
+        mark.setObjectName("brandMark")
+        mark.setFixedSize(34, 34)
+        mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        brand.addWidget(mark)
+        bc = QVBoxLayout()
+        bc.setSpacing(1)
+        bn = QLabel("Suite Contable")
+        bn.setObjectName("brandName")
+        bs = QLabel("ESTUDIO")
+        bs.setObjectName("brandSub")
+        bc.addWidget(bn)
+        bc.addWidget(bs)
+        brand.addLayout(bc)
+        brand.addStretch()
+        v.addLayout(brand)
+        v.addSpacing(14)
+
+        # Navegación
+        self._nav_group = QButtonGroup(self)
+        self._nav_group.setExclusive(True)
+        lbl_g = QLabel("GENERAL")
+        lbl_g.setObjectName("navLabel")
+        v.addWidget(lbl_g)
+        self._nav_panel = self._nav_item("🗂   Panel", 0)
+        v.addWidget(self._nav_panel)
+        self._nav_upd = self._nav_item("🔄   Actualizaciones", 1)
+        v.addWidget(self._nav_upd)
+        v.addSpacing(8)
+        lbl_s = QLabel("SISTEMA")
+        lbl_s.setObjectName("navLabel")
+        v.addWidget(lbl_s)
+        v.addWidget(self._nav_item("⚙   Ajustes", 2))
+
+        v.addStretch()
+
+        # Usuario + versión
+        user = QHBoxLayout()
+        user.setSpacing(10)
+        um = QLabel("M")
+        um.setObjectName("userMark")
+        um.setFixedSize(30, 30)
+        um.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        user.addWidget(um)
+        uc = QVBoxLayout()
+        uc.setSpacing(0)
+        un = QLabel("Matías R.")
+        un.setObjectName("userName")
+        uh = QLabel("ematiromero98")
+        uh.setObjectName("userHandle")
+        uc.addWidget(un)
+        uc.addWidget(uh)
+        user.addLayout(uc)
+        user.addStretch()
+        v.addLayout(user)
+        pie = QLabel(f"v{VERSION}")
+        pie.setObjectName("footVer")
+        pie.setAlignment(Qt.AlignmentFlag.AlignRight)
+        v.addWidget(pie)
+        return side
+
+    def _nav_item(self, texto, index):
+        b = QPushButton(texto)
+        b.setObjectName("nav")
+        b.setCheckable(True)
+        b.setCursor(Qt.CursorShape.PointingHandCursor)
+        b.clicked.connect(lambda _, i=index: self._stack.setCurrentIndex(i))
+        self._nav_group.addButton(b, index)
+        self._nav_buttons.append(b)
+        return b
+
+    def _build_topbar(self):
+        top = QWidget()
+        top.setObjectName("topbar")
+        h = QHBoxLayout(top)
+        h.setContentsMargins(24, 18, 24, 18)
+        h.setSpacing(14)
+        col = QVBoxLayout()
+        col.setSpacing(2)
+        g = QLabel("Buen día, Matías")
+        g.setObjectName("greet")
+        col.addWidget(g)
+        self._greet_sub = QLabel("Cargando aplicaciones…")
+        self._greet_sub.setObjectName("greetSub")
+        col.addWidget(self._greet_sub)
+        h.addLayout(col)
+        h.addStretch()
+
+        self._btn_upd_all = QPushButton("⟳ Actualizar todo")
+        self._btn_upd_all.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_upd_all.setToolTip(
+            "Baja la última versión de todos los programas instalados en esta "
+            "PC y reinstala dependencias. Los datos no se tocan.")
+        self._btn_upd_all.clicked.connect(self._actualizar_todo)
+        h.addWidget(self._btn_upd_all)
+
+        self._btn_cred = QPushButton("🔑 Traer credenciales")
+        self._btn_cred.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_cred.clicked.connect(lambda: self._traer_credenciales(auto=False))
+        h.addWidget(self._btn_cred)
+        return top
+
+    def _kpi_card(self, label, key, hint=""):
+        f = QFrame()
+        f.setObjectName("kpi")
+        v = QVBoxLayout(f)
+        v.setContentsMargins(17, 15, 17, 15)
+        v.setSpacing(4)
+        lb = QLabel(label.upper())
+        lb.setObjectName("kpiLabel")
+        v.addWidget(lb)
+        val = QLabel("—")
+        val.setObjectName("kpiValue")
+        v.addWidget(val)
+        self._kpi[key] = val
+        if hint:
+            ht = QLabel(hint)
+            ht.setObjectName("kpiHint")
+            v.addWidget(ht)
+        return f
+
+    def _page_panel(self):
+        page = QWidget()
+        v = QVBoxLayout(page)
+        v.setContentsMargins(24, 22, 24, 18)
+        v.setSpacing(20)
+
+        # KPIs
+        row = QHBoxLayout()
+        row.setSpacing(14)
+        row.addWidget(self._kpi_card("Aplicaciones", "total", "en la suite"))
+        row.addWidget(self._kpi_card("Instaladas", "inst", "en esta PC"))
+        row.addWidget(self._kpi_card("Actualizaciones", "pend", "pendientes"))
+        row.addWidget(self._kpi_card("Al día", "ok", "última versión"))
+        v.addLayout(row)
+
+        # Sección
+        sh = QHBoxLayout()
+        st = QLabel("APLICACIONES")
+        st.setObjectName("secTitle")
+        sh.addWidget(st)
+        sh.addStretch()
+        sc = QLabel(f"{len(config.APPS)} en total")
+        sc.setObjectName("secCount")
+        sh.addWidget(sc)
+        v.addLayout(sh)
+
+        # Grilla de tarjetas (2 columnas) con scroll
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        cont = QWidget()
+        cont.setObjectName("scrollbody")
+        grid = QGridLayout(cont)
+        grid.setContentsMargins(0, 0, 8, 0)
+        grid.setHorizontalSpacing(14)
+        grid.setVerticalSpacing(14)
+        grid.setColumnStretch(0, 1)
+        grid.setColumnStretch(1, 1)
+        for i, app in enumerate(config.APPS):
+            grid.addWidget(self._tarjeta(app), i // 2, i % 2)
+        grid.setRowStretch((len(config.APPS) + 1) // 2, 1)
+        scroll.setWidget(cont)
+        v.addWidget(scroll, stretch=1)
+        return page
+
+    def _set_pill(self, pill, kind, text):
+        colores = {"ok": (ACCENT, _hex_rgba(ACCENT, "13%")),
+                   "up": (WARN, _hex_rgba(WARN, "15%")),
+                   "bad": (BAD, _hex_rgba(BAD, "14%"))}
+        c, bg = colores[kind]
+        pill.setText(text)
+        pill.setStyleSheet(
+            f"color:{c}; background:{bg}; border-radius:9px; padding:3px 9px;"
+            "font-size:10px; font-weight:700;")
+
+    def _tarjeta(self, app):
+        card = QFrame()
+        card.setObjectName("card")
+        outer = QVBoxLayout(card)
+        outer.setContentsMargins(16, 16, 16, 16)
+        outer.setSpacing(13)
+
+        # Fila 1: ícono + nombre/desc + pill
+        r1 = QHBoxLayout()
+        r1.setSpacing(12)
+        tile = QLabel(app["emoji"])
+        tile.setFixedSize(44, 44)
+        tile.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        tile.setStyleSheet(
+            f"background:{_hex_rgba(app['color'], '16%')};"
+            f"border:1px solid {_hex_rgba(app['color'], '26%')};"
+            "border-radius:13px; font-size:20px;")
+        r1.addWidget(tile, 0, Qt.AlignmentFlag.AlignTop)
+
+        col = QVBoxLayout()
+        col.setSpacing(3)
+        ver = _leer_version(app)
+        nombre = QLabel(app["nombre"] + (f"   v{ver}" if ver else ""))
+        nombre.setObjectName("cardTitle")
+        col.addWidget(nombre)
+        desc = QLabel(app["desc"])
+        desc.setObjectName("cardDesc")
+        desc.setWordWrap(True)
+        col.addWidget(desc)
+        falta = not os.path.isdir(app["dir"])
+        if falta:
+            warn = QLabel("No encontrada en " + app["dir"])
+            warn.setObjectName("cardWarn")
+            warn.setWordWrap(True)
+            col.addWidget(warn)
+        lbl_update = QLabel("")
+        lbl_update.setObjectName("cardUpd")
+        lbl_update.setWordWrap(True)
+        lbl_update.setVisible(False)
+        col.addWidget(lbl_update)
+        r1.addLayout(col, stretch=1)
+
+        pill = QLabel()
+        if falta:
+            self._set_pill(pill, "bad", "No instalada")
+        else:
+            self._set_pill(pill, "ok", "Al día")
+        r1.addWidget(pill, 0, Qt.AlignmentFlag.AlignTop)
+        outer.addLayout(r1)
+
+        # Fila 2: acciones
+        r2 = QHBoxLayout()
+        r2.setSpacing(10)
+        btn = QPushButton("▶  Abrir")
+        btn.setObjectName("abrir")
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.clicked.connect(lambda _, a=app: _abrir(a, self))
+        btn.setEnabled(not falta)
+        r2.addWidget(btn, stretch=1)
+
+        if falta:
+            btn_inst = QPushButton("⬇  Instalar")
+            btn_inst.setObjectName("ghost")
+            btn_inst.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_inst.clicked.connect(lambda _, a=app: _instalar_app(a, self))
+            r2.addWidget(btn_inst)
+
+        # Botón de actualizar SÓLO esta app. Oculto hasta detectar versión nueva.
+        btn_upd = QPushButton("⟳  Actualizar")
+        btn_upd.setObjectName("ghost")
+        btn_upd.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_upd.setVisible(False)
+        btn_upd.clicked.connect(lambda _, a=app: self._actualizar_uno(a))
+        r2.addWidget(btn_upd)
+        outer.addLayout(r2)
+
+        self._cards[app["key"]] = {"lbl": lbl_update, "nombre": nombre,
+                                   "btn": btn_upd, "app": app, "pill": pill}
+        return card
+
+    # ---------------------------------------------------------------- pág. updates
+    def _page_updates(self):
+        page = QWidget()
+        v = QVBoxLayout(page)
+        v.setContentsMargins(24, 22, 24, 18)
+        v.setSpacing(16)
+        st = QLabel("ACTUALIZACIONES")
+        st.setObjectName("secTitle")
+        v.addWidget(st)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        cont = QWidget()
+        cont.setObjectName("scrollbody")
+        self._upd_layout = QVBoxLayout(cont)
+        self._upd_layout.setContentsMargins(0, 0, 8, 0)
+        self._upd_layout.setSpacing(10)
+        scroll.setWidget(cont)
+        v.addWidget(scroll, stretch=1)
+        return page
+
+    def _clear_layout(self, lay):
+        while lay.count():
+            item = lay.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.deleteLater()
+
+    def _rebuild_updates_page(self):
+        self._clear_layout(self._upd_layout)
+        pend = [a for a in config.APPS if a["key"] in self._pendientes]
+        if not pend:
+            msg = QLabel("✓  Todo al día. No hay actualizaciones pendientes.")
+            msg.setObjectName("emptyMsg")
+            self._upd_layout.addWidget(msg)
+            self._upd_layout.addStretch()
+            return
+
+        banner = QFrame()
+        banner.setObjectName("banner")
+        bh = QHBoxLayout(banner)
+        bh.setContentsMargins(18, 16, 18, 16)
+        bh.setSpacing(14)
+        bc = QVBoxLayout()
+        bc.setSpacing(2)
+        bt = QLabel(f"{len(pend)} actualización(es) disponible(s)")
+        bt.setObjectName("bannerTitle")
+        bs = QLabel("Baja el código, respalda si hace falta y actualiza "
+                    "dependencias. Tus datos no se tocan.")
+        bs.setObjectName("bannerSub")
+        bs.setWordWrap(True)
+        bc.addWidget(bt)
+        bc.addWidget(bs)
+        bh.addLayout(bc, stretch=1)
+        bbtn = QPushButton("⟳  Actualizar todo")
+        bbtn.setObjectName("abrir")
+        bbtn.setCursor(Qt.CursorShape.PointingHandCursor)
+        bbtn.clicked.connect(self._actualizar_todo)
+        bh.addWidget(bbtn, 0, Qt.AlignmentFlag.AlignVCenter)
+        self._upd_layout.addWidget(banner)
+
+        for app in pend:
+            row = QFrame()
+            row.setObjectName("urow")
+            rh = QHBoxLayout(row)
+            rh.setContentsMargins(14, 12, 14, 12)
+            rh.setSpacing(13)
+            tile = QLabel(app["emoji"])
+            tile.setFixedSize(40, 40)
+            tile.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            tile.setStyleSheet(
+                f"background:{_hex_rgba(app['color'], '16%')};"
+                f"border:1px solid {_hex_rgba(app['color'], '26%')};"
+                "border-radius:11px; font-size:18px;")
+            rh.addWidget(tile)
+            col = QVBoxLayout()
+            col.setSpacing(2)
+            nm = QLabel(app["nombre"])
+            nm.setObjectName("uName")
+            col.addWidget(nm)
+            inst = _leer_version(app) or "—"
+            jump = QLabel(f"v{inst}  →  v{self._pendientes[app['key']]}")
+            jump.setObjectName("uJump")
+            col.addWidget(jump)
+            rh.addLayout(col, stretch=1)
+            b = QPushButton("⟳  Actualizar")
+            b.setObjectName("ghost")
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.clicked.connect(lambda _, a=app: self._actualizar_uno(a))
+            rh.addWidget(b)
+            self._upd_layout.addWidget(row)
+        self._upd_layout.addStretch()
+
+    def _on_page_change(self, idx):
+        if idx == 1:
+            self._rebuild_updates_page()
+
+    # ---------------------------------------------------------------- pág. ajustes
+    def _page_settings(self):
+        page = QWidget()
+        v = QVBoxLayout(page)
+        v.setContentsMargins(24, 22, 24, 18)
+        v.setSpacing(12)
+        st = QLabel("AJUSTES")
+        st.setObjectName("secTitle")
+        v.addWidget(st)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        cont = QWidget()
+        cont.setObjectName("scrollbody")
+        cv = QVBoxLayout(cont)
+        cv.setContentsMargins(0, 0, 8, 0)
+        cv.setSpacing(10)
+        for app in config.APPS:
+            row = QFrame()
+            row.setObjectName("setRow")
+            rh = QHBoxLayout(row)
+            rh.setContentsMargins(15, 12, 15, 12)
+            rh.setSpacing(12)
+            col = QVBoxLayout()
+            col.setSpacing(2)
+            nm = QLabel(app["nombre"])
+            nm.setObjectName("setName")
+            col.addWidget(nm)
+            pt = QLabel(app["dir"])
+            pt.setObjectName("setPath")
+            pt.setWordWrap(True)
+            col.addWidget(pt)
+            rh.addLayout(col, stretch=1)
+            existe = os.path.isdir(app["dir"])
+            estado = QLabel("● Encontrada" if existe else "● No encontrada")
+            estado.setStyleSheet(
+                f"color:{ACCENT if existe else BAD}; font-size:11px; font-weight:700;")
+            rh.addWidget(estado, 0, Qt.AlignmentFlag.AlignVCenter)
+            cv.addWidget(row)
+        cv.addStretch()
+        scroll.setWidget(cont)
+        v.addWidget(scroll, stretch=1)
+
+        fila = QHBoxLayout()
+        btn = QPushButton("⟳  Chequear de nuevo")
+        btn.setObjectName("action")
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.clicked.connect(lambda: self._chequeador.correr(config.APPS))
+        fila.addWidget(btn)
+        fila.addStretch()
+        info = QLabel(f"Suite Contable v{VERSION}")
+        info.setObjectName("footVer")
+        fila.addWidget(info)
+        v.addLayout(fila)
+        return page
+
+    # ---------------------------------------------------------------- refrescos
+    def _refrescar_kpis(self):
+        total = len(config.APPS)
+        inst = sum(1 for a in config.APPS if os.path.isdir(a["dir"]))
+        pend = len(self._pendientes)
+        al_dia = max(0, inst - pend)
+        if "total" in self._kpi:
+            self._kpi["total"].setText(str(total))
+            self._kpi["inst"].setText(str(inst))
+            self._kpi["pend"].setText(str(pend))
+            self._kpi["ok"].setText(str(al_dia))
+        if hasattr(self, "_greet_sub"):
+            if pend:
+                self._greet_sub.setText(
+                    f"{total} aplicaciones · {pend} con actualización pendiente")
+            else:
+                self._greet_sub.setText(f"{total} aplicaciones · todo al día")
+
     def _refrescar_boton_cred(self):
         """Estilo del botón según si las credenciales ya están en esta PC:
-        apagado/gris cuando ya están, llamativo (ámbar) cuando faltan."""
+        apagado/discreto cuando ya están, llamativo (ámbar) cuando faltan."""
         if credenciales is None:
             self._btn_cred.setEnabled(False)
             self._btn_cred.setStyleSheet(
-                "QPushButton { background:#F1F3F5; color:#B0B8C1;"
-                "border:1px solid #E5E9F0; border-radius:8px;"
-                "padding:7px 12px; font-size:12px; }")
+                "QPushButton { background:#1c222e; color:#5b6472;"
+                "border:1px solid #242c39; border-radius:10px;"
+                "padding:8px 14px; font-size:12px; }")
             return
         if credenciales.env_presente():
-            # Ya están: sin color, discreto (pero clickeable por si querés
-            # volver a bajarlas).
             self._btn_cred.setToolTip(
                 "Las credenciales ya están en esta PC. Tocá sólo si querés "
                 "volver a bajarlas del Drive.")
             self._btn_cred.setStyleSheet(
-                "QPushButton { background:#F1F3F5; color:#9AA5B1;"
-                "border:1px solid #E5E9F0; border-radius:8px;"
-                "padding:7px 12px; font-size:12px; }"
-                "QPushButton:hover { background:#E9ECEF; color:#6B7580; }")
+                "QPushButton { background:#1c222e; color:#8a94a6;"
+                "border:1px solid #242c39; border-radius:10px;"
+                "padding:8px 14px; font-size:12px; }"
+                "QPushButton:hover { background:#232c39; color:#eef2f8; }")
         else:
-            # Faltan: llamativo para que se note que hay que tocarlo.
             self._btn_cred.setToolTip(
                 "Baja el archivo .env (credenciales) desde el Google Drive "
                 "del estudio a esta PC. Pide acceso a Google una sola vez.")
             self._btn_cred.setStyleSheet(
-                "QPushButton { background:#F2C14E; color:#5A3E00;"
-                "border:none; border-radius:8px; padding:7px 12px;"
-                "font-size:12px; font-weight:bold; }"
-                "QPushButton:hover { background:#E6B33E; }")
+                "QPushButton { background:#2a2410; color:#f6b64b;"
+                "border:1px solid #4a3a1e; border-radius:10px;"
+                "padding:8px 14px; font-size:12px; font-weight:700; }"
+                "QPushButton:hover { background:#332b12; }")
 
     def _traer_credenciales(self, auto=False):
         """Ofrece/ejecuta la traída del `.env` desde el Drive del estudio."""
@@ -479,7 +1050,7 @@ class Launcher(QWidget):
 
     def _refrescar_boton_todo(self):
         """Prende «Actualizar todo» sólo si hay actualizaciones pendientes; si no,
-        queda apagado (gris). Muestra cuántas hay."""
+        queda apagado. Muestra cuántas hay, y actualiza el contador del menú."""
         n = len(self._pendientes)
         self._btn_upd_all.setEnabled(n > 0)
         if n > 0:
@@ -490,6 +1061,14 @@ class Launcher(QWidget):
         else:
             self._btn_upd_all.setText("⟳ Actualizar todo")
             self._btn_upd_all.setToolTip("No hay actualizaciones pendientes.")
+        self._btn_upd_all.setStyleSheet(
+            "QPushButton { background:#2ee6a6; color:#04120c; border:none;"
+            "border-radius:10px; padding:8px 14px; font-size:12px;"
+            "font-weight:700; } QPushButton:hover { background:#4fecb8; }"
+            "QPushButton:disabled { background:#1c222e; color:#5b6472; }")
+        if hasattr(self, "_nav_upd"):
+            self._nav_upd.setText(
+                "🔄   Actualizaciones" + (f"   ({n})" if n > 0 else ""))
 
     def _actualizar_todo(self):
         """Actualiza las apps que tienen una versión nueva pendiente."""
@@ -527,14 +1106,19 @@ class Launcher(QWidget):
             ver = _leer_version(app)
             card["nombre"].setText(app["nombre"] + (f"   v{ver}" if ver else ""))
             if estado in ("ok", "aviso"):
-                # Quedó al día: sale de pendientes y se oculta su aviso/botón.
+                # Quedó al día: sale de pendientes, se oculta su aviso/botón y la
+                # pill vuelve a "Al día".
                 self._pendientes.pop(key, None)
                 card["lbl"].setVisible(False)
                 card["btn"].setVisible(False)
+                self._set_pill(card["pill"], "ok", "Al día")
             # Si hubo error, la app sigue pendiente (aviso y botón quedan).
         for c in self._cards.values():
             c["btn"].setEnabled(True)
         self._refrescar_boton_todo()
+        self._refrescar_kpis()
+        if self._stack.currentIndex() == 1:
+            self._rebuild_updates_page()
         iconos = {"ok": "✅", "aviso": "⚠️", "saltada": "•", "error": "❌"}
         cuerpo = "\n".join(f"{iconos.get(e, '•')} {n}: {d}"
                            for _k, n, e, d in resultados)
@@ -571,150 +1155,23 @@ class Launcher(QWidget):
         except Exception:                              # noqa: BLE001
             pass
 
-    def _build(self):
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(32, 28, 32, 24)
-        lay.setSpacing(18)
-
-        titulo = QLabel("Suite Contable")
-        titulo.setStyleSheet("font-size:26px; font-weight:bold; color:#17375E;")
-        lay.addWidget(titulo)
-        fila = QHBoxLayout()
-        sub = QLabel("Elegí qué programa abrir.")
-        sub.setStyleSheet("color:#5D6D7E; font-size:13px;")
-        fila.addWidget(sub)
-        fila.addStretch()
-        self._btn_upd_all = QPushButton("⟳ Actualizar todo")
-        self._btn_upd_all.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_upd_all.setToolTip(
-            "Baja la última versión de todos los programas instalados en esta "
-            "PC y reinstala dependencias. Los datos no se tocan.")
-        self._btn_upd_all.setStyleSheet(
-            "QPushButton { background:#1E8E4E; color:white; border:none;"
-            "border-radius:8px; padding:7px 14px; font-size:12px;"
-            "font-weight:bold; } QPushButton:hover { background:#1B7E45; }"
-            "QPushButton:disabled { background:#B7C4CE; }")
-        self._btn_upd_all.clicked.connect(self._actualizar_todo)
-        fila.addWidget(self._btn_upd_all)
-        self._refrescar_boton_todo()   # arranca apagado hasta detectar pendientes
-        self._btn_cred = QPushButton("🔑 Traer credenciales")
-        self._btn_cred.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_cred.clicked.connect(lambda: self._traer_credenciales(auto=False))
-        self._refrescar_boton_cred()
-        fila.addWidget(self._btn_cred)
-        lay.addLayout(fila)
-
-        # Tarjetas dentro de un área con scroll (por si crece la lista de apps).
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        cont = QWidget()
-        cl = QVBoxLayout(cont)
-        cl.setContentsMargins(0, 0, 8, 0)
-        cl.setSpacing(12)
-        for app in config.APPS:
-            cl.addWidget(self._tarjeta(app))
-        cl.addStretch()
-        scroll.setWidget(cont)
-        lay.addWidget(scroll, stretch=1)
-
-        pie = QLabel(f"Suite Contable v{VERSION}")
-        pie.setStyleSheet("color:#9AA5B1; font-size:11px;")
-        pie.setAlignment(Qt.AlignmentFlag.AlignRight)
-        lay.addWidget(pie)
-
-    def _tarjeta(self, app):
-        card = QFrame()
-        card.setStyleSheet(
-            "QFrame { background:#FFFFFF; border:1px solid #E5E9F0;"
-            f"border-left:5px solid {app['color']}; border-radius:10px; }}")
-        h = QHBoxLayout(card)
-        h.setContentsMargins(18, 16, 18, 16)
-        h.setSpacing(16)
-
-        emoji = QLabel(app["emoji"])
-        emoji.setStyleSheet("font-size:34px;")
-        h.addWidget(emoji)
-
-        col = QVBoxLayout()
-        col.setSpacing(2)
-        ver = _leer_version(app)
-        nombre = QLabel(app["nombre"] + (f"   v{ver}" if ver else ""))
-        nombre.setStyleSheet("font-size:17px; font-weight:bold; color:#1F2A37;")
-        col.addWidget(nombre)
-        desc = QLabel(app["desc"])
-        desc.setStyleSheet("color:#5D6D7E; font-size:12px;")
-        col.addWidget(desc)
-        if not os.path.isdir(app["dir"]):
-            aviso = QLabel("⚠ no encontrado en " + app["dir"])
-            aviso.setStyleSheet("color:#C0392B; font-size:11px;")
-            col.addWidget(aviso)
-        lbl_update = QLabel("")
-        lbl_update.setStyleSheet("color:#B9770E; font-size:11px; font-weight:bold;")
-        lbl_update.setVisible(False)
-        col.addWidget(lbl_update)
-        h.addLayout(col, stretch=1)
-
-        botones = QVBoxLayout()
-        botones.setSpacing(6)
-        falta = not os.path.isdir(app["dir"])
-        btn = QPushButton("Abrir")
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.setFixedWidth(120)
-        btn.setStyleSheet(
-            f"QPushButton {{ background:{app['color']}; color:white; border:none;"
-            "border-radius:8px; padding:10px 0; font-size:14px; font-weight:bold; }}"
-            "QPushButton:hover { opacity:.9; }"
-            "QPushButton:disabled { background:#C4CDD5; }")
-        btn.clicked.connect(lambda _, a=app: _abrir(a, self))
-        btn.setEnabled(not falta)
-        botones.addWidget(btn)
-
-        if falta:
-            btn_inst = QPushButton("⬇ Instalar")
-            btn_inst.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn_inst.setFixedWidth(120)
-            btn_inst.setStyleSheet(
-                "QPushButton { background:#F2C14E; color:#5A3E00; border:none;"
-                "border-radius:8px; padding:8px 0; font-size:12px; font-weight:bold; }"
-                "QPushButton:hover { background:#E6B33E; }")
-            btn_inst.clicked.connect(lambda _, a=app: _instalar_app(a, self))
-            botones.addWidget(btn_inst)
-
-        # Botón para actualizar SOLO esta app. Oculto hasta que se detecte que
-        # tiene una versión nueva (ver _on_update).
-        btn_upd = QPushButton("⟳ Actualizar")
-        btn_upd.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_upd.setFixedWidth(120)
-        btn_upd.setStyleSheet(
-            "QPushButton { background:#F2C14E; color:#5A3E00; border:none;"
-            "border-radius:8px; padding:8px 0; font-size:12px; font-weight:bold; }"
-            "QPushButton:hover { background:#E6B33E; }"
-            "QPushButton:disabled { background:#E5E9F0; color:#9AA5B1; }")
-        btn_upd.setVisible(False)
-        btn_upd.clicked.connect(lambda _, a=app: self._actualizar_uno(a))
-        botones.addWidget(btn_upd)
-
-        h.addLayout(botones)
-
-        self._cards[app["key"]] = {"lbl": lbl_update, "nombre": nombre,
-                                   "btn": btn_upd, "app": app}
-        return card
-
     def _on_update(self, key, latest):
         """Llega desde el chequeo en segundo plano: `latest` = versión nueva o ''."""
         card = self._cards.get(key)
-        if not card or not latest:
-            return
-        app = card["app"]
-        card["lbl"].setText(f"🔔 Actualización disponible (v{latest})")
-        card["lbl"].setVisible(True)
-        # Sólo se puede actualizar si está instalada (hay repo git). Si no, se
-        # usa «⬇ Instalar». Marcar pendiente y mostrar su botón + prender «todo».
-        if os.path.isdir(os.path.join(app["dir"], ".git")):
-            self._pendientes[key] = latest
-            card["btn"].setVisible(True)
-            self._refrescar_boton_todo()
+        if card and latest:
+            app = card["app"]
+            card["lbl"].setText(f"Nueva versión disponible · v{latest}")
+            card["lbl"].setVisible(True)
+            self._set_pill(card["pill"], "up", "Actualizar")
+            # Sólo se puede actualizar si está instalada (hay repo git). Si no, se
+            # usa «⬇ Instalar». Marcar pendiente y mostrar su botón.
+            if os.path.isdir(os.path.join(app["dir"], ".git")):
+                self._pendientes[key] = latest
+                card["btn"].setVisible(True)
+        self._refrescar_boton_todo()
+        self._refrescar_kpis()
+        if self._stack.currentIndex() == 1:
+            self._rebuild_updates_page()
 
 
 def main():
