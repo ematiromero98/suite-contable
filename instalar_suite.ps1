@@ -62,10 +62,12 @@ if ([string]::IsNullOrWhiteSpace($TOKEN) -or $TOKEN -eq "PEGA_TU_TOKEN_ACA") {
     Read-Host "Enter para salir"; exit 1
 }
 
-# 1) Requisitos: git, gh y python (se instalan solos con winget si faltan).
+# 1) Requisitos: git y python (se instalan solos con winget si faltan).
+#    OJO: NO tocamos `gh auth`. El token va a un archivo aparte (paso 2), así el
+#    login personal de quien administre queda intacto y cualquier PC puede ser
+#    administradora sin conflicto.
 $reqs = @(
     @{ cmd = "git";    id = "Git.Git" },
-    @{ cmd = "gh";     id = "GitHub.cli" },
     @{ cmd = "python"; id = "Python.Python.3.12" }
 )
 foreach ($r in $reqs) {
@@ -75,25 +77,31 @@ foreach ($r in $reqs) {
         Refrescar-Path
     }
 }
-if (-not (Existe "git") -or -not (Existe "gh") -or -not (Existe "python")) {
-    Write-Host "No pude instalar git/gh/python automaticamente." -ForegroundColor Red
-    Write-Host "Instalalos a mano (winget install Git.Git GitHub.cli Python.Python.3.12) y volve a correr." -ForegroundColor Red
+if (-not (Existe "git") -or -not (Existe "python")) {
+    Write-Host "No pude instalar git/python automaticamente." -ForegroundColor Red
+    Write-Host "Instalalos a mano (winget install Git.Git Python.Python.3.12) y volve a correr." -ForegroundColor Red
     Read-Host "Enter para salir"; exit 1
 }
 
-# 2) Autenticar gh con el token (sin navegador, sin login).
-Write-Host "Autenticando con GitHub (token de solo lectura)..." -ForegroundColor Yellow
-$TOKEN | gh auth login --with-token
-gh auth setup-git
+# 2) Guardar el token del runtime en un archivo (NO en el gh personal).
+$SuiteData = "$env:LOCALAPPDATA\Suite Contable"
+New-Item -ItemType Directory -Force -Path $SuiteData | Out-Null
+Set-Content -Path "$SuiteData\gh_token.txt" -Value $TOKEN -NoNewline -Encoding ascii
+Write-Host "Token de solo-lectura guardado (sin tocar tu login de GitHub)." -ForegroundColor Yellow
 
-# 3) ERP: clonar o actualizar.
+# 3) ERP: clonar o actualizar con el token (git directo, sin gh).
+$AuthUrl  = "https://x-access-token:$TOKEN@github.com/ematiromero98/suite-contable.git"
+$CleanUrl = "https://github.com/ematiromero98/suite-contable.git"
 if (Test-Path "$SUITE\.git") {
     Write-Host "Actualizando el ERP..." -ForegroundColor Yellow
+    git -C $SUITE remote set-url origin $AuthUrl
     git -C $SUITE pull --ff-only
+    git -C $SUITE remote set-url origin $CleanUrl
 } else {
     Write-Host "Bajando el ERP a $SUITE ..." -ForegroundColor Yellow
     New-Item -ItemType Directory -Force -Path (Split-Path $SUITE) | Out-Null
-    gh repo clone ematiromero98/suite-contable $SUITE
+    git clone $AuthUrl $SUITE
+    if (Test-Path "$SUITE\.git") { git -C $SUITE remote set-url origin $CleanUrl }
 }
 
 # 4) Dejar la PC lista: apps + dependencias + credenciales + acceso directo.

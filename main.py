@@ -205,20 +205,38 @@ def _es_mayor(latest, installed):
 
 
 def _ultima_release(repo):
-    """Último release publicado en GitHub, vía el CLI `gh` (ya autenticado en la
-    máquina; sirve para repos privados sin manejar tokens). None si no se pudo."""
+    """Último release publicado en GitHub. Primero prueba el CLI `gh` (si hay un
+    login personal); si no, la API con el token del runtime (así el aviso de
+    "hay actualización" anda también sin `gh`). None si no se pudo."""
     if not repo:
         return None
+    # 1) gh (si esta PC tiene un login personal)
     try:
         r = subprocess.run(
             ["gh", "release", "view", "--repo", repo, "--json", "tagName",
              "-q", ".tagName"],
             capture_output=True, text=True, timeout=10,
             creationflags=_NO_WINDOW)
-        if r.returncode == 0:
+        if r.returncode == 0 and r.stdout.strip():
             return r.stdout.strip().lstrip("vV")
     except Exception:                                   # noqa: BLE001
         pass
+    # 2) API de GitHub con el token del runtime (sin gh)
+    tok = _token_runtime()
+    if tok:
+        try:
+            import json
+            import urllib.request
+            req = urllib.request.Request(
+                f"https://api.github.com/repos/{repo}/releases/latest",
+                headers={"Authorization": f"token {tok}",
+                         "Accept": "application/vnd.github+json"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                tag = json.load(resp).get("tag_name")
+            if tag:
+                return tag.lstrip("vV")
+        except Exception:                               # noqa: BLE001
+            pass
     return None
 
 
@@ -294,22 +312,36 @@ def _abrir(app, parent):
 
 
 def _instalar_app(app, parent):
-    """Clona una app que falta (vía gh, ya autenticado). Bloquea un momento."""
+    """Clona una app que falta usando el token del runtime (sin depender de `gh`).
+    Bloquea un momento."""
     import shutil
     repo, dest = app.get("repo"), app["dir"]
     if not repo:
         return
-    if shutil.which("gh") is None:
-        QMessageBox.warning(
-            parent, "Instalar",
-            f"No encontré 'gh' para instalar {app['nombre']}.\n"
-            f"Instalalo una vez a mano:\n  gh repo clone {repo} \"{dest}\"")
-        return
+    tok = _token_runtime()
     parent.setCursor(Qt.CursorShape.WaitCursor)
     try:
-        r = subprocess.run(["gh", "repo", "clone", repo, dest],
-                           capture_output=True, text=True, timeout=300,
-                           creationflags=_NO_WINDOW)
+        os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
+        if tok:
+            url = f"https://x-access-token:{tok}@github.com/{repo}.git"
+            r = subprocess.run(["git", "clone", url, dest],
+                               capture_output=True, text=True, timeout=300,
+                               creationflags=_NO_WINDOW)
+            # Dejar el origin SIN el token embebido (las updates lo inyectan solas).
+            if r.returncode == 0:
+                _git(dest, ["remote", "set-url", "origin",
+                            f"https://github.com/{repo}.git"], timeout=15)
+        elif shutil.which("gh") is not None:
+            r = subprocess.run(["gh", "repo", "clone", repo, dest],
+                               capture_output=True, text=True, timeout=300,
+                               creationflags=_NO_WINDOW)
+        else:
+            parent.unsetCursor()
+            QMessageBox.warning(
+                parent, "Instalar",
+                f"No hay credenciales para bajar {app['nombre']}.\n"
+                "Corré el instalador del estudio (instalar_suite.ps1) en esta PC.")
+            return
     except Exception as e:                              # noqa: BLE001
         parent.unsetCursor()
         QMessageBox.critical(parent, "Error",
@@ -376,6 +408,19 @@ def _gh_token():
     except Exception:                                       # noqa: BLE001
         pass
     return None
+
+
+def _token_runtime():
+    """Token de SOLO-LECTURA del runtime (archivo del instalador → gh), para bajar
+    y actualizar código sin depender del `gh` personal. Así el ERP se actualiza
+    solo aunque esta PC no tenga `gh` logueado, y quien administre puede loguear su
+    cuenta con escritura SIN que se pisen entre sí. None si no hay ninguno."""
+    if credenciales is not None:
+        try:
+            return credenciales.token_runtime()
+        except Exception:                                   # noqa: BLE001
+            pass
+    return _gh_token()
 
 
 def _python_base():
@@ -447,11 +492,10 @@ def _actualizar_app_core(app):
         #    (`gh auth setup-git`). Sirve para todos los repos si está bien.
         f = _git(dir_, ["fetch"])
         target = "@{u}"                                  # rama remota trackeada
-        # 2) Si falla, usar el token del `gh` logueado (cubre TODOS los repos
-        #    privados del estudio) aunque no se haya corrido setup-git. Esto
-        #    evita el 403 típico en una PC recién configurada.
+        # 2) Si falla, usar el token del RUNTIME (archivo del instalador o gh).
+        #    Cubre los repos privados sin depender del `gh` personal.
         if f.returncode != 0 and repo:
-            ght = _gh_token()
+            ght = _token_runtime()
             if ght:
                 f = _git(dir_, ["fetch",
                                 f"https://x-access-token:{ght}@github.com/{repo}.git"])
@@ -1188,7 +1232,7 @@ class Launcher(QWidget):
             f = _git(_BASE, ["fetch"], timeout=60)
             target = "@{u}"
             if f.returncode != 0:
-                ght = _gh_token()
+                ght = _token_runtime()
                 if ght:
                     f = _git(_BASE, ["fetch",
                                      f"https://x-access-token:{ght}@github.com/"

@@ -327,14 +327,49 @@ def _gh_token():
     return None
 
 
+def _token_file():
+    """Archivo donde el instalador deja el token de SOLO-LECTURA del runtime,
+    APARTE del `gh auth` personal."""
+    return os.path.join(base_dir(), "gh_token.txt")
+
+
+def guardar_token(tok):
+    """Guarda el token de solo-lectura del runtime. Lo llama el instalador. Queda
+    separado del `gh` personal: así una PC puede ser ADMINISTRADORA (login propio
+    con permiso de escritura) sin que el instalador se lo pise, y cualquier PC
+    puede volverse administradora sin depender de cuál sea."""
+    try:
+        os.makedirs(base_dir(), exist_ok=True)
+        with open(_token_file(), "w", encoding="utf-8") as f:
+            f.write((tok or "").strip())
+        return True
+    except OSError:
+        return False
+
+
+def token_runtime():
+    """Token para las operaciones AUTOMÁTICAS de git (bajar/actualizar código y
+    credenciales) SIN depender del `gh` logueado. Orden: archivo del instalador →
+    token del `gh` (última opción, por si esta PC usa el modelo viejo)."""
+    try:
+        p = _token_file()
+        if os.path.isfile(p):
+            t = open(p, encoding="utf-8").read().strip()
+            if t:
+                return t
+    except OSError:
+        pass
+    return _gh_token()
+
+
 def _secretos_repo_dir():
     return os.path.join(base_dir(), "suite-secretos")
 
 
 def _clonar_o_actualizar_secretos():
-    """Clona (o actualiza) el repo privado de secretos con el token de `gh`.
-    Devuelve la carpeta local o None si no se pudo (gh no logueado / sin acceso)."""
-    tok = _gh_token()
+    """Clona (o actualiza) el repo privado de secretos con el token del runtime
+    (archivo del instalador o gh). Devuelve la carpeta local o None si no se pudo."""
+    tok = token_runtime()
     if not tok:
         return None
     dest = _secretos_repo_dir()

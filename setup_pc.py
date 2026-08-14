@@ -39,6 +39,15 @@ def _python_base():
     return consola if os.path.isfile(consola) else base
 
 
+def _token():
+    if credenciales is not None:
+        try:
+            return credenciales.token_runtime()
+        except Exception:                                  # noqa: BLE001
+            pass
+    return None
+
+
 def _clonar_app(app):
     d, repo = app["dir"], app.get("repo")
     if not repo:
@@ -49,7 +58,16 @@ def _clonar_app(app):
         return
     os.makedirs(os.path.dirname(d) or ".", exist_ok=True)
     _log(f"  [..] clonando {app['nombre']}")
-    r = subprocess.run(["gh", "repo", "clone", repo, d], creationflags=_NO_WINDOW)
+    tok = _token()
+    if tok:
+        url = f"https://x-access-token:{tok}@github.com/{repo}.git"
+        r = subprocess.run(["git", "clone", url, d], creationflags=_NO_WINDOW)
+        if r.returncode == 0:
+            # origin sin el token embebido (las updates lo inyectan solas)
+            subprocess.run(["git", "-C", d, "remote", "set-url", "origin",
+                            f"https://github.com/{repo}.git"], creationflags=_NO_WINDOW)
+    else:
+        r = subprocess.run(["gh", "repo", "clone", repo, d], creationflags=_NO_WINDOW)
     _log("      OK" if r.returncode == 0
          else "      FALLÓ (¿el token tiene acceso a ese repo?)")
 
