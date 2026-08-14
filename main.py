@@ -1180,10 +1180,31 @@ class Launcher(QWidget):
                       f"al repo oficial ({_REPO_OFICIAL}). No se actualiza por "
                       "seguridad.", file=sys.stderr)
                 return
-            if _git(_BASE, ["fetch"], timeout=60).returncode != 0:
+            # Fetch en 3 niveles, igual que las apps hijas, para que ande también
+            # si el repo del ERP pasa a PRIVADO:
+            #  1) git normal (credential helper, si se corrió `gh auth setup-git`)
+            #  2) token del `gh` logueado (cubre los repos privados del estudio)
+            #  3) token del `.env` (GITHUB_TOKEN), último recurso
+            f = _git(_BASE, ["fetch"], timeout=60)
+            target = "@{u}"
+            if f.returncode != 0:
+                ght = _gh_token()
+                if ght:
+                    f = _git(_BASE, ["fetch",
+                                     f"https://x-access-token:{ght}@github.com/"
+                                     f"{_REPO_OFICIAL}.git"], timeout=60)
+                    target = "FETCH_HEAD"
+            if f.returncode != 0:
+                envtok = _leer_token_env(_BASE)
+                if envtok:
+                    f = _git(_BASE, ["fetch",
+                                     f"https://{envtok}@github.com/{_REPO_OFICIAL}.git"],
+                             timeout=60)
+                    target = "FETCH_HEAD"
+            if f.returncode != 0:
                 return
-            if _git(_BASE, ["merge", "--ff-only", "@{u}"], timeout=30).returncode != 0:
-                _git(_BASE, ["reset", "--hard", "@{u}"], timeout=30)
+            if _git(_BASE, ["merge", "--ff-only", target], timeout=30).returncode != 0:
+                _git(_BASE, ["reset", "--hard", target], timeout=30)
         except Exception:                              # noqa: BLE001
             pass
 

@@ -1,4 +1,4 @@
 # -*- coding: utf-8 -*-
 """Versión de la Suite Contable (launcher)."""
-VERSION = "1.13.0"
+VERSION = "1.13.1"
 REPO = "ematiromero98/suite-contable"
