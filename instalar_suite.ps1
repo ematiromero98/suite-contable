@@ -24,6 +24,28 @@ $TOKEN = "PEGA_TU_TOKEN_ACA"          # <-- token fino de GitHub, SÓLO LECTURA
 $Drive = if (Test-Path "D:\") { "D:" } else { "C:" }
 $SUITE = "$Drive\suite-contable"
 
+# Carpetas de las apps: por defecto en D:\ (oficina). Si esta PC usa otro disco
+# (p. ej. una de casa sin D:), las redirigimos a ese disco — persistente con setx
+# (para cuando se abra el ERP) y en esta sesión (para el setup_pc.py de abajo).
+$AppDirs = [ordered]@{
+    "SUITE_CONTABLE_DIR" = "\suite-contable"
+    "DDJJ_IMPUESTOS_DIR" = "\ddjj-impuestos"
+    "RETENCIONESPRO_DIR" = "\RetencionesPro"
+    "COBRANZAS_DIR"      = "\PROYECTOS CLAUDE\cobranzas-osecac"
+    "FACTURADOR_DIR"     = "\PROYECTOS CLAUDE\facturador-arca"
+    "EMPLOYEE_PRO_DIR"   = "\PROYECTOS CLAUDE\employee-pro"
+    "JUICIOS_DIR"        = "\control-juicios"
+    "CONTABILIDAD_DIR"   = "\contabilidad"
+}
+if ($Drive -ne "D:") {
+    Write-Host "Esta PC no tiene disco D:, uso $Drive y redirijo las carpetas." -ForegroundColor Yellow
+    foreach ($k in $AppDirs.Keys) {
+        $val = "$Drive$($AppDirs[$k])"
+        setx $k "$val" | Out-Null                 # persistente (futuras sesiones)
+        Set-Item -Path "Env:$k" -Value $val       # esta sesión (setup_pc.py)
+    }
+}
+
 # ----------------------------------------------------------------------------
 $ErrorActionPreference = "Stop"
 function Existe($c) { [bool](Get-Command $c -ErrorAction SilentlyContinue) }
