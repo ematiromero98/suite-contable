@@ -26,6 +26,13 @@ import re
 import subprocess
 import sys
 
+# La consola de Windows (cp1252) no encodea algunos glifos; que nunca crashee.
+try:
+    sys.stdout.reconfigure(errors="replace")
+    sys.stderr.reconfigure(errors="replace")
+except Exception:  # noqa: BLE001
+    pass
+
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 # Candidatos de archivo de versión, en orden de preferencia.
@@ -165,13 +172,13 @@ def main():
     _git(d, "fetch", "--tags", "--quiet")
     show = _git(d, "show", f"v{nueva}:{vf.replace(os.sep, '/')}")
     pub = _leer_version(show.stdout) if show.returncode == 0 else None
-    print("\n──────────── VERIFICACIÓN ────────────")
-    print(f"  código publicado (tag v{nueva}) reporta versión: {pub}")
+    print("\n==== VERIFICACION ====")
+    print(f"  codigo publicado (tag v{nueva}) reporta version: {pub}")
     if pub == nueva:
-        print("  ✓ COINCIDE. El ERP verá esta app 'al día' (sin loop).")
+        print("  [OK] Coincide. El ERP va a ver esta app al dia (sin loop).")
     else:
-        print(f"  ✗ NO COINCIDE (código={pub}, tag={nueva}). El ERP va a loopear.")
-        print("    Revisá el archivo de versión y volvé a publicar.")
+        print(f"  [ERROR] NO coincide (codigo={pub}, tag={nueva}). El ERP va a loopear.")
+        print("    Revisa el archivo de version y volve a publicar.")
         sys.exit(2)
 
 
