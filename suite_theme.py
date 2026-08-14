@@ -11,8 +11,9 @@ Uso típico en una app::
 
     import os, sys
     _suite = os.environ.get("SUITE_CONTABLE_DIR", r"D:\\suite-contable")
-    if os.path.isdir(_suite):
-        sys.path.insert(0, _suite)
+    if os.path.isdir(_suite) and _suite not in sys.path:
+        sys.path.append(_suite)   # append, NO insert(0): evita shadowear
+                                  # version.py/config.py propios de la app
     try:
         import suite_theme
     except Exception:
