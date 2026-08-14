@@ -39,6 +39,13 @@ try:
 except Exception:                                          # noqa: BLE001
     credenciales = None
 
+# Módulo "Arquitectura" (diagramas del ERP). Import defensivo: si fallara, el
+# ERP abre igual y sólo se omite esa página.
+try:
+    from arquitectura import PaginaArquitectura
+except Exception:                                          # noqa: BLE001
+    PaginaArquitectura = None
+
 _BASE = os.path.dirname(os.path.abspath(__file__))
 # Evitar que se abran consolas negras al llamar a gh/.bat en Windows.
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -538,6 +545,7 @@ class Launcher(QWidget):
         self._stack.addWidget(self._page_panel())      # 0
         self._stack.addWidget(self._page_updates())    # 1
         self._stack.addWidget(self._page_settings())   # 2
+        self._stack.addWidget(self._page_arquitectura())  # 3
         self._stack.currentChanged.connect(self._on_page_change)
         rv.addWidget(self._stack, stretch=1)
         root.addWidget(right, stretch=1)
@@ -588,6 +596,8 @@ class Launcher(QWidget):
         v.addWidget(self._nav_panel)
         self._nav_upd = self._nav_item("🔄   Actualizaciones", 1)
         v.addWidget(self._nav_upd)
+        self._nav_arq = self._nav_item("🗺   Arquitectura", 3)
+        v.addWidget(self._nav_arq)
         v.addSpacing(8)
         lbl_s = QLabel("SISTEMA")
         lbl_s.setObjectName("navLabel")
@@ -912,6 +922,20 @@ class Launcher(QWidget):
     def _on_page_change(self, idx):
         if idx == 1:
             self._rebuild_updates_page()
+
+    # ------------------------------------------------------------ pág. arquitectura
+    def _page_arquitectura(self):
+        """Página con el diagrama de arquitectura del ERP y de cada app."""
+        if PaginaArquitectura is None:
+            ph = QWidget()
+            v = QVBoxLayout(ph)
+            v.setContentsMargins(24, 22, 24, 18)
+            lbl = QLabel("El módulo de arquitectura no está disponible en esta versión.")
+            lbl.setStyleSheet("color:#8a94a6; font-size:13px;")
+            v.addWidget(lbl)
+            v.addStretch()
+            return ph
+        return PaginaArquitectura(self)
 
     # ---------------------------------------------------------------- pág. ajustes
     def _page_settings(self):
