@@ -21,6 +21,7 @@ import hashlib
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 
 import config
@@ -64,6 +65,12 @@ _APPS_SECRETO = (
     {"key": "employee", "drive": "employee.secretos.json", "local": "secretos.json",
      "marca": "secretos.json", "configurar": False},
 )
+
+# Repo PRIVADO de GitHub con las credenciales (reemplaza al Google Drive en el
+# modelo "cero logins": el instalador loguea `gh` con un token de sólo-lectura y
+# de ahí en más TODO —código y credenciales— viene de GitHub, sin login de Google).
+# Contiene: .env (compartido) + cobranzas.secretos.json + employee.secretos.json.
+REPO_SECRETOS = "ematiromero98/suite-secretos"
 
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
@@ -283,23 +290,128 @@ def tiene_secreto_propio(key):
 
 
 def asegurar_secreto(key):
-    """Al abrir una app con secreto propio: si le falta, intenta bajarlo del Drive
-    con el remoto que YA exista (no dispara OAuth; si no hay remoto, queda para el
-    botón "Traer credenciales"). Silencioso. True/False, o None si no aplica."""
+    """Al abrir una app con secreto propio: si le falta, intenta bajarlo SIN pedir
+    logins — primero de GitHub (gh) y, si no, del Drive con el remoto que ya exista.
+    Silencioso. True/False, o None si no aplica."""
     spec = next((s for s in _APPS_SECRETO if s["key"] == key), None)
     if spec is None or not _secreto_pendiente(spec):
         return None
+    # 1) GitHub (gh): sin login
+    try:
+        repo = _clonar_o_actualizar_secretos()
+        if repo and _instalar_secreto_desde(repo, spec):
+            return True
+    except Exception:                                       # noqa: BLE001
+        pass
+    # 2) Drive/rclone (fallback, si esta PC todavía usa el modelo viejo)
     try:
         rc = _rclone_exe()
         if not os.path.isfile(rc):
-            return False        # rclone aún no está en esta PC
+            return False
         return _traer_secreto(rc, spec)
     except Exception:                                       # noqa: BLE001
         return False
 
 
+# ------------------------------------------------------------ vía GitHub (gh)
+def _gh_token():
+    """Token del `gh` logueado en esta PC (o None). Con esto se baja el repo de
+    secretos sin pedir ningún login."""
+    try:
+        r = subprocess.run(["gh", "auth", "token"], capture_output=True,
+                           text=True, timeout=10, creationflags=_NO_WINDOW)
+        if r.returncode == 0 and r.stdout.strip():
+            return r.stdout.strip()
+    except Exception:                                       # noqa: BLE001
+        pass
+    return None
+
+
+def _secretos_repo_dir():
+    return os.path.join(base_dir(), "suite-secretos")
+
+
+def _clonar_o_actualizar_secretos():
+    """Clona (o actualiza) el repo privado de secretos con el token de `gh`.
+    Devuelve la carpeta local o None si no se pudo (gh no logueado / sin acceso)."""
+    tok = _gh_token()
+    if not tok:
+        return None
+    dest = _secretos_repo_dir()
+    url = f"https://x-access-token:{tok}@github.com/{REPO_SECRETOS}.git"
+    try:
+        if os.path.isdir(os.path.join(dest, ".git")):
+            subprocess.run(["git", "-C", dest, "remote", "set-url", "origin", url],
+                           capture_output=True, text=True, timeout=20,
+                           creationflags=_NO_WINDOW)
+            subprocess.run(["git", "-C", dest, "pull", "--ff-only"],
+                           capture_output=True, text=True, timeout=90,
+                           creationflags=_NO_WINDOW)
+        else:
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            subprocess.run(["git", "clone", "--depth", "1", url, dest],
+                           capture_output=True, text=True, timeout=120,
+                           creationflags=_NO_WINDOW)
+    except Exception:                                       # noqa: BLE001
+        pass
+    return dest if os.path.isdir(os.path.join(dest, ".git")) else None
+
+
+def _instalar_secreto_desde(repo, spec):
+    """Copia el secreto de una app desde el repo clonado y corre configurar.py si
+    corresponde. Devuelve True si la app quedó configurada."""
+    d = _dir_app(spec["key"])
+    src = os.path.join(repo, spec["drive"])
+    if not (d and os.path.isdir(d) and os.path.isfile(src)):
+        return False
+    if os.path.isfile(os.path.join(d, spec["marca"])):
+        return True
+    try:
+        shutil.copy2(src, os.path.join(d, spec["local"]))
+    except OSError:
+        return False
+    if spec["configurar"]:
+        try:
+            subprocess.run([_python_de(d), "configurar.py"], cwd=d,
+                           capture_output=True, text=True, timeout=90,
+                           creationflags=_NO_WINDOW)
+        except Exception:                                   # noqa: BLE001
+            pass
+    return not _secreto_pendiente(spec)
+
+
+def traer_github():
+    """Trae credenciales desde el repo privado suite-secretos con `gh` (SIN Drive
+    ni login de Google). Devuelve (ok, mensaje), o None si gh no está disponible."""
+    repo = _clonar_o_actualizar_secretos()
+    if not repo:
+        return None
+    # .env compartido → central + distribución a reten/ddjj/juicios + OneDrive
+    src_env = os.path.join(repo, ".env")
+    if os.path.isfile(src_env):
+        try:
+            os.makedirs(os.path.dirname(env_central()), exist_ok=True)
+            shutil.copy2(src_env, env_central())
+        except OSError:
+            pass
+    puestos = _distribuir_env()
+    # secretos propios de cada app (Cobranzas, Employee)
+    for spec in _APPS_SECRETO:
+        if _instalar_secreto_desde(repo, spec):
+            d = _dir_app(spec["key"])
+            if d:
+                puestos.append(d)
+    detalle = "\n".join(f"  • {p}" for p in puestos) or "  • (nada)"
+    return True, ("Credenciales instaladas desde GitHub (sin Drive) en esta PC.\n"
+                  "\nQuedó en:\n" + detalle)
+
+
 def traer():
     """Trae el `.env` y lo distribuye. Devuelve (ok: bool, mensaje: str)."""
+    # Preferimos GitHub (gh, sin login de Google). Si no hay gh/acceso, Drive.
+    g = traer_github()
+    if g is not None:
+        return g
     try:
         rc = _ensure_rclone()
     except Exception as e:                                  # noqa: BLE001
@@ -331,3 +443,10 @@ def traer():
                         f"({spec['drive']}) del Drive.")
     return True, ("Credenciales instaladas en esta PC. Ya podés abrir las "
                   "apps.\n\nQuedó en:\n" + detalle)
+
+
+if __name__ == "__main__":
+    # CLI: usada por el instalador (setup_pc.py) para traer credenciales sin UI.
+    _ok, _msg = traer()
+    print(_msg)
+    sys.exit(0 if _ok else 1)
