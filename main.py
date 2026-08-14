@@ -252,12 +252,12 @@ class _Chequeador(QObject):
 
 
 def _abrir(app, parent):
-    # Cobranzas usa su propio secretos.json (no el `.env` compartido). Si se está
-    # abriendo y le falta, intentamos bajarlo del Drive con el remoto ya
+    # Cobranzas y Employee usan su propio secreto (no el `.env` compartido). Si se
+    # está abriendo una y le falta, intentamos bajarlo del Drive con el remoto ya
     # configurado (silencioso; si no hay remoto, queda para "Traer credenciales").
-    if app.get("key") == "cobranzas" and credenciales is not None:
+    if credenciales is not None and credenciales.tiene_secreto_propio(app.get("key")):
         try:
-            credenciales.asegurar_cobranzas()
+            credenciales.asegurar_secreto(app["key"])
         except Exception:                                   # noqa: BLE001
             pass
     entrada = _entrada(app)

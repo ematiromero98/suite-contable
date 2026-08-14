@@ -47,13 +47,23 @@ CUENTA_ESTUDIO = "ematiromero98@gmail.com"
 # (mismo proyecto Supabase): RetencionesPro, DDJJ Impuestos y Control de Juicios.
 _APPS_ENV = ("reten", "ddjj", "juicios", "contabilidad")
 
-# Cobranzas OSECAC usa su PROPIO proyecto Supabase (distinto al compartido) y se
-# configura desde `secretos.json` (su configurar.py genera .env + config.json a
-# partir de ese archivo). El secretos.json vive PRIVADO en el mismo Drive del
-# estudio; acá lo bajamos e instalamos aparte (ver _traer_cobranzas).
-# (Employee Pro / Facturador ARCA tienen sus propios secretos y hoy NO se
-# automatizan; si hiciera falta, replicar este mismo patrón.)
-DRIVE_COBRANZAS = "suite:Suite Contable/cobranzas.secretos.json"
+# Apps con secreto PROPIO (no usan el `.env` compartido). Cada una guarda sus
+# credenciales en un archivo aparte, gitignored, que vive PRIVADO en la carpeta
+# "Suite Contable" del Drive del estudio. Se bajan con el MISMO remoto rclone.
+#   key        : key de la app en config.APPS
+#   drive      : nombre del archivo dentro de "Suite Contable/" en el Drive
+#   local      : nombre del archivo dentro de la carpeta de la app
+#   marca      : archivo cuya existencia = "ya configurada" (para no re-bajar)
+#   configurar : correr configurar.py tras bajar el secreto (Cobranzas genera
+#                .env + config.json desde secretos.json; Employee lo lee directo)
+# Facturador ARCA NO va acá: versiona su `nube.json` + `certs/` en su repo
+# PRIVADO, así que el `gh repo clone` ya se los trae a cada PC.
+_APPS_SECRETO = (
+    {"key": "cobranzas", "drive": "cobranzas.secretos.json", "local": "secretos.json",
+     "marca": ".env", "configurar": True},
+    {"key": "employee", "drive": "employee.secretos.json", "local": "secretos.json",
+     "marca": "secretos.json", "configurar": False},
+)
 
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
@@ -201,21 +211,26 @@ def _distribuir_env():
     return puestos
 
 
-def _cobranzas_dir():
-    """Carpeta de Cobranzas OSECAC en esta PC (None si no está en la config)."""
+def _dir_app(key):
+    """Carpeta de una app de la suite en esta PC (None si no está en la config)."""
     for a in config.APPS:
-        if a["key"] == "cobranzas":
+        if a["key"] == key:
             return a["dir"]
     return None
 
 
-def cobranzas_configurada():
-    """True si Cobranzas no tiene nada pendiente: o no está instalada, o ya tiene
-    su `.env`. False sólo si está instalada pero le falta el `.env`."""
-    d = _cobranzas_dir()
+def _secreto_pendiente(spec):
+    """True si esa app está instalada pero le falta su secreto/config (según la
+    'marca'). False si no está instalada o ya está configurada."""
+    d = _dir_app(spec["key"])
     if not d or not os.path.isdir(d):
-        return True
-    return os.path.isfile(os.path.join(d, ".env"))
+        return False
+    return not os.path.isfile(os.path.join(d, spec["marca"]))
+
+
+def secretos_pendientes():
+    """Apps con secreto propio instaladas y todavía sin configurar."""
+    return [s for s in _APPS_SECRETO if _secreto_pendiente(s)]
 
 
 def _python_de(dir_):
@@ -228,49 +243,57 @@ def _python_de(dir_):
     return sys.executable or "python"
 
 
-def _traer_cobranzas(rc):
-    """Baja el `secretos.json` de Cobranzas del Drive y corre su `configurar.py`
-    (genera `.env` + `config.json` sin pisar los que ya existan). Best-effort:
-    nunca lanza. Devuelve True/False, o None si no aplica (no instalada o ya OK)."""
-    d = _cobranzas_dir()
+def _traer_secreto(rc, spec):
+    """Baja el secreto propio de una app del Drive y, si corresponde, corre su
+    `configurar.py` (sin pisar lo que ya exista). Best-effort: nunca lanza.
+    Devuelve True/False, o None si no aplica (no instalada o ya configurada)."""
+    d = _dir_app(spec["key"])
     if not d or not os.path.isdir(d):
         return None
-    if os.path.isfile(os.path.join(d, ".env")):
+    if os.path.isfile(os.path.join(d, spec["marca"])):
         return None
-    sec = os.path.join(d, "secretos.json")
-    if not os.path.isfile(sec):
+    local = os.path.join(d, spec["local"])
+    if not os.path.isfile(local):
         try:
-            _rclone(rc, "copyto", DRIVE_COBRANZAS, sec, timeout=90)
+            _rclone(rc, "copyto", f"{REMOTO}:Suite Contable/{spec['drive']}",
+                    local, timeout=90)
         except Exception:                                   # noqa: BLE001
             pass
-    if not os.path.isfile(sec):
+    if not os.path.isfile(local):
         return False
-    try:
-        subprocess.run([_python_de(d), "configurar.py"], cwd=d,
-                       capture_output=True, text=True, timeout=90,
-                       creationflags=_NO_WINDOW)
-    except Exception:                                       # noqa: BLE001
-        pass
-    return os.path.isfile(os.path.join(d, ".env"))
+    if spec["configurar"]:
+        try:
+            subprocess.run([_python_de(d), "configurar.py"], cwd=d,
+                           capture_output=True, text=True, timeout=90,
+                           creationflags=_NO_WINDOW)
+        except Exception:                                   # noqa: BLE001
+            pass
+    return os.path.isfile(os.path.join(d, spec["marca"]))
 
 
 def todo_listo():
-    """True si esta PC tiene TODO: el `.env` compartido y —si Cobranzas está
-    instalada— su configuración propia."""
-    return env_presente() and cobranzas_configurada()
+    """True si esta PC tiene TODO: el `.env` compartido y, para cada app con
+    secreto propio instalada, su configuración."""
+    return env_presente() and not secretos_pendientes()
 
 
-def asegurar_cobranzas():
-    """Al abrir Cobranzas: si le falta el `.env`, intenta bajarlo del Drive con el
-    remoto que YA exista (no dispara OAuth; si no hay remoto, queda para el botón
-    "Traer credenciales"). Silencioso. True/False, o None si no aplica."""
-    if cobranzas_configurada():
+def tiene_secreto_propio(key):
+    """True si esa app usa un secreto propio distribuido por este módulo."""
+    return any(s["key"] == key for s in _APPS_SECRETO)
+
+
+def asegurar_secreto(key):
+    """Al abrir una app con secreto propio: si le falta, intenta bajarlo del Drive
+    con el remoto que YA exista (no dispara OAuth; si no hay remoto, queda para el
+    botón "Traer credenciales"). Silencioso. True/False, o None si no aplica."""
+    spec = next((s for s in _APPS_SECRETO if s["key"] == key), None)
+    if spec is None or not _secreto_pendiente(spec):
         return None
     try:
         rc = _rclone_exe()
         if not os.path.isfile(rc):
             return False        # rclone aún no está en esta PC
-        return _traer_cobranzas(rc)
+        return _traer_secreto(rc, spec)
     except Exception:                                       # noqa: BLE001
         return False
 
@@ -295,12 +318,16 @@ def traer():
         return False, f"Falló la descarga del .env:\n{e}"
     puestos = _distribuir_env()
     detalle = "\n".join(f"  • {p}" for p in puestos) or "  • (carpeta central)"
-    # Cobranzas OSECAC: su config vive aparte (secretos.json en el Drive).
-    cbz = _traer_cobranzas(rc)
-    if cbz is True:
-        detalle += "\n  • Cobranzas OSECAC (secretos.json + config)"
-    elif cbz is False:
-        detalle += ("\n  • Cobranzas OSECAC: NO pude bajar su secretos.json "
-                    "del Drive (revisá que esté subido).")
+    # Apps con secreto propio (Cobranzas, Employee): su config vive aparte en el
+    # Drive. Se bajan con el mismo remoto rclone.
+    for spec in _APPS_SECRETO:
+        r = _traer_secreto(rc, spec)
+        nombre = next((a["nombre"] for a in config.APPS
+                       if a["key"] == spec["key"]), spec["key"])
+        if r is True:
+            detalle += f"\n  • {nombre} (config propia)"
+        elif r is False:
+            detalle += (f"\n  • {nombre}: NO pude bajar su secreto "
+                        f"({spec['drive']}) del Drive.")
     return True, ("Credenciales instaladas en esta PC. Ya podés abrir las "
                   "apps.\n\nQuedó en:\n" + detalle)
