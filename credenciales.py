@@ -43,13 +43,17 @@ DRIVE_PATH = "suite:Suite Contable/.env"
 # elija ESA cuenta en la pantalla de permiso de Google, no la personal de la PC.
 CUENTA_ESTUDIO = "ematiromero98@gmail.com"
 
-# Apps que leen un `.env` local en su carpeta: RetencionesPro, DDJJ Impuestos y
-# Control de Juicios. Las demás NO usan `.env` y por eso NO se les distribuye:
-#   - Cobranzas OSECAC  -> lee `secretos.json` / `config.json` (ver configurar.py)
-#   - Employee Pro      -> lee `secretos.json` (config/settings.py)
-#   - Facturador ARCA   -> lee `nube.json`
-# Si alguna migrara a `.env`, sumá su key acá para que reciba las credenciales.
+# Apps que leen un `.env` local con las credenciales COMPARTIDAS de la Suite
+# (mismo proyecto Supabase): RetencionesPro, DDJJ Impuestos y Control de Juicios.
 _APPS_ENV = ("reten", "ddjj", "juicios")
+
+# Cobranzas OSECAC usa su PROPIO proyecto Supabase (distinto al compartido) y se
+# configura desde `secretos.json` (su configurar.py genera .env + config.json a
+# partir de ese archivo). El secretos.json vive PRIVADO en el mismo Drive del
+# estudio; acá lo bajamos e instalamos aparte (ver _traer_cobranzas).
+# (Employee Pro / Facturador ARCA tienen sus propios secretos y hoy NO se
+# automatizan; si hiciera falta, replicar este mismo patrón.)
+DRIVE_COBRANZAS = "suite:Suite Contable/cobranzas.secretos.json"
 
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
@@ -197,6 +201,80 @@ def _distribuir_env():
     return puestos
 
 
+def _cobranzas_dir():
+    """Carpeta de Cobranzas OSECAC en esta PC (None si no está en la config)."""
+    for a in config.APPS:
+        if a["key"] == "cobranzas":
+            return a["dir"]
+    return None
+
+
+def cobranzas_configurada():
+    """True si Cobranzas no tiene nada pendiente: o no está instalada, o ya tiene
+    su `.env`. False sólo si está instalada pero le falta el `.env`."""
+    d = _cobranzas_dir()
+    if not d or not os.path.isdir(d):
+        return True
+    return os.path.isfile(os.path.join(d, ".env"))
+
+
+def _python_de(dir_):
+    """Python para correr el configurar.py de una app: el de su `.venv` si existe,
+    si no el del proceso actual. configurar.py sólo usa la stdlib."""
+    venv = os.path.join(dir_, ".venv", "Scripts", "python.exe")
+    if os.path.isfile(venv):
+        return venv
+    import sys
+    return sys.executable or "python"
+
+
+def _traer_cobranzas(rc):
+    """Baja el `secretos.json` de Cobranzas del Drive y corre su `configurar.py`
+    (genera `.env` + `config.json` sin pisar los que ya existan). Best-effort:
+    nunca lanza. Devuelve True/False, o None si no aplica (no instalada o ya OK)."""
+    d = _cobranzas_dir()
+    if not d or not os.path.isdir(d):
+        return None
+    if os.path.isfile(os.path.join(d, ".env")):
+        return None
+    sec = os.path.join(d, "secretos.json")
+    if not os.path.isfile(sec):
+        try:
+            _rclone(rc, "copyto", DRIVE_COBRANZAS, sec, timeout=90)
+        except Exception:                                   # noqa: BLE001
+            pass
+    if not os.path.isfile(sec):
+        return False
+    try:
+        subprocess.run([_python_de(d), "configurar.py"], cwd=d,
+                       capture_output=True, text=True, timeout=90,
+                       creationflags=_NO_WINDOW)
+    except Exception:                                       # noqa: BLE001
+        pass
+    return os.path.isfile(os.path.join(d, ".env"))
+
+
+def todo_listo():
+    """True si esta PC tiene TODO: el `.env` compartido y —si Cobranzas está
+    instalada— su configuración propia."""
+    return env_presente() and cobranzas_configurada()
+
+
+def asegurar_cobranzas():
+    """Al abrir Cobranzas: si le falta el `.env`, intenta bajarlo del Drive con el
+    remoto que YA exista (no dispara OAuth; si no hay remoto, queda para el botón
+    "Traer credenciales"). Silencioso. True/False, o None si no aplica."""
+    if cobranzas_configurada():
+        return None
+    try:
+        rc = _rclone_exe()
+        if not os.path.isfile(rc):
+            return False        # rclone aún no está en esta PC
+        return _traer_cobranzas(rc)
+    except Exception:                                       # noqa: BLE001
+        return False
+
+
 def traer():
     """Trae el `.env` y lo distribuye. Devuelve (ok: bool, mensaje: str)."""
     try:
@@ -217,5 +295,12 @@ def traer():
         return False, f"Falló la descarga del .env:\n{e}"
     puestos = _distribuir_env()
     detalle = "\n".join(f"  • {p}" for p in puestos) or "  • (carpeta central)"
+    # Cobranzas OSECAC: su config vive aparte (secretos.json en el Drive).
+    cbz = _traer_cobranzas(rc)
+    if cbz is True:
+        detalle += "\n  • Cobranzas OSECAC (secretos.json + config)"
+    elif cbz is False:
+        detalle += ("\n  • Cobranzas OSECAC: NO pude bajar su secretos.json "
+                    "del Drive (revisá que esté subido).")
     return True, ("Credenciales instaladas en esta PC. Ya podés abrir las "
                   "apps.\n\nQuedó en:\n" + detalle)

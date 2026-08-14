@@ -252,6 +252,14 @@ class _Chequeador(QObject):
 
 
 def _abrir(app, parent):
+    # Cobranzas usa su propio secretos.json (no el `.env` compartido). Si se está
+    # abriendo y le falta, intentamos bajarlo del Drive con el remoto ya
+    # configurado (silencioso; si no hay remoto, queda para "Traer credenciales").
+    if app.get("key") == "cobranzas" and credenciales is not None:
+        try:
+            credenciales.asegurar_cobranzas()
+        except Exception:                                   # noqa: BLE001
+            pass
     entrada = _entrada(app)
     if not entrada:
         env = app.get("env_dir")
@@ -509,7 +517,7 @@ class Launcher(QWidget):
         self._chequeador.listo.connect(self._on_update)
         self._chequeador.correr(config.APPS)
         # Si esta PC no tiene el .env, ofrecer traerlo apenas abre la ventana.
-        if credenciales is not None and not credenciales.env_presente():
+        if credenciales is not None and not credenciales.todo_listo():
             QTimer.singleShot(700, lambda: self._traer_credenciales(auto=True))
 
     # ---------------------------------------------------------------- construcción
@@ -990,7 +998,7 @@ class Launcher(QWidget):
                 "border:1px solid #242c39; border-radius:10px;"
                 "padding:8px 14px; font-size:12px; }")
             return
-        if credenciales.env_presente():
+        if credenciales.todo_listo():
             self._btn_cred.setToolTip(
                 "Las credenciales ya están en esta PC. Tocá sólo si querés "
                 "volver a bajarlas del Drive.")
