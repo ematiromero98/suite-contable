@@ -90,7 +90,7 @@ APPS = [
         "env_dir": "CONTABILIDAD_DIR",
         "dir": os.environ.get("CONTABILIDAD_DIR", r"D:\contabilidad"),
         "entradas": ["run.bat", "main.py"],
-        "version_file": "version.py",
+        "version_file": "VERSION",
         "repo": "ematiromero98/contabilidad",
     },
 ]
