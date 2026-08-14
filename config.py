@@ -70,6 +70,18 @@ APPS = [
         "repo": "ematiromero98/employee-pro",
     },
     {
+        "key": "deposito",
+        "nombre": "Depósito Avalos",
+        "emoji": "📦",
+        "desc": "Control de stock del depósito de artículos de limpieza.",
+        "color": "#A04000",
+        "env_dir": "DEPOSITO_AVALOS_DIR",
+        "dir": os.environ.get("DEPOSITO_AVALOS_DIR", r"D:\PROYECTOS CLAUDE\deposito-avalos"),
+        "entradas": ["ejecutar.bat", "app.py"],
+        "version_file": "version.py",
+        "repo": "ematiromero98/deposito-avalos",
+    },
+    {
         "key": "juicios",
         "nombre": "Control de Juicios",
         "emoji": "⚖️",
