@@ -16,8 +16,8 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel,
     QPushButton, QFrame, QMessageBox, QScrollArea, QStackedWidget, QButtonGroup,
 )
-from PyQt6.QtCore import Qt, QObject, pyqtSignal, QTimer
-from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import Qt, QObject, pyqtSignal, QTimer, QRectF
+from PyQt6.QtGui import QIcon, QPixmap, QPainter, QFont, QColor
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config
@@ -151,6 +151,44 @@ def _hex_rgba(h, pct):
     h = h.lstrip("#")
     r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
     return f"rgba({r},{g},{b},{pct})"
+
+
+# La fuente base ("Segoe UI", del QSS global) NO trae glifos de color: los emojis
+# de las tarjetas salían como cuadraditos/"tofu". Los dibujamos a un QPixmap con
+# la fuente de emoji de Windows ("Segoe UI Emoji"), que sí los renderiza a color.
+_EMOJI_FONT = "Segoe UI Emoji"
+
+
+def _emoji_pixmap(emoji, px=24):
+    """Emoji a color en un QPixmap transparente (nítido en hi-DPI)."""
+    dpr = 2
+    pm = QPixmap(px * dpr, px * dpr)
+    pm.setDevicePixelRatio(dpr)
+    pm.fill(Qt.GlobalColor.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+    f = QFont(_EMOJI_FONT)
+    f.setPixelSize(int(px * 0.82))
+    p.setFont(f)
+    p.setPen(QColor("#ffffff"))            # sólo aplica al fallback monocromo
+    p.drawText(QRectF(0, 0, px, px), Qt.AlignmentFlag.AlignCenter, emoji)
+    p.end()
+    return pm
+
+
+def _tile_emoji(emoji, lado, color, radio, emoji_px):
+    """Crea el 'tile' cuadrado con el ícono de la app: fondo tintado + emoji a
+    color dibujado como pixmap (no como texto, para que no dependa de la fuente
+    base)."""
+    tile = QLabel()
+    tile.setFixedSize(lado, lado)
+    tile.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    tile.setStyleSheet(
+        f"background:{_hex_rgba(color, '16%')};"
+        f"border:1px solid {_hex_rgba(color, '26%')};"
+        f"border-radius:{radio}px;")
+    tile.setPixmap(_emoji_pixmap(emoji, emoji_px))
+    return tile
 
 
 def _leer_version(app):
@@ -800,13 +838,7 @@ class Launcher(QWidget):
         # Fila 1: ícono + nombre/desc + pill
         r1 = QHBoxLayout()
         r1.setSpacing(12)
-        tile = QLabel(app["emoji"])
-        tile.setFixedSize(44, 44)
-        tile.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        tile.setStyleSheet(
-            f"background:{_hex_rgba(app['color'], '16%')};"
-            f"border:1px solid {_hex_rgba(app['color'], '26%')};"
-            "border-radius:13px; font-size:20px;")
+        tile = _tile_emoji(app["emoji"], 44, app["color"], 13, 24)
         r1.addWidget(tile, 0, Qt.AlignmentFlag.AlignTop)
 
         col = QVBoxLayout()
@@ -937,13 +969,7 @@ class Launcher(QWidget):
             rh = QHBoxLayout(row)
             rh.setContentsMargins(14, 12, 14, 12)
             rh.setSpacing(13)
-            tile = QLabel(app["emoji"])
-            tile.setFixedSize(40, 40)
-            tile.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            tile.setStyleSheet(
-                f"background:{_hex_rgba(app['color'], '16%')};"
-                f"border:1px solid {_hex_rgba(app['color'], '26%')};"
-                "border-radius:11px; font-size:18px;")
+            tile = _tile_emoji(app["emoji"], 40, app["color"], 11, 22)
             rh.addWidget(tile)
             col = QVBoxLayout()
             col.setSpacing(2)

@@ -15,10 +15,23 @@ están separados, y cómo funcionan la **instalación** y la **actualización**.
 | **Cobranzas OSECAC** | `cobranzas-osecac` | main | Cobranzas: retenciones, asientos, facturación | — |
 | **Facturador ARCA** | `facturador-arca` | master | Facturación electrónica (WSFEV1) | — |
 | **Employee Pro** | `employee-pro` | main | RR.HH.: legajos, ausencias, sueldos | — |
+| **Control de Juicios** | `control-juicios` | main | Juicios y contingencias laborales (KPIs) | — |
+| **Depósito Avalos** | `deposito-avalos` | main | Control de stock (artículos de limpieza) | **PySide6** |
+| **Contabilidad** | `contabilidad` | main | Libro Diario/Mayor, estados, concilia Tango | — |
 
-Todas son **PyQt6 + Supabase** y comparten la **misma base de Supabase** (ahí es
-donde la integración importa: la conciliación de compras cruza datos de DDJJ y
-RetencionesPro en la misma base).
+Son **8 apps** (todas **PyQt6 + Supabase**, salvo **Depósito Avalos**, que usa
+**PySide6**). Comparten la **misma base de Supabase** —salvo Cobranzas, Employee
+y Depósito, que tienen la suya— y ahí es donde la integración importa: la
+conciliación de compras cruza datos de DDJJ y RetencionesPro en la misma base, y
+Contabilidad devenga sobre ella.
+
+### Diagrama en vivo
+
+El propio ERP trae el módulo **🗺️ Arquitectura** (`arquitectura.py`): un diagrama
+navegable —ERP → 8 apps → bases Supabase → sistemas externos (ARCA/OSECAC/Tango/
+Drive)— con el detalle por capas de cada app y su flujo principal animado. Es la
+fuente visual de esta misma doc; si cambia una app, se edita `DATOS` en ese
+archivo.
 
 ---
 
@@ -84,7 +97,7 @@ Al tocar **Actualizar**, la Suite:
 2. Si no, hace **`git pull` directo** en la carpeta de la app (usa las
    credenciales de `gh`). *Ojo:* el git pull pelado NO instala dependencias.
 
-Hoy **las 5 apps tienen `update.bat`/`Actualizar.bat` propio**, así que el botón
+Hoy **las apps tienen `update.bat`/`Actualizar.bat` propio**, así que el botón
 siempre instala dependencias nuevas.
 
 ### Qué hace cada `update.bat`

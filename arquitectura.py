@@ -3,7 +3,7 @@
 arquitectura.py — Módulo "🗺️ Arquitectura" del ERP.
 
 Muestra, DENTRO del launcher, un diagrama navegable y dinámico de:
-  • la Suite completa (el ERP + las 6 apps + las bases Supabase + los sistemas
+  • la Suite completa (el ERP + las 8 apps + las bases Supabase + los sistemas
     externos como ARCA, OSECAC y el Drive), y
   • cada proyecto por separado (capas UI / Lógica / Datos / Integraciones), con
     una explicación en lenguaje simple y el flujo del caso de uso principal
@@ -14,10 +14,13 @@ auto-actualiza sin pip). Los datos viven en DATOS, abajo — una sola fuente de
 verdad para el diagrama y el texto. Si cambia una app, se edita acá.
 """
 from PyQt6.QtCore import Qt, QRectF, QTimer, QPointF
-from PyQt6.QtGui import QColor, QPainter, QPen, QBrush, QFont, QPainterPath
+from PyQt6.QtGui import (
+    QColor, QPainter, QPen, QBrush, QFont, QPainterPath, QPixmap, QIcon,
+)
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QGraphicsView, QGraphicsScene,
     QGraphicsRectItem, QGraphicsSimpleTextItem, QGraphicsPathItem,
+    QGraphicsPixmapItem,
     QListWidget, QListWidgetItem, QTextBrowser, QPushButton, QLabel, QFrame,
 )
 
@@ -31,6 +34,42 @@ SUB = "#8a94a6"
 MENTA = "#3ddc97"
 LINEA = "#3a4658"
 
+# La fuente base ("Segoe UI") no trae glifos de color: los emojis salían como
+# "tofu". Los dibujamos a un QPixmap con la fuente de emoji de Windows.
+_EMOJI_FONT = "Segoe UI Emoji"
+
+
+def _emoji_pixmap(emoji, size):
+    """Emoji a color en un QPixmap transparente (size px físicos, sin dpr)."""
+    pm = QPixmap(size, size)
+    pm.fill(Qt.GlobalColor.transparent)
+    p = QPainter(pm)
+    p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+    f = QFont(_EMOJI_FONT)
+    f.setPixelSize(int(size * 0.84))
+    p.setFont(f)
+    p.setPen(QColor("#ffffff"))            # sólo aplica al fallback monocromo
+    p.drawText(QRectF(0, 0, size, size), Qt.AlignmentFlag.AlignCenter, emoji)
+    p.end()
+    return pm
+
+
+def _emoji_item(scene, x, y, emoji, px=18, key=None):
+    """Agrega un emoji (como pixmap a color) a la escena en (x, y)."""
+    it = QGraphicsPixmapItem(_emoji_pixmap(emoji, px * 2))
+    it.setTransformationMode(Qt.TransformationMode.SmoothTransformation)
+    it.setScale(0.5)
+    it.setPos(x, y)
+    if key is not None:
+        it.setData(0, key)
+    scene.addItem(it)
+    return it
+
+
+def _emoji_icon(emoji, px=18):
+    """QIcon con el emoji a color (para los items de la lista de la izquierda)."""
+    return QIcon(_emoji_pixmap(emoji, px * 2))
+
 
 # ================================================================= DATOS
 # Colores por app (los mismos del launcher). Cada proyecto trae lo justo para
@@ -38,12 +77,13 @@ LINEA = "#3a4658"
 SUPA_COMPARTIDA = "Supabase «ORDENES DE PAGO» (zpwccecovhjmeibxafkg)"
 SUPA_COBRANZAS = "Supabase Cobranzas (rrarmatjyvmrpohsvfzg)"
 SUPA_EMPLOYEE = "Supabase Employee (ffczbimnuodzcbgsdxbx)"
+SUPA_DEPOSITO = "Supabase Depósito (ioycuhefaalpqivhhryb)"
 
 PROYECTOS = {
     "erp": {
         "nombre": "Suite Contable (ERP)", "emoji": "🖥️", "color": "#3ddc97",
         "proposito": "Es el «menú de inicio» del estudio: una sola ventana desde "
-                     "la que se abren, instalan y actualizan las 6 apps. No toca "
+                     "la que se abren, instalan y actualizan las 8 apps. No toca "
                      "datos; sólo lanza cada programa y lo mantiene al día y con "
                      "sus credenciales puestas.",
         "stack": "Python + PyQt6. Usa git y gh (GitHub CLI) y rclone (Google Drive) "
@@ -52,7 +92,7 @@ PROYECTOS = {
         "datos": "No usa base de datos. Reparte credenciales a las apps.",
         "capas": [
             ("Ventana (PyQt6)", ["main.py — launcher, tarjetas por app, KPIs"]),
-            ("Config", ["config.py — registro de las 6 apps (ruta, repo, versión)"]),
+            ("Config", ["config.py — registro de las 8 apps (ruta, repo, versión)"]),
             ("Servicios", ["credenciales.py — baja el .env y los secretos del Drive",
                             "release.py — publica versiones", "version.py"]),
             ("Core compartido", ["suite_theme.py — tema visual",
@@ -246,6 +286,70 @@ PROYECTOS = {
         ],
         "rel_datos": SUPA_COMPARTIDA,
     },
+    "deposito": {
+        "nombre": "Depósito Avalos", "emoji": "📦", "color": "#A04000",
+        "proposito": "Controla el stock del depósito de artículos de limpieza: "
+                     "productos, proveedores, ingresos, egresos y devoluciones, con "
+                     "objetivos por producto y 15 informes (cobertura, rotación ABC, "
+                     "kardex). La integridad del stock se garantiza con RPC atómicas.",
+        "stack": "Python + PySide6 (Qt). Supabase propio (sin RLS) por REST + RPC. "
+                 "openpyxl / reportlab (export Excel y PDF).",
+        "entrypoint": "ejecutar.bat → python app.py",
+        "datos": SUPA_DEPOSITO + " · productos, proveedores, ingresos, egresos, "
+                 "inventarios, objetivos · migraciones 0001-0007",
+        "capas": [
+            ("UI (PySide6 · src/ui/)", ["main_window.py — 11 secciones",
+                                          "dashboard_screen.py (KPIs + gráficos)",
+                                          "inventarios_screen.py", "ingresos_screen.py",
+                                          "devoluciones_screen.py", "informes_screen.py",
+                                          "costos_screen.py", "objetivos_screen.py"]),
+            ("Servicios / Dominio", ["src/services (stock_service, productos_service)",
+                                       "src/domain (reglas)", "src/reports (15 informes)"]),
+            ("Datos", ["src/repositories/*_repo.py — acceso por tabla",
+                        "db/client.py — Supabase REST + RPC atómicas"]),
+        ],
+        "integraciones": ["Credenciales por OneDrive (Suite)", "GitHub Releases"],
+        "flujo": [
+            "Al abrir se elige usuario y puesto (trazabilidad de cada movimiento).",
+            "El stock inicial se carga por Planilla de conteo → Inventario General.",
+            "Se registran ingresos (por proveedor) y egresos del depósito.",
+            "Las devoluciones y ajustes se aplican con RPC atómicas (nunca stock negativo).",
+            "El Dashboard muestra cobertura y objetivos por producto.",
+            "Se exportan los 15 informes a Excel / PDF (rotación ABC, kardex…).",
+        ],
+        "rel_datos": SUPA_DEPOSITO,
+    },
+    "contabilidad": {
+        "nombre": "Contabilidad", "emoji": "📚", "color": "#117864",
+        "proposito": "Contabilidad paralela del estudio: Libro Diario y Mayor, plan "
+                     "de cuentas, estados contables y conciliación contra Tango. "
+                     "Devenga las ventas directamente desde el libro IVA de ARCA.",
+        "stack": "Python + PyQt6. Usa la MISMA base compartida que el resto de la "
+                 "suite (lee asientos/cobranzas de las apps hermanas). openpyxl / PDF.",
+        "entrypoint": "run.bat → python main.py",
+        "datos": SUPA_COMPARTIDA + " · asientos, plan de cuentas, conciliación",
+        "capas": [
+            ("UI (PyQt6)", ["main.py + shell.py", "ui_dashboard.py",
+                             "ui_diario.py (Libro Diario)", "ui_estados.py (Mayor/estados)",
+                             "ui_conciliacion.py", "ui_cobranzas.py", "ui_apertura.py",
+                             "ui_cierre.py"]),
+            ("Lógica", ["diario.py / asiento_editor.py (asientos)", "plan.py (plan de cuentas)",
+                         "conciliacion.py (contra Tango)", "cobranzas_sync.py",
+                         "exportar.py / pdf_export.py"]),
+            ("Datos", ["db.py — misma Supabase compartida (.env de la Suite)"]),
+        ],
+        "integraciones": ["Tango (concilia asientos)", "ARCA · libro IVA (devenga ventas)",
+                           "Cobranzas OSECAC (importa)", "GitHub"],
+        "flujo": [
+            "Importa el libro IVA de ARCA y devenga las ventas del período.",
+            "Carga/edita los asientos en el Libro Diario.",
+            "Concilia los movimientos contra el mayor de Tango.",
+            "Arma el Libro Mayor y los estados contables.",
+            "Cierra el período (apertura / cierre).",
+            "Exporta Diario, Mayor y estados a Excel / PDF.",
+        ],
+        "rel_datos": SUPA_COMPARTIDA,
+    },
 }
 
 # Sistemas externos y bases, para la vista general.
@@ -257,11 +361,13 @@ EXTERNOS = {
 }
 BASES = {
     "compartida": ("🗄️", "Supabase COMPARTIDA", "zpwccecovhjmeibxafkg",
-                    ["reten", "ddjj", "facturador", "juicios"]),
+                    ["reten", "ddjj", "facturador", "juicios", "contabilidad"]),
     "cobranzas": ("🗄️", "Supabase Cobranzas", "rrarmatjyvmrpohsvfzg", ["cobranzas"]),
     "employee": ("🗄️", "Supabase Employee", "ffczbimnuodzcbgsdxbx", ["employee"]),
+    "deposito": ("🗄️", "Supabase Depósito", "ioycuhefaalpqivhhryb", ["deposito"]),
 }
-APPS_ORDEN = ["reten", "ddjj", "cobranzas", "facturador", "employee", "juicios"]
+APPS_ORDEN = ["reten", "ddjj", "cobranzas", "facturador",
+              "employee", "juicios", "deposito", "contabilidad"]
 
 
 # ============================================================ VISTA (Qt)
@@ -324,11 +430,17 @@ def _nodo_app(scene, x, y, w, h, key, titulo, emoji, color, sub=""):
     caja = _caja(scene, x, y, w, h, color, relleno=CARD)
     caja.setData(0, key)
     caja.setCursor(Qt.CursorShape.PointingHandCursor)
-    _texto(scene, x + 14, y + 12, emoji, size=15).setData(0, key)
-    _texto(scene, x + 44, y + 14, titulo, color=TXT, size=11, bold=True).setData(0, key)
+    _emoji_item(scene, x + 12, y + 11, emoji, 22, key=key)
+    _texto(scene, x + 42, y + 14, titulo, color=TXT, size=11, bold=True).setData(0, key)
     if sub:
         _texto(scene, x + 14, y + 40, sub, color=SUB, size=8).setData(0, key)
     return caja
+
+
+def _label_ico(scene, x, y, emoji, txt, color=TXT, size=10, bold=False, epx=16):
+    """Fila 'ícono + texto' con el emoji dibujado a color (no como fuente)."""
+    _emoji_item(scene, x, y - 2, emoji, epx)
+    _texto(scene, x + epx + 8, y, txt, color=color, size=size, bold=bold)
 
 
 def _linea(scene, p1, p2, color=LINEA, ancho=2, etiqueta="", punteada=False):
@@ -384,10 +496,12 @@ class PaginaArquitectura(QWidget):
             f"QListWidget::item{{padding:9px 8px; border-radius:7px;}}"
             f"QListWidget::item:selected{{background:{MENTA}; color:#0b0f14;}}"
             f"QListWidget::item:hover{{background:#232c39;}}")
-        QListWidgetItem("🌐  Vista general del ERP", self.lista).setData(32, "general")
+        it_gen = QListWidgetItem(_emoji_icon("🌐", 18), "  Vista general del ERP", self.lista)
+        it_gen.setData(32, "general")
         for k in APPS_ORDEN:
             p = PROYECTOS[k]
-            QListWidgetItem(f"{p['emoji']}  {p['nombre']}", self.lista).setData(32, k)
+            it = QListWidgetItem(_emoji_icon(p["emoji"], 18), "  " + p["nombre"], self.lista)
+            it.setData(32, k)
         self.lista.currentItemChanged.connect(self._on_lista)
         izq.addWidget(self.lista, stretch=1)
         self.btn_flujo = QPushButton("▶  Reproducir flujo")
@@ -462,71 +576,84 @@ class PaginaArquitectura(QWidget):
         self.btn_flujo.setEnabled(False)
         sc = QGraphicsScene()
         self.vista.setScene(sc)
-        W = 1120
+        W = 1180
 
-        _texto(sc, 40, 10, "🌐  Suite Contable — MR & Asociados", color=TXT, size=15, bold=True)
-        _texto(sc, 40, 40, "Un ERP que abre 6 apps. Tocá cualquier app para ver su detalle.",
+        _label_ico(sc, 40, 12, "🌐", "Suite Contable — MR & Asociados",
+                   color=TXT, size=15, bold=True, epx=22)
+        _texto(sc, 40, 44, "Un ERP que abre 8 apps. Tocá cualquier app para ver su detalle.",
                color=SUB, size=10)
 
         # ERP arriba, centrado
         erp = PROYECTOS["erp"]
         ex, ew = W / 2 - 130, 260
-        _nodo_app(sc, ex, 78, ew, 56, "erp", erp["nombre"], erp["emoji"], erp["color"],
+        _nodo_app(sc, ex, 80, ew, 54, "erp", erp["nombre"], erp["emoji"], erp["color"],
                   "lanza / actualiza / instala")
+        erp_bottom = (W / 2, 134)
 
-        # Fila de apps
-        n = len(APPS_ORDEN)
-        aw, ah, gap = 168, 66, 12
-        total = n * aw + (n - 1) * gap
-        x0 = (W - total) / 2
-        ay = 190
-        centros = {}
+        # Apps: 8 en 2 filas de 4
+        aw, ah, gx, gy = 176, 64, 18, 16
+        cols = 4
+        row_w = cols * aw + (cols - 1) * gx
+        x0 = (W - row_w) / 2
+        ry = [176, 176 + ah + gy]                 # y de cada fila
+        centros, bottoms = {}, {}
         for i, k in enumerate(APPS_ORDEN):
             p = PROYECTOS[k]
-            x = x0 + i * (aw + gap)
-            _nodo_app(sc, x, ay, aw, ah, k, p["nombre"], p["emoji"], p["color"])
-            centros[k] = (x + aw / 2, ay)
-            _linea(sc, (W / 2, 134), (x + aw / 2, ay), color="#2e3a4d", ancho=2)
+            col, row = i % cols, i // cols
+            x, y = x0 + col * (aw + gx), ry[row]
+            _nodo_app(sc, x, y, aw, ah, k, p["nombre"], p["emoji"], p["color"])
+            centros[k] = (x + aw / 2, y)
+            bottoms[k] = y + ah
+            _linea(sc, erp_bottom, (x + aw / 2, y), color="#2e3a4d", ancho=2)
 
-        # Fila de bases (datos)
-        by = 340
-        base_pos = {
-            "compartida": (W / 2 - 430, by, 300),
-            "cobranzas": (W / 2 - 90, by, 220),
-            "employee": (W / 2 + 170, by, 220),
-        }
+        # Fila de bases (datos) — 4 bases
+        by = 352
+        base_w = {"compartida": 290, "cobranzas": 200, "employee": 200, "deposito": 210}
+        gapb = 22
+        total_b = sum(base_w.values()) + gapb * (len(base_w) - 1)
+        bx0 = (W - total_b) / 2
+        base_pos, cx = {}, bx0
+        for bk in ("compartida", "cobranzas", "employee", "deposito"):
+            base_pos[bk] = (cx, by, base_w[bk])
+            cx += base_w[bk] + gapb
         for bk, (emoji, nombre, ref, apps) in BASES.items():
             bx, byy, bw = base_pos[bk]
             _caja(sc, bx, byy, bw, 54, "#3a4658", relleno="#12202b")
-            _texto(sc, bx + 12, byy + 9, f"{emoji}  {nombre}", color="#bfe9d5", size=10, bold=True)
-            _texto(sc, bx + 12, byy + 30, ref, color=SUB, size=8)
+            _label_ico(sc, bx + 12, byy + 11, emoji, nombre, color="#bfe9d5",
+                       size=10, bold=True, epx=15)
+            _texto(sc, bx + 12, byy + 31, ref, color=SUB, size=8)
             for k in apps:
                 if k in centros:
-                    _linea(sc, (centros[k][0], ay + ah), (bx + bw / 2, byy),
+                    _linea(sc, (centros[k][0], bottoms[k]), (bx + bw / 2, byy),
                            color="#2b6b52", ancho=2, punteada=True)
 
         # Puente factura → OP (Facturador → RetencionesPro)
         if "facturador" in centros and "reten" in centros:
-            _linea(sc, centros["facturador"], (centros["reten"][0], ay - 4),
+            _linea(sc, centros["facturador"], centros["reten"],
                    color=MENTA, ancho=2, etiqueta="factura → OP (RPC)")
 
         # Externos (abajo)
-        exy = 430
-        ex_pos = {"arca": W / 2 - 430, "osecac": W / 2 - 210,
-                  "tango": W / 2 + 10, "drive": W / 2 + 230}
+        exy = 448
+        ext_w, gape = 200, 24
+        total_e = len(EXTERNOS) * ext_w + gape * (len(EXTERNOS) - 1)
+        exx = (W - total_e) / 2
         for ek, (emoji, nombre, desc) in EXTERNOS.items():
-            xx = ex_pos[ek]
-            _caja(sc, xx, exy, 200, 50, "#4a3a1e", relleno="#241d10")
-            _texto(sc, xx + 12, exy + 8, f"{emoji}  {nombre}", color="#f6c66b", size=10, bold=True)
-            _texto(sc, xx + 12, exy + 28, desc, color=SUB, size=8)
+            _caja(sc, exx, exy, ext_w, 50, "#4a3a1e", relleno="#241d10")
+            _label_ico(sc, exx + 12, exy + 10, emoji, nombre, color="#f6c66b",
+                       size=10, bold=True, epx=15)
+            _texto(sc, exx + 12, exy + 30, desc, color=SUB, size=8)
+            exx += ext_w + gape
 
-        sc.setSceneRect(0, 0, W, 510)
+        sc.setSceneRect(0, 0, W, 520)
         self._ajustar()
         self._explicacion_general()
 
     def _explicacion_general(self):
+        # Punto de color por app (en vez de emoji: QTextBrowser usa la fuente base
+        # y el emoji saldría como "tofu"; el punto siempre se ve bien).
         filas = "".join(
-            f"<tr><td style='padding:3px 8px 3px 0'>{PROYECTOS[k]['emoji']}</td>"
+            f"<tr><td style='padding:3px 8px 3px 0;color:{PROYECTOS[k]['color']};"
+            f"font-size:15px'>&#9679;</td>"
             f"<td style='padding:3px 0'><b>{PROYECTOS[k]['nombre']}</b><br>"
             f"<span style='color:{SUB};font-size:11px'>{PROYECTOS[k]['proposito'][:90]}…</span></td></tr>"
             for k in APPS_ORDEN)
@@ -534,19 +661,19 @@ class PaginaArquitectura(QWidget):
         <div style='color:{TXT}'>
         <h2 style='color:{MENTA};margin:0 0 6px'>El ERP de un vistazo</h2>
         <p style='color:{SUB};font-size:12px;margin:0 0 12px'>
-        La <b>Suite Contable</b> es el programa que abre y mantiene al día las 6 apps
+        La <b>Suite Contable</b> es el programa que abre y mantiene al día las 8 apps
         del estudio. Cada app guarda sus datos en Supabase (la «nube») y se conecta
         con sistemas externos como ARCA u OSECAC.</p>
         <h3 style='color:{TXT};margin:10px 0 4px'>Las bases de datos</h3>
         <ul style='color:{SUB};font-size:12px;margin:0 0 10px;padding-left:18px'>
         <li><b style='color:#bfe9d5'>Compartida</b>: la usan RetencionesPro, DDJJ,
-        Facturador y Juicios (por eso se cruzan datos entre ellas).</li>
-        <li><b style='color:#bfe9d5'>Cobranzas</b> y <b style='color:#bfe9d5'>Employee</b>
-        tienen su propia base, separada.</li></ul>
+        Facturador, Juicios y Contabilidad (por eso se cruzan datos entre ellas).</li>
+        <li><b style='color:#bfe9d5'>Cobranzas</b>, <b style='color:#bfe9d5'>Employee</b>
+        y <b style='color:#bfe9d5'>Depósito</b> tienen su propia base, separada.</li></ul>
         <h3 style='color:{TXT};margin:10px 0 4px'>Las apps</h3>
         <table style='font-size:12px'>{filas}</table>
         <p style='color:{SUB};font-size:11px;margin-top:12px'>
-        💡 Tocá una app (acá o en el diagrama) para ver cómo está hecha por dentro.</p>
+        Tocá una app (acá o en el diagrama) para ver cómo está hecha por dentro.</p>
         </div>""")
 
     # ------------------------------------------------------------ vista proyecto
@@ -560,7 +687,8 @@ class PaginaArquitectura(QWidget):
         self.vista.setScene(sc)
         W = 900
 
-        _texto(sc, 30, 10, f"{p['emoji']}  {p['nombre']}", color=p["color"], size=16, bold=True)
+        _label_ico(sc, 30, 12, p["emoji"], p["nombre"], color=p["color"],
+                   size=16, bold=True, epx=22)
         _texto(sc, 30, 40, p["datos"], color=SUB, size=9)
 
         # Capas apiladas
@@ -616,16 +744,17 @@ class PaginaArquitectura(QWidget):
                       f"{marca if act else ''}{'' if act else ''}{s}</li>")
         self.info.setHtml(f"""
         <div style='color:{TXT}'>
-        <h2 style='color:{p['color']};margin:0 0 8px'>{p['emoji']} {p['nombre']}</h2>
+        <h2 style='color:{p['color']};margin:0 0 8px'>
+        <span style='font-size:15px'>&#9679;</span> {p['nombre']}</h2>
         <p style='font-size:12px;margin:0 0 12px'>{p['proposito']}</p>
-        <h3 style='color:{TXT};margin:10px 0 4px'>🧰 Tecnología</h3>
+        <h3 style='color:{TXT};margin:10px 0 4px'>Tecnología</h3>
         <p style='color:{SUB};font-size:12px;margin:0 0 10px'>{p['stack']}</p>
-        <h3 style='color:{TXT};margin:10px 0 4px'>🚀 Se abre con</h3>
+        <h3 style='color:{TXT};margin:10px 0 4px'>Se abre con</h3>
         <p style='color:{SUB};font-size:12px;margin:0 0 10px'><code>{p['entrypoint']}</code></p>
-        <h3 style='color:{TXT};margin:10px 0 4px'>🔄 Flujo</h3>
+        <h3 style='color:{TXT};margin:10px 0 4px'>Flujo</h3>
         <ol style='font-size:12px;padding-left:18px;margin:0'>{pasos}</ol>
         <p style='color:{SUB};font-size:11px;margin-top:12px'>
-        💡 Tocá «▶ Reproducir flujo» para verlo paso a paso.</p>
+        Tocá «▶ Reproducir flujo» para verlo paso a paso.</p>
         </div>""")
 
     # ------------------------------------------------------------ animación
