@@ -11,6 +11,7 @@ import re
 import sys
 import threading
 import subprocess
+import webbrowser
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel,
@@ -642,6 +643,7 @@ class Launcher(QWidget):
         self._stack.addWidget(self._page_updates())    # 1
         self._stack.addWidget(self._page_settings())   # 2
         self._stack.addWidget(self._page_arquitectura())  # 3
+        self._stack.addWidget(self._page_ecosistema())    # 4
         self._stack.currentChanged.connect(self._on_page_change)
         rv.addWidget(self._stack, stretch=1)
         root.addWidget(right, stretch=1)
@@ -694,6 +696,8 @@ class Launcher(QWidget):
         v.addWidget(self._nav_upd)
         self._nav_arq = self._nav_item("🗺   Arquitectura", 3)
         v.addWidget(self._nav_arq)
+        self._nav_eco = self._nav_item("🌐   Ecosistema 3D", 4)
+        v.addWidget(self._nav_eco)
         v.addSpacing(8)
         lbl_s = QLabel("SISTEMA")
         lbl_s.setObjectName("navLabel")
@@ -1020,6 +1024,91 @@ class Launcher(QWidget):
             v.addStretch()
             return ph
         return PaginaArquitectura(self)
+
+    # ------------------------------------------------------------ pág. ecosistema
+    def _page_ecosistema(self):
+        """Página que abre la visualización 3D del ecosistema en el navegador.
+
+        La Suite está hecha a propósito SIN QtWebEngine (dark/menta por QSS
+        nativo, se auto-actualiza por git pull sin pip). Por eso la ciudad 3D
+        —que usa una librería 3D por CDN— se abre en el navegador del sistema en
+        vez de embeberse: cero dependencias nuevas."""
+        page = QWidget()
+        v = QVBoxLayout(page)
+        v.setContentsMargins(24, 22, 24, 18)
+        v.setSpacing(16)
+        st = QLabel("ECOSISTEMA 3D")
+        st.setObjectName("secTitle")
+        v.addWidget(st)
+
+        card = QFrame()
+        card.setObjectName("card")
+        cv = QVBoxLayout(card)
+        cv.setContentsMargins(22, 22, 22, 22)
+        cv.setSpacing(14)
+
+        r1 = QHBoxLayout()
+        r1.setSpacing(14)
+        tile = _tile_emoji("🌐", 48, "#2ee6a6", 14, 26)
+        r1.addWidget(tile, 0, Qt.AlignmentFlag.AlignTop)
+        col = QVBoxLayout()
+        col.setSpacing(4)
+        t = QLabel("Ciudad 3D de los proyectos")
+        t.setObjectName("cardTitle")
+        col.addWidget(t)
+        d = QLabel(
+            "Una visualización isométrica interactiva de todo el ecosistema: "
+            "cada proyecto es un edificio (la altura = líneas de código, el "
+            "color = estado) y las conexiones —launchers, flujos de datos e "
+            "infraestructura compartida (ARCA, SAP, Supabase, Firebase)— se "
+            "muestran como líneas con datos animados. Trae filtros por estado y "
+            "por tipo de conexión, y al clickear cada nodo ves qué hace, cómo "
+            "está construido y qué guarda.")
+        d.setObjectName("cardDesc")
+        d.setWordWrap(True)
+        col.addWidget(d)
+        r1.addLayout(col, stretch=1)
+        cv.addLayout(r1)
+
+        fila = QHBoxLayout()
+        btn = QPushButton("🌐  Abrir en el navegador")
+        btn.setObjectName("abrir")
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.clicked.connect(self._abrir_ecosistema)
+        fila.addWidget(btn)
+        fila.addStretch()
+        cv.addLayout(fila)
+
+        nota = QLabel(
+            "Se abre en tu navegador (Chrome/Edge). La primera vez necesita "
+            "internet para cargar la librería 3D. Los datos están al día con "
+            "esta versión de la Suite.")
+        nota.setObjectName("cardDesc")
+        nota.setWordWrap(True)
+        cv.addWidget(nota)
+
+        v.addWidget(card)
+        v.addStretch()
+        return page
+
+    def _abrir_ecosistema(self):
+        """Abre el HTML de la ciudad 3D con el navegador por defecto."""
+        ruta = os.path.join(_BASE, "assets", "ecosistema-3d.html")
+        if not os.path.isfile(ruta):
+            QMessageBox.warning(
+                self, "Ecosistema 3D",
+                "No encontré el archivo de la visualización:\n" + ruta +
+                "\n\nProbá «⟳ Actualizar todo» para bajarlo con la última "
+                "versión de la Suite.")
+            return
+        try:
+            if sys.platform == "win32":
+                os.startfile(ruta)                         # noqa: S606 (Windows)
+            else:
+                webbrowser.open("file://" + ruta)
+        except Exception as e:                             # noqa: BLE001
+            QMessageBox.critical(
+                self, "Error", "No pude abrir la visualización:\n" + str(e))
 
     # ---------------------------------------------------------------- pág. ajustes
     def _page_settings(self):

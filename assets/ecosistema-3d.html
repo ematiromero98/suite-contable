@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ecosistema de Proyectos · Ciudad 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --gold:#FCBC45; --black:#141413; --white:#FFFFFF; --cream:#FAF9F5; --gray:#808080;
+    --prod:#27AE60; --mvp:#E67E22; --proto:#95A5A6;
+    --e-launcher:#FCBC45; --e-dep:#8E44AD; --e-data:#16A085; --e-infra:#2E86C1;
+    --panel:#FFFFFFEE; --line:#e7e3d8;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:'Poppins',system-ui,sans-serif;color:var(--black);background:var(--cream);overflow:hidden}
+  #app{position:fixed;inset:0}
+  canvas{display:block}
+  /* ---- Top bar ---- */
+  #topbar{position:absolute;top:0;left:0;right:0;height:56px;display:flex;align-items:center;gap:14px;
+    padding:0 16px;z-index:20;pointer-events:none}
+  #brand{display:flex;align-items:center;gap:10px;pointer-events:auto}
+  #brand .dot{width:26px;height:26px;border-radius:7px;background:var(--gold);box-shadow:0 2px 8px #0002}
+  #brand b{font-weight:700;font-size:15px;letter-spacing:.2px}
+  #brand span{font-size:11px;color:var(--gray);display:block;margin-top:-2px}
+  #filters{display:flex;gap:6px;margin-left:8px;pointer-events:auto;flex-wrap:wrap}
+  .fbtn{font-family:inherit;font-size:12.5px;font-weight:500;border:1px solid var(--line);background:var(--white);
+    color:var(--black);padding:7px 13px;border-radius:20px;cursor:pointer;transition:.15s;white-space:nowrap;box-shadow:0 1px 3px #0001}
+  .fbtn:hover{border-color:var(--gold)}
+  .fbtn.active{background:var(--black);color:var(--white);border-color:var(--black)}
+  .fbtn .cdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  /* ---- Left sidebar ---- */
+  #sidebar{position:absolute;top:64px;left:12px;width:250px;max-height:calc(100% - 150px);z-index:15;
+    background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:14px;
+    box-shadow:0 8px 30px #0001;overflow:auto;padding:6px 0}
+  .grp-h{font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--gray);
+    padding:10px 14px 4px}
+  .row{display:flex;align-items:center;gap:9px;padding:7px 14px;cursor:pointer;transition:.12s;border-left:3px solid transparent}
+  .row:hover{background:#00000008}
+  .row.sel{background:#FCBC4522;border-left-color:var(--gold)}
+  .row .st{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
+  .row .nm{font-size:13px;font-weight:500;flex:1;line-height:1.15}
+  .row .fc{font-size:10.5px;color:var(--gray);flex:0 0 auto}
+  .row.lm .nm{color:var(--e-infra);font-weight:600}
+  /* ---- filter panel ---- */
+  #filterpanel{padding:11px 13px 6px;border-bottom:1px solid var(--line)}
+  .fp-grp{margin-bottom:10px}
+  .fp-h{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);margin-bottom:6px}
+  .fp-hint{text-transform:none;letter-spacing:0;font-weight:400;opacity:.7}
+  .fp-chips{display:flex;flex-wrap:wrap;gap:5px}
+  .fchip{font-family:inherit;font-size:11px;font-weight:500;border:1px solid var(--line);background:#fff;color:var(--black);
+    padding:4px 9px;border-radius:14px;cursor:pointer;display:flex;align-items:center;gap:5px;transition:.12s}
+  .fchip i{width:8px;height:8px;border-radius:50%;display:inline-block;flex:0 0 auto}
+  .fchip:hover{border-color:var(--gold)}
+  .fchip.off{opacity:.45;text-decoration:line-through;background:#00000006}
+  .fp-row{display:flex;align-items:center;justify-content:space-between;margin-top:2px}
+  .switch{position:relative;display:inline-block;width:38px;height:20px;flex:0 0 auto}
+  .switch input{opacity:0;width:0;height:0;position:absolute}
+  .switch .sl{position:absolute;inset:0;background:#cfcabd;border-radius:20px;transition:.15s;cursor:pointer}
+  .switch .sl:before{content:'';position:absolute;width:16px;height:16px;left:2px;top:2px;background:#fff;border-radius:50%;transition:.15s;box-shadow:0 1px 3px #0003}
+  .switch input:checked + .sl{background:var(--gold)}
+  .switch input:checked + .sl:before{transform:translateX(18px)}
+  /* ---- Right detail ---- */
+  #detail{position:absolute;top:64px;right:12px;width:330px;max-height:calc(100% - 150px);z-index:15;
+    background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:14px;
+    box-shadow:0 8px 30px #0001;overflow:auto;display:none}
+  #detail.show{display:block}
+  #detail .dh{padding:16px 16px 10px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--white)EE;backdrop-filter:blur(8px)}
+  #detail .dh h2{margin:0;font-size:17px;font-weight:700}
+  #detail .dh .sub{font-size:12px;color:var(--gray);margin-top:2px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .chip{font-size:11px;font-weight:500;padding:4px 9px;border-radius:20px;border:1px solid var(--line);background:var(--white)}
+  .chip.ver{background:var(--black);color:#fff;border-color:var(--black)}
+  .tabs{display:flex;gap:0;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--white)}
+  .tab{flex:1;text-align:center;font-size:12.5px;font-weight:500;padding:11px 8px;cursor:pointer;color:var(--gray);border-bottom:2px solid transparent}
+  .tab.active{color:var(--black);border-bottom-color:var(--gold);font-weight:600}
+  .tabc{padding:15px 16px 20px;display:none;font-size:13px;line-height:1.55}
+  .tabc.active{display:block}
+  .tabc h4{margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--gray)}
+  .tabc p{margin:0 0 12px}
+  .files{list-style:none;margin:0;padding:0}
+  .files li{font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;font-size:11.5px;background:#00000006;
+    border:1px solid var(--line);border-radius:6px;padding:5px 8px;margin-bottom:5px;color:#333}
+  .store{list-style:none;margin:0 0 12px;padding:0}
+  .store li{font-size:12px;line-height:1.45;background:#00000005;border:1px solid var(--line);
+    border-radius:8px;padding:7px 9px;margin-bottom:6px}
+  .store li code{font-family:'IBM Plex Mono',monospace;font-size:11px;background:#0000000a;padding:1px 5px;border-radius:4px}
+  .store-note{background:#eaf3fb;border:1px solid #cfe2f3;border-radius:8px;padding:9px 11px;font-size:12.5px}
+  .store-note code{font-family:'IBM Plex Mono',monospace;font-size:11px;background:#ffffff99;padding:1px 5px;border-radius:4px}
+  .kv{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-bottom:1px dashed var(--line)}
+  .kv b{font-weight:600}
+  .conns{margin-top:6px}
+  .conn{font-size:11.5px;padding:6px 8px;border-radius:7px;margin-bottom:5px;background:#00000005;border:1px solid var(--line)}
+  .conn .ar{font-weight:700}
+  /* ---- Bottom bar ---- */
+  #bottom{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:16px;
+    align-items:stretch;flex-wrap:wrap;justify-content:center;max-width:calc(100% - 24px)}
+  .card{background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:12px;
+    box-shadow:0 6px 24px #0001;padding:10px 14px;display:flex;align-items:center;gap:12px}
+  .ctrl{gap:8px}
+  .ctrl button{font-family:inherit;font-size:13px;font-weight:600;border:1px solid var(--line);background:var(--white);
+    color:var(--black);width:38px;height:34px;border-radius:9px;cursor:pointer;transition:.12s;display:flex;align-items:center;justify-content:center}
+  .ctrl button:hover{border-color:var(--gold)}
+  .ctrl button.play{width:auto;padding:0 14px;gap:6px}
+  .ctrl .spd{display:flex;gap:3px}
+  .ctrl .spd b{font-size:11px;font-weight:500;padding:8px 9px;border-radius:8px;cursor:pointer;border:1px solid var(--line);background:var(--white)}
+  .ctrl .spd b.on{background:var(--black);color:#fff;border-color:var(--black)}
+  .legend{gap:16px;font-size:11px}
+  .legend .col{display:flex;flex-direction:column;gap:5px}
+  .legend .li{display:flex;align-items:center;gap:7px;white-space:nowrap}
+  .legend .sw{width:16px;height:0;border-top:3px solid #000;border-radius:2px}
+  .legend .sq{width:11px;height:11px;border-radius:3px}
+  .legend .ttl{font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--gray);font-weight:600;margin-bottom:1px}
+  /* ---- labels ---- */
+  .barrio-label{font-family:'Poppins';font-weight:700;font-size:15px;letter-spacing:2px;text-transform:uppercase;
+    color:#141413;background:#FCBC4533;border:1.5px solid #FCBC45;padding:4px 12px;border-radius:20px;
+    white-space:nowrap;box-shadow:0 3px 10px #0001;pointer-events:none;opacity:.9}
+  .barrio-label.ntt{background:#2E86C122;border-color:#2E86C1;color:#1a4e73}
+  .barrio-label.per{background:#E91E6318;border-color:#E91E63;color:#a01446}
+  .barrio-label.ext{background:#ffffff;border:1.5px dashed var(--gray);color:var(--gray);font-size:12px}
+  .b-label{font-family:'Poppins';font-weight:600;font-size:12px;color:#141413;background:#ffffffe8;
+    padding:3px 9px;border-radius:12px;white-space:nowrap;pointer-events:none;border:1px solid #00000014;box-shadow:0 1px 4px #0001}
+  .b-label.dim{opacity:.28}
+  .b-label.gone{visibility:hidden;opacity:0}
+  .b-label.hi{background:var(--black);color:#fff;font-weight:700;box-shadow:0 3px 10px #0003}
+  .b-label.lm{color:#1a4e73;font-weight:700;font-size:12.5px;background:#eaf3fbee;border-color:#2E86C155}
+  .pay-label{font-family:'Poppins';font-weight:500;font-size:10.5px;color:#fff;background:#141413ee;
+    padding:3px 8px;border-radius:9px;white-space:nowrap;pointer-events:none;box-shadow:0 2px 8px #0003;
+    opacity:0}
+  .pay-label.on{opacity:1}
+  #tooltip{position:absolute;z-index:30;pointer-events:none;background:var(--black);color:#fff;font-size:12px;
+    font-weight:500;padding:6px 10px;border-radius:8px;transform:translate(-50%,-140%);display:none;white-space:nowrap;box-shadow:0 4px 14px #0004}
+  #hint{position:absolute;bottom:14px;left:14px;z-index:15;font-size:11px;color:var(--gray);background:#ffffffcc;
+    border:1px solid var(--line);border-radius:10px;padding:7px 11px;line-height:1.5;max-width:220px}
+  #css2d{position:absolute;inset:0;z-index:10;pointer-events:none;overflow:hidden}
+  ::-webkit-scrollbar{width:9px;height:9px}
+  ::-webkit-scrollbar-thumb{background:#0002;border-radius:8px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="css2d"></div>
+<div id="tooltip"></div>
+
+<div id="topbar">
+  <div id="brand"><div class="dot"></div><div><b>Ecosistema de Proyectos</b><span>12 repos · ciudad isométrica 3D</span></div></div>
+  <div id="filters"></div>
+  <button id="btn-guide" class="fbtn" style="pointer-events:auto;margin-left:auto">ⓘ Guía</button>
+</div>
+
+<div id="sidebar"></div>
+
+<div id="detail">
+  <div class="dh">
+    <h2 id="d-name">—</h2>
+    <div class="sub" id="d-repo"></div>
+    <div class="chips" id="d-chips"></div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" data-t="que">Qué hace</div>
+    <div class="tab" data-t="como">Cómo está construido</div>
+  </div>
+  <div class="tabc active" id="tc-que"></div>
+  <div class="tabc" id="tc-como"></div>
+</div>
+
+<div id="bottom">
+  <div class="card ctrl">
+    <button class="play" id="btn-play">▶ <span id="play-lbl">Play</span></button>
+    <button id="btn-step" title="Paso a paso">⏭</button>
+    <div class="spd">
+      <b data-s="0.5">0.5x</b><b data-s="1" class="on">1x</b><b data-s="2">2x</b>
+    </div>
+  </div>
+  <div class="card legend">
+    <div class="col">
+      <div class="ttl">Conexiones</div>
+      <div class="li"><span class="sw" style="border-color:var(--e-launcher)"></span>Launcher / trigger</div>
+      <div class="li"><span class="sw" style="border-color:var(--e-data)"></span>Flujo de datos</div>
+    </div>
+    <div class="col">
+      <div class="ttl">&nbsp;</div>
+      <div class="li"><span class="sw" style="border-color:var(--e-infra)"></span>Infra compartida</div>
+      <div class="li"><span class="sw" style="border-color:var(--e-dep)"></span>Dependencia</div>
+    </div>
+    <div class="col">
+      <div class="ttl">Estado</div>
+      <div class="li"><span class="sq" style="background:var(--prod)"></span>Producción</div>
+      <div class="li"><span class="sq" style="background:var(--mvp)"></span>MVP</div>
+    </div>
+    <div class="col">
+      <div class="ttl">&nbsp;</div>
+      <div class="li"><span class="sq" style="background:var(--proto)"></span>Prototipo</div>
+      <div class="li"><span class="sq" style="background:var(--black)"></span>Infra (landmark)</div>
+    </div>
+  </div>
+</div>
+
+<div id="hint"><b>Arrastrar</b> rota · <b>scroll</b> zoom · <b>click</b> detalle · <b>ESC</b> limpia selección</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+/* ============================================================= DATA ===== */
+const BARRIOS = {
+  mrasoc: { label:'MR & Asociados', cls:'', pos:[-55,-5] },
+  ntt:    { label:'NTT DATA',       cls:'ntt', pos:[57,-15] },
+  per:    { label:'Personal',       cls:'per', pos:[55,45] },
+  ext:    { label:'Chermisqui (externo · no-repo)', cls:'ext', pos:[-92,55] },
+};
+
+// estado: prod | mvp | proto ;  loc para altura ; pos [x,z]
+const NODES = [
+  // ---- MR & Asociados ----
+  { id:'reten', name:'RetencionesPro', barrio:'mrasoc', estado:'prod', loc:38766, files:161, ver:'v1.48.0', mod:'18-ago-2026',
+    repo:'ematiromero98/RetencionesPro', stack:'PyQt6 · Supabase',
+    pos:[-75,-25],
+    que:'El buque insignia del estudio. Calcula retenciones (Ganancias, IVA, SUSS, IIBB), arma órdenes de pago con su cuenta contable por nombre de proveedor, concilia el Libro de Compras de ARCA y exporta percepciones de IVA sufridas al Portal IVA.',
+    como:'PyQt6 sobre Supabase. 91 archivos .py (~38,7k líneas), 26 SQL. Entry <code>main.py</code>; la Nueva Orden vive en <code>form_orden.py</code>. Se autoactualiza por GitHub Releases y bootstrapea la Suite con el token del .env.',
+    data:'Supabase <b>base central</b> <code>zpwcce…</code> (compartida con DDJJ, Contabilidad y Juicios): proveedores, órdenes de pago, retenciones, facturas de compra, plan de cuentas.',
+    key:['main.py','ui/form_orden.py','ui/columnas_flex.py','logic/','db/','version.py'] },
+  { id:'ddjj', name:'DDJJ Impuestos', barrio:'mrasoc', estado:'prod', loc:7550, files:41, ver:'v2.5.1', mod:'15-ago-2026',
+    repo:'ematiromero98/ddjj-impuestos', stack:'PyQt6 · Supabase · Selenium',
+    pos:[-55,-25],
+    que:'Arma las DDJJ de IVA + SIRCREB directo en ARCA (Portal IVA). Módulo "IVA mes a mes" (pivote empresas × meses por alícuota) y conciliación de compras contra RetencionesPro.',
+    como:'PyQt6 + Supabase + Selenium para el Portal IVA. 17 .py, 5 SQL. Entry <code>scripts/main.py</code>. Migraciones 003/004/005. Instala la Suite/ERP al abrir.',
+    data:'Supabase <b>base central</b> <code>zpwcce…</code> (misma que RetencionesPro): libros IVA importados, conciliaciones de compras, corridas.',
+    key:['scripts/main.py','page_iva_mensual.py','scripts/version.py'] },
+  { id:'cobranzas', name:'Cobranzas OSECAC', barrio:'mrasoc', estado:'prod', loc:16842, files:91, ver:'v2.12.0', mod:'14-ago-2026',
+    repo:'ematiromero98/cobranzas-osecac', stack:'PyQt6 · Supabase',
+    pos:[-35,-25],
+    que:'Suite de cobranzas de OSECAC: retenciones, asientos contables y facturación. UI "Panel Oscuro" (dark + menta).',
+    como:'PyQt6 + Supabase. 58 .py, 7 SQL. Entry <code>cobranzas_qt.py</code>. Credenciales en <code>secretos.json</code> (fuera del repo).',
+    data:'Supabase <b>proyecto propio</b> <code>rrarma…</code>: cobranzas, retenciones, asientos y facturación.',
+    key:['cobranzas_qt.py','Iniciar Cobranzas.bat','secretos.json'] },
+  { id:'facturador', name:'Facturador ARCA', barrio:'mrasoc', estado:'prod', loc:5566, files:70, ver:'v8.11', mod:'14-ago-2026',
+    repo:'ematiromero98/facturador-arca', stack:'PyQt6 · zeep/WSFEV1',
+    pos:[-75,-5],
+    que:'Facturación electrónica contra ARCA vía web service WSFEV1 (firma con cryptography + zeep). UI Panel Oscuro.',
+    como:'PyQt6 + cryptography + zeep. 38 .py. Entry <code>main.py</code>, estilo en <code>src/estilo.py</code>.',
+    key:['main.py','src/estilo.py'] },
+  { id:'suite', name:'Suite Contable', barrio:'mrasoc', estado:'prod', loc:3685, files:23, ver:'v1.16.1', mod:'18-ago-2026', hub:true,
+    repo:'ematiromero98/suite-contable', stack:'PyQt6 (launcher/ERP)',
+    pos:[-55,-5],
+    que:'El launcher/ERP del estudio: abre, instala y actualiza las 8 apps desde una sola ventana. El botón Actualizar hace fetch + realinea repos divergentes + instala dependencias, sin tocar tus datos.',
+    como:'PyQt6, dark/menta por QSS nativo (sin QWebEngine). Catálogo de apps en <code>config.py</code>. 11 .py. Módulo Arquitectura + ARQUITECTURA.md.',
+    key:['main.py','config.py','credenciales.py','arquitectura.py'] },
+  { id:'employee', name:'Employee Pro', barrio:'mrasoc', estado:'mvp', loc:8903, files:81, ver:'—', mod:'14-ago-2026',
+    repo:'ematiromero98/employee-pro', stack:'PyQt6 · Supabase',
+    pos:[-35,-5],
+    que:'Gestión de RR.HH. multiempresa: legajos, ausencias, sueldos. Decisiones firmes: sin RLS y sin liquidación.',
+    como:'PyQt6 + Supabase (proyecto ffczbimnuodzcbgsdxbx). 49 .py, 16 SQL. Entry <code>main.py</code>. Ícono propio en la barra de tareas.',
+    data:'Supabase <b>proyecto propio</b> <code>ffczbi…</code>: empleados, empresas, vacaciones, datos_salariales, recibos, sanciones, fichadas, medicina_laboral, evaluaciones, novedades.',
+    key:['main.py','secretos.json'] },
+  { id:'deposito', name:'Depósito Avalos', barrio:'mrasoc', estado:'mvp', loc:6161, files:85, ver:'v0.8.1', mod:'18-ago-2026',
+    repo:'ematiromero98/deposito-avalos', stack:'PySide6 · Supabase',
+    pos:[-75,15],
+    que:'Control de stock del depósito de artículos de limpieza: 11 secciones, 15 informes (Excel/PDF), trazabilidad por usuario/puesto, integridad por RPC atómicas.',
+    como:'PySide6 + Supabase propio (ioycuhefaalpqivhhryb). 62 .py, 7 SQL. Entry <code>app.py</code>. Fallback de credenciales embebido en <code>config/settings.py</code>.',
+    data:'Supabase <b>proyecto propio</b> <code>ioycuh…</code>: productos, stock (v_productos_stock, movimientos_stock), inventarios, salidas, proveedores, categorías, unidades, usuarios, objetivos. Integridad por RPC atómicas.',
+    key:['app.py','config/settings.py','tools/demo.py'] },
+  { id:'contabilidad', name:'Contabilidad', barrio:'mrasoc', estado:'mvp', loc:5953, files:62, ver:'v0.23.0', mod:'15-ago-2026',
+    repo:'ematiromero98/contabilidad', stack:'PyQt6 · Supabase',
+    pos:[-55,15],
+    que:'Contabilidad paralela de MR & Asociados: Libro Diario/Mayor y estados. Devenga las ventas desde el Libro IVA de ARCA y concilia contra Tango.',
+    como:'PyQt6 + Supabase. 42 .py, 8 SQL. Entry <code>main.py</code>. Ver docs/HANDOFF.md.',
+    data:'Supabase <b>base central</b> <code>zpwcce…</code> (misma que RetencionesPro): asientos del diario, plan de cuentas, <code>ddjj_iva_libros</code>.',
+    key:['main.py','ddjj_iva_libros'] },
+  { id:'juicios', name:'Control de Juicios', barrio:'mrasoc', estado:'prod', loc:1630, files:21, ver:'v1.4.1', mod:'14-ago-2026',
+    repo:'ematiromero98/control-juicios', stack:'PyQt6 · Supabase',
+    pos:[-35,15],
+    que:'Seguimiento de juicios y contingencias laborales de las empresas clientes del estudio.',
+    como:'PyQt6 + Supabase (habla directo con PostgREST vía requests). 12 .py. Entry <code>main.py</code>, dashboard en <code>ui_dashboard.py</code>. Trae <code>bootstrap_suite.py</code> para instalar la Suite.',
+    data:'Supabase <b>base central</b> <code>zpwcce…</code> (credenciales centrales, misma base del estudio): juicios y contingencias laborales.',
+    key:['main.py','ui_dashboard.py','db.py','bootstrap_suite.py'] },
+  // ---- NTT DATA ----
+  { id:'ntterp', name:'NTT-DATA-ERP', barrio:'ntt', estado:'proto', loc:602, files:17, ver:'v0.1.0', mod:'18-ago-2026', hub:true,
+    repo:'ematiromero98/NTT-DATA-ERP', stack:'PyQt6 (launcher)',
+    pos:[45,-15],
+    que:'Launcher del mundo NTT DATA (mismo patrón "repos separados + launcher"). Por ahora orquesta 1 módulo: Compras.',
+    como:'PyQt6. 7 .py. Catálogo en <code>config.py</code>, orquestación en <code>src/modulos.py</code> (clona/actualiza/lanza por git).',
+    key:['main.py','config.py','src/modulos.py'] },
+  { id:'conciliador', name:'Conciliador ARCA-SAP', barrio:'ntt', estado:'mvp', loc:3505, files:31, ver:'v0.6.0', mod:'18-ago-2026',
+    repo:'ematiromero98/NTT-DATA-Compras', stack:'PyQt6 · pandas',
+    pos:[70,-15],
+    que:'Concilia el Libro de Compras de ARCA contra SAP: cuadre, matching en cascada + base acumulativa + manual, confirmar/rechazar sugeridos, cierre de mes. Pendiente de aprobación de IT.',
+    como:'PyQt6 + pandas. 16 .py con tests. Matching en <code>src/matching.py</code>, servicio en <code>src/servicio.py</code>. Carpeta canónica NTT-DATA-Compras.',
+    key:['main.py','src/matching.py','src/servicio.py','src/db.py'] },
+  // ---- Personal ----
+  { id:'casamiento', name:'Casamiento (Pasaporte)', barrio:'per', estado:'prod', loc:2600, files:65, ver:'—', mod:'07-ago-2026',
+    repo:'ematiromero98/casamiento-pasaporte', stack:'Web vanilla · Firebase',
+    pos:[55,45],
+    que:'Pasaporte de juegos para el casamiento de Matías & Lara + invitación web one-page (sobre lacrado → … → RSVP). Vanilla JS, mismo repo/deploy.',
+    como:'HTML/CSS/JS vanilla + Firebase (/rsvp). 14 HTML, 9 JS. Pipeline de invitados: plantilla Excel → generador <code>guests.js</code>/acertijos.',
+    key:['index.html','guests.js','js/'] },
+  // ---- Landmarks (infra) ----
+  { id:'arca', name:'ARCA (AFIP)', barrio:null, landmark:true, pos:[3,6], h:44,
+    que:'El organismo fiscal nacional (ex-AFIP). No es una base nuestra: es la <b>fuente de verdad externa</b> de la que las apps leen o a la que le mandan datos. La sesión/credenciales de ARCA es la infraestructura más compartida de todo el ecosistema.',
+    stack:'Portal AFIP · Selenium · WSFEV1',
+    guarda:['Libro de Compras / Ventas (IVA) — comprobantes de proveedores y clientes','Portal IVA — DDJJ de IVA + SIRCREB presentadas','Comprobantes electrónicos + CAE (web service WSFEV1)','Padrón de contribuyentes (CUIT, condición fiscal)','Percepciones de IVA (régimen 602)'],
+    flujos:[['conciliador','descarga el Libro de Compras'],['contabilidad','lee el Libro de IVA para devengar ventas'],['ddjj','arma el borrador de DDJJ IVA + SIRCREB (Selenium)'],['reten','exporta CSV de Perc. IVA sufridas (rég. 602)'],['facturador','emite comprobantes y obtiene el CAE (WSFEV1)'],['cobranzas','retenciones / facturación']] },
+  { id:'sap', name:'SAP', barrio:null, landmark:true, pos:[70,-48], h:30,
+    que:'El ERP corporativo de NTT DATA / su cliente. Es la <b>fuente de los asientos contables</b> que el Conciliador cruza contra el Libro de Compras de ARCA para detectar diferencias.',
+    stack:'SAP · export de asientos',
+    guarda:['Asientos contables / registraciones de compras del ERP corporativo','Se exportan y se comparan (matching) contra los comprobantes de ARCA'],
+    flujos:[['conciliador','trae los asientos SAP y los concilia contra ARCA']] },
+  { id:'supabase', name:'Supabase (4 proyectos)', barrio:null, landmark:true, pos:[-55,-52], h:32,
+    que:'El backend Postgres de las apps del estudio. Son <b>4 proyectos independientes</b>. El más importante es la <b>base central</b>, compartida por 4 apps a la vez — por eso RetencionesPro, DDJJ, Contabilidad y Juicios pueden conciliar entre sí: es literalmente la misma base.',
+    stack:'PostgreSQL · PostgREST · 4 proyectos',
+    guarda:['🟢 <b>Base central</b> <code>zpwcce…</code> — <b>compartida</b>: RetencionesPro · DDJJ · Contabilidad · Juicios → proveedores, órdenes de pago, retenciones, facturas de compra, libros IVA, conciliaciones, asientos del diario, plan de cuentas, juicios','🟣 <b>Employee Pro</b> <code>ffczbi…</code> → empleados, empresas, vacaciones, datos_salariales, recibos, sanciones, fichadas, medicina_laboral, evaluaciones, novedades','🟤 <b>Depósito Avalos</b> <code>ioycuh…</code> → productos, stock, movimientos_stock, inventarios, salidas, proveedores, categorías, unidades','🟠 <b>Cobranzas OSECAC</b> <code>rrarma…</code> → cobranzas, retenciones, asientos, facturación'],
+    flujos:[['reten','base central: proveedores, órdenes de pago, retenciones'],['ddjj','base central: libros IVA + conciliaciones'],['contabilidad','base central: asientos y plan de cuentas'],['juicios','base central: juicios y contingencias'],['employee','proyecto propio: legajos y sueldos'],['deposito','proyecto propio: stock e inventarios'],['cobranzas','proyecto propio: cobranzas y asientos']] },
+  { id:'firebase', name:'Firebase', barrio:null, landmark:true, pos:[82,52], h:22,
+    que:'Backend liviano de la invitación de casamiento. Guarda las confirmaciones de asistencia (RSVP) que cargan los invitados desde la web.',
+    stack:'Firebase Realtime Database',
+    guarda:['Nodo <code>/rsvp</code> — confirmaciones de asistencia de los invitados (nombre, asiste sí/no, acompañantes)'],
+    flujos:[['casamiento','escribe/lee las confirmaciones de los invitados']] },
+  // ---- Ghost externo ----
+  { id:'chermisqui', name:'Chermisqui / US Bookkeeping', barrio:'ext', ghost:true, pos:[-92,55], h:6,
+    stack:'Skills + planillas Excel (no es repo git)',
+    que:'Reporting semanal de clientes agropecuarios (Chuy, Magaña, Venegas…). No es un repo: vive como skills + planillas. Fuera de la ciudad, sin conexiones al código.' },
+];
+
+// tipo: launcher | dep | data | infra
+const EDGES = [
+  // launcher: Suite -> 8 apps
+  ['suite','ddjj','launcher','clona / actualiza / lanza'],
+  ['suite','reten','launcher','clona / actualiza / lanza'],
+  ['suite','cobranzas','launcher','clona / actualiza / lanza'],
+  ['suite','facturador','launcher','clona / actualiza / lanza'],
+  ['suite','employee','launcher','clona / actualiza / lanza'],
+  ['suite','deposito','launcher','clona / actualiza / lanza'],
+  ['suite','juicios','launcher','clona / actualiza / lanza'],
+  ['suite','contabilidad','launcher','clona / actualiza / lanza'],
+  // launcher: NTT-ERP -> conciliador
+  ['ntterp','conciliador','launcher','clona / lanza módulo Compras'],
+  // dep: bootstrap de la Suite
+  ['reten','suite','dep','bootstrap: instala la Suite (token .env)'],
+  ['ddjj','suite','dep','bootstrap Suite/ERP al abrir'],
+  ['juicios','suite','dep','bootstrap_suite.py'],
+  // data handoffs
+  ['reten','ddjj','data','facturas de compra conciliadas (ARCA↔RetProp)'],
+  ['reten','arca','data','CSV Perc. IVA Sufridas (rég. 602)'],
+  ['arca','contabilidad','data','Libro IVA → devengamiento de ventas'],
+  // infra: ARCA
+  ['ddjj','arca','infra','borrador DDJJ IVA + SIRCREB (Selenium)'],
+  ['facturador','arca','infra','emisión electrónica (WSFEV1)'],
+  ['conciliador','arca','infra','Libro de Compras'],
+  ['cobranzas','arca','infra','retenciones / facturación'],
+  // infra: SAP
+  ['conciliador','sap','infra','asientos SAP'],
+  // infra: Supabase
+  ['reten','supabase','infra','persistencia'],
+  ['ddjj','supabase','infra','persistencia'],
+  ['cobranzas','supabase','infra','persistencia'],
+  ['contabilidad','supabase','infra','persistencia'],
+  ['employee','supabase','infra','persistencia'],
+  ['deposito','supabase','infra','persistencia'],
+  ['juicios','supabase','infra','persistencia'],
+  // infra: Firebase
+  ['casamiento','firebase','infra','RSVP invitados'],
+];
+
+const EST_COLOR = { prod:0x27AE60, mvp:0xE67E22, proto:0x95A5A6 };
+const EST_LABEL = { prod:'Producción', mvp:'MVP', proto:'Prototipo' };
+const EDGE_COLOR = { launcher:0xFCBC45, dep:0x8E44AD, data:0x16A085, infra:0x2E86C1 };
+const NMAP = Object.fromEntries(NODES.map(n=>[n.id,n]));
+
+/* ========================================================== THREE SETUP == */
+const appEl = document.getElementById('app');
+const W = ()=>window.innerWidth, H = ()=>window.innerHeight;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xFAF9F5);
+scene.fog = new THREE.Fog(0xFAF9F5, 260, 520);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setSize(W(),H()); renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+appEl.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(W(),H());
+document.getElementById('css2d').appendChild(labelRenderer.domElement);
+
+const FR = 150;
+function makeCam(){
+  const a = W()/H();
+  const c = new THREE.OrthographicCamera(-FR*a/2, FR*a/2, FR/2, -FR/2, -600, 1600);
+  c.position.set(150,140,150); c.lookAt(0,0,0);
+  return c;
+}
+let camera = makeCam();
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.target.set(-5,4,0);
+controls.minZoom = 0.45; controls.maxZoom = 3.2;
+controls.maxPolarAngle = Math.PI*0.49;
+
+// lights
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd8d2c2, 0.85));
+const sun = new THREE.DirectionalLight(0xffffff, 1.05);
+sun.position.set(80,150,60); sun.castShadow = true;
+sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera,{left:-180,right:180,top:180,bottom:-180,near:1,far:600});
+scene.add(sun);
+
+// ground (blueprint)
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(520,420),
+  new THREE.MeshStandardMaterial({ color:0xFAF9F5, roughness:1 }));
+ground.rotation.x = -Math.PI/2; ground.position.y = -0.02; ground.receiveShadow = true;
+scene.add(ground);
+const grid = new THREE.GridHelper(520, 104, 0xd9e2ec, 0xeae6db);
+grid.position.y = 0; scene.add(grid);
+const grid2 = new THREE.GridHelper(520, 13, 0xbfd0e0, 0xbfd0e0);
+grid2.material.opacity = .5; grid2.material.transparent = true; scene.add(grid2);
+
+/* ============================================================ BARRIOS ==== */
+// district plates + labels
+const districtDefs = {
+  mrasoc:{ x:-55,z:-5, w:66, d:66, color:0xFCBC45 },
+  ntt:{ x:57,z:-15, w:52, d:34, color:0x2E86C1 },
+  per:{ x:55,z:45, w:30, d:26, color:0xE91E63 },
+  ext:{ x:-92,z:55, w:34, d:22, color:0x808080 },
+};
+for(const [k,d] of Object.entries(districtDefs)){
+  const plate = new THREE.Mesh(
+    new THREE.PlaneGeometry(d.w,d.d),
+    new THREE.MeshStandardMaterial({ color:d.color, transparent:true, opacity:k==='ext'?0.04:0.08, roughness:1 }));
+  plate.rotation.x = -Math.PI/2; plate.position.set(d.x,0.03,d.z);
+  scene.add(plate);
+  // border
+  const edgesGeo = new THREE.EdgesGeometry(new THREE.PlaneGeometry(d.w,d.d));
+  const border = new THREE.LineSegments(edgesGeo, new THREE.LineDashedMaterial({ color:d.color, dashSize:3, gapSize:2, transparent:true, opacity:.55 }));
+  border.computeLineDistances(); border.rotation.x = -Math.PI/2; border.position.set(d.x,0.05,d.z);
+  scene.add(border);
+  // label
+  const b = BARRIOS[k];
+  const el = document.createElement('div'); el.className = 'barrio-label '+b.cls; el.textContent = b.label;
+  const lo = new CSS2DObject(el); lo.position.set(d.x, 2, d.z - d.d/2 - 3);
+  scene.add(lo);
+}
+
+/* ========================================================== BUILDINGS ==== */
+const buildingMeshes = [];
+const nodeObjs = {}; // id -> {mesh, label, top:Vector3}
+
+function heightFor(n){
+  if(n.landmark||n.ghost) return n.h||20;
+  return THREE.MathUtils.clamp(Math.sqrt(n.loc)*0.16, 5, 34);
+}
+
+const raycaster = new THREE.Raycaster();
+
+for(const n of NODES){
+  const h = heightFor(n);
+  const [x,z] = n.pos;
+  let mesh, color;
+  if(n.landmark){
+    color = 0x141413;
+    const geo = new THREE.CylinderGeometry(4.5,6,h,6);
+    mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness:.4, metalness:.25 }));
+    mesh.position.set(x,h/2,z);
+    // gold cap
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(5,7,6),
+      new THREE.MeshStandardMaterial({ color:0xFCBC45, roughness:.3, metalness:.4 }));
+    cap.position.set(x,h+3.5,z); cap.castShadow=true; scene.add(cap);
+    nodeObjs[n.id]=nodeObjs[n.id]||{}; nodeObjs[n.id].cap=cap;
+  } else if(n.ghost){
+    color = 0xbfb9ac;
+    mesh = new THREE.Mesh(new THREE.BoxGeometry(9,h,9),
+      new THREE.MeshStandardMaterial({ color, roughness:1, transparent:true, opacity:.4 }));
+    mesh.position.set(x,h/2,z);
+  } else {
+    color = EST_COLOR[n.estado];
+    const w = n.hub?12:9.5;
+    mesh = new THREE.Mesh(new THREE.BoxGeometry(w,h,w),
+      new THREE.MeshStandardMaterial({ color, roughness:.72, metalness:.05 }));
+    mesh.position.set(x,h/2,z);
+    // roof accent (gold for hubs, subtle otherwise)
+    const roof = new THREE.Mesh(new THREE.BoxGeometry(w+0.6,1.1,w+0.6),
+      new THREE.MeshStandardMaterial({ color:n.hub?0xFCBC45:0x141413, roughness:.5 }));
+    roof.position.set(x,h+0.4,z); roof.castShadow=true; scene.add(roof);
+    nodeObjs[n.id]=nodeObjs[n.id]||{}; nodeObjs[n.id].roof=roof;
+  }
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  mesh.userData.id = n.id;
+  scene.add(mesh);
+  buildingMeshes.push(mesh);
+
+  // label
+  const el = document.createElement('div');
+  el.className = 'b-label' + (n.landmark?' lm':'');
+  el.textContent = n.name.replace(' (Pasaporte)','');
+  const lo = new CSS2DObject(el); lo.position.set(x, h+ (n.landmark?9:4), z);
+  scene.add(lo);
+
+  nodeObjs[n.id]=nodeObjs[n.id]||{};
+  Object.assign(nodeObjs[n.id], { mesh, label:el, labelObj:lo, top:new THREE.Vector3(x,h,z), node:n });
+}
+
+/* ============================================================= EDGES ===== */
+const edgeObjs = []; // {line, dots:[], type, from, to, payload, payLabel}
+const dotGeo = new THREE.SphereGeometry(1.15,10,10);
+
+for(const [from,to,type,payload] of EDGES){
+  const a = nodeObjs[from].top.clone();
+  const b = nodeObjs[to].top.clone();
+  const mid = a.clone().add(b).multiplyScalar(0.5);
+  const dist = a.distanceTo(b);
+  mid.y += Math.min(38, 12 + dist*0.28);
+  const curve = new THREE.QuadraticBezierCurve3(a.clone().setY(a.y+1), mid, b.clone().setY(b.y+1));
+  const col = EDGE_COLOR[type];
+  const pts = curve.getPoints(40);
+  const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({ color:col, transparent:true, opacity:.32 }));
+  scene.add(line);
+
+  const dots = [];
+  const nDots = type==='launcher'?1:2;
+  for(let i=0;i<nDots;i++){
+    const d = new THREE.Mesh(dotGeo, new THREE.MeshBasicMaterial({ color:col }));
+    d.userData.p = i/nDots + Math.random()*0.15;
+    scene.add(d); dots.push(d);
+  }
+  // payload label (hidden until focus) — se togglea por .visible del objeto,
+  // NO por style.display (CSS2DRenderer reescribe display cada frame según .visible)
+  const pel = document.createElement('div'); pel.className='pay-label'; pel.textContent=payload;
+  const plo = new CSS2DObject(pel); plo.position.copy(mid); scene.add(plo);
+
+  edgeObjs.push({ line, dots, curve, type, from, to, payload, payLabel:pel, payLabelObj:plo, mid });
+}
+
+/* ============================================= NEIGHBORS / STATE ========= */
+function neighborsOf(id){
+  const s = new Set([id]);
+  for(const e of edgeObjs){ if(e.from===id) s.add(e.to); if(e.to===id) s.add(e.from); }
+  return s;
+}
+let activeBarrio = 'todos';
+let selected = null;
+let playing = true;
+let speed = 1;
+// filtros extra
+const estadoOn = { prod:true, mvp:true, proto:true };
+const typeOn   = { launcher:true, data:true, infra:true, dep:true };
+let showPayloads = true;
+
+function projPasses(n){
+  if(n.estado && !estadoOn[n.estado]) return false;
+  if(activeBarrio!=='todos' && n.barrio!==activeBarrio) return false;
+  return true;
+}
+function nodeVisibleByFilter(n){
+  if(n.ghost) return activeBarrio==='todos';
+  if(n.landmark){
+    // visible si conecta con algún proyecto (no-landmark) que pase los filtros
+    return EDGES.some(([f,t])=>{
+      const other = f===n.id? t : (t===n.id? f : null);
+      return other && NMAP[other] && !NMAP[other].landmark && nodeVisibleByFilter(NMAP[other]);
+    });
+  }
+  return projPasses(n);
+}
+
+function apply(){
+  const nb = selected? neighborsOf(selected): null;
+  // nodes
+  for(const n of NODES){
+    const o = nodeObjs[n.id]; if(!o) continue;
+    const vis = nodeVisibleByFilter(n);
+    const dim = nb && !nb.has(n.id);
+    o.mesh.visible = vis;
+    if(o.roof) o.roof.visible = vis;
+    if(o.cap) o.cap.visible = vis;
+    const op = dim?0.16:1;
+    setOpacity(o.mesh, op);
+    if(o.roof) setOpacity(o.roof, op);
+    if(o.cap) setOpacity(o.cap, op);
+    o.label.style.setProperty('opacity', !vis ? '0' : (dim ? '0.28' : '1'), 'important');
+    o.label.classList.toggle('hi', selected===n.id);
+  }
+  // edges
+  for(const e of edgeObjs){
+    const fv = nodeVisibleByFilter(NMAP[e.from]), tv = nodeVisibleByFilter(NMAP[e.to]);
+    const vis = fv && tv && typeOn[e.type];
+    const active = vis && (!selected || e.from===selected || e.to===selected);
+    e.line.visible = vis;
+    e.line.material.opacity = active?0.7:(vis?0.12:0);
+    e.dots.forEach(d=>{ d.visible = active; });
+    e.payLabel.style.setProperty('opacity', (showPayloads && active && selected) ? '1' : '0', 'important');
+  }
+}
+function setOpacity(m,o){ if(!m.material) return; m.material.transparent = o<1; m.material.opacity=o; }
+
+/* ============================================================= UI ======== */
+// filter buttons
+const filterEl = document.getElementById('filters');
+const FILTERS = [['todos','Todos',null],['mrasoc','MR & Asociados','#FCBC45'],['ntt','NTT DATA','#2E86C1'],['per','Personal','#E91E63']];
+for(const [k,lbl,c] of FILTERS){
+  const b = document.createElement('button'); b.className='fbtn'+(k==='todos'?' active':'');
+  b.innerHTML = (c?`<span class="cdot" style="background:${c}"></span>`:'')+lbl;
+  b.onclick = ()=>{ activeBarrio=k; [...filterEl.children].forEach(x=>x.classList.remove('active')); b.classList.add('active');
+    if(selected && !nodeVisibleByFilter(NMAP[selected])){ selected=null; hideDetail(); }
+    apply(); syncRows(); frameBarrio(k); };
+  filterEl.appendChild(b);
+}
+
+// sidebar + panel de filtros
+const sb = document.getElementById('sidebar');
+sb.innerHTML =
+  '<div id="filterpanel">'+
+    '<div class="fp-grp"><div class="fp-h">Estado <span class="fp-hint">(click para ocultar)</span></div><div class="fp-chips" id="fp-estado">'+
+      '<button class="fchip on" data-e="prod"><i style="background:#27AE60"></i>Producción</button>'+
+      '<button class="fchip on" data-e="mvp"><i style="background:#E67E22"></i>MVP</button>'+
+      '<button class="fchip on" data-e="proto"><i style="background:#95A5A6"></i>Prototipo</button>'+
+    '</div></div>'+
+    '<div class="fp-grp"><div class="fp-h">Tipo de conexión</div><div class="fp-chips" id="fp-type">'+
+      '<button class="fchip on" data-t="launcher"><i style="background:#FCBC45"></i>Launcher</button>'+
+      '<button class="fchip on" data-t="data"><i style="background:#16A085"></i>Datos</button>'+
+      '<button class="fchip on" data-t="infra"><i style="background:#2E86C1"></i>Infra</button>'+
+      '<button class="fchip on" data-t="dep"><i style="background:#8E44AD"></i>Dependencia</button>'+
+    '</div></div>'+
+    '<div class="fp-grp fp-row"><span class="fp-h" style="margin:0">Carteles de conexión</span>'+
+      '<label class="switch"><input type="checkbox" id="tg-pay" checked><span class="sl"></span></label></div>'+
+  '</div><div id="projlist"></div>';
+const projlist = document.getElementById('projlist');
+
+function syncRows(){
+  projlist.querySelectorAll('.row').forEach(r=>{
+    const n = NMAP[r.dataset.id];
+    r.style.opacity = (n && nodeVisibleByFilter(n)) ? '1' : '.3';
+  });
+}
+document.querySelectorAll('#fp-estado .fchip').forEach(b=>b.onclick=()=>{
+  const k=b.dataset.e; estadoOn[k]=!estadoOn[k];
+  b.classList.toggle('on',estadoOn[k]); b.classList.toggle('off',!estadoOn[k]);
+  if(selected && !nodeVisibleByFilter(NMAP[selected])){ selected=null; hideDetail(); }
+  apply(); syncRows();
+});
+document.querySelectorAll('#fp-type .fchip').forEach(b=>b.onclick=()=>{
+  const k=b.dataset.t; typeOn[k]=!typeOn[k];
+  b.classList.toggle('on',typeOn[k]); b.classList.toggle('off',!typeOn[k]);
+  apply();
+});
+document.getElementById('tg-pay').onchange=(ev)=>{ showPayloads=ev.target.checked; apply(); };
+
+function buildSidebar(){
+  projlist.innerHTML='';
+  const groups = [
+    ['MR & Asociados', NODES.filter(n=>n.barrio==='mrasoc')],
+    ['NTT DATA', NODES.filter(n=>n.barrio==='ntt')],
+    ['Personal', NODES.filter(n=>n.barrio==='per')],
+    ['Infraestructura', NODES.filter(n=>n.landmark)],
+    ['Externo', NODES.filter(n=>n.ghost)],
+  ];
+  for(const [g,list] of groups){
+    if(!list.length) continue;
+    const h=document.createElement('div'); h.className='grp-h'; h.textContent=g; projlist.appendChild(h);
+    for(const n of list){
+      const r=document.createElement('div'); r.className='row'+(n.landmark||n.ghost?' lm':''); r.dataset.id=n.id;
+      const st = n.landmark? '#141413' : n.ghost? '#bfb9ac' : '#'+EST_COLOR[n.estado].toString(16).padStart(6,'0');
+      r.innerHTML = `<span class="st" style="background:${st}"></span>`+
+        `<span class="nm">${n.name}</span>`+
+        (n.files?`<span class="fc">${n.files}</span>`:'');
+      r.onclick=()=>selectNode(n.id,true);
+      projlist.appendChild(r);
+    }
+  }
+}
+buildSidebar();
+
+// detail
+const detail = document.getElementById('detail');
+function showDetail(n){
+  document.getElementById('d-name').textContent = n.name;
+  document.getElementById('d-repo').textContent = n.repo? 'github.com/'+n.repo : (n.landmark?'infraestructura compartida':'externo · no-repo');
+  const chips = document.getElementById('d-chips'); chips.innerHTML='';
+  const add=(t,cls='')=>{ const c=document.createElement('span'); c.className='chip '+cls; c.innerHTML=t; chips.appendChild(c); };
+  if(n.ver && n.ver!=='—') add(n.ver,'ver');
+  if(n.estado) add(`<span style="color:#${EST_COLOR[n.estado].toString(16)}">●</span> ${EST_LABEL[n.estado]}`);
+  if(n.stack) add(n.stack);
+  if(n.files) add(n.files+' archivos');
+  if(n.loc) add(n.loc.toLocaleString('es-AR')+' líneas');
+  if(n.mod) add('↻ '+n.mod);
+  // qué
+  let que = `<h4>En criollo</h4><p>${n.que||'—'}</p>`;
+  if(n.guarda && n.guarda.length){
+    que += `<h4>${n.landmark?'Qué guarda / qué hay acá':'Qué guarda'}</h4><ul class="store">`+n.guarda.map(g=>`<li>${g}</li>`).join('')+`</ul>`;
+  }
+  if(n.flujos && n.flujos.length){
+    que += `<h4>Qué pasa por acá</h4><div class="conns">`+n.flujos.map(([id,txt])=>{
+      const nm = NMAP[id]?NMAP[id].name:id;
+      const col = NMAP[id]&&NMAP[id].estado?'#'+EST_COLOR[NMAP[id].estado].toString(16):'#2E86C1';
+      return `<div class="conn" style="border-left:3px solid ${col}"><b>${nm}</b><br><span style="color:#808080">${txt}</span></div>`;
+    }).join('')+`</div>`;
+  } else {
+    que += connHTML(n);
+  }
+  document.getElementById('tc-que').innerHTML = que;
+  // cómo
+  let como = `<h4>Stack &amp; construcción</h4><p>${n.como||('<i>'+(n.stack||'')+'</i>')}</p>`;
+  if(n.data){ como += `<h4>Dónde persiste la data</h4><p class="store-note">${n.data}</p>`; }
+  if(n.key && n.key.length){
+    como += `<h4>Archivos clave</h4><ul class="files">`+n.key.map(f=>`<li>${f}</li>`).join('')+`</ul>`;
+  }
+  document.getElementById('tc-como').innerHTML = como;
+  detail.classList.add('show');
+  // reset tab
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.t==='que'));
+  document.getElementById('tc-que').classList.add('active');
+  document.getElementById('tc-como').classList.remove('active');
+}
+function connHTML(n){
+  const outs = EDGES.filter(e=>e[0]===n.id), ins = EDGES.filter(e=>e[1]===n.id);
+  if(!outs.length && !ins.length) return '';
+  let h = '<h4>Conexiones</h4><div class="conns">';
+  for(const [f,t,ty,p] of outs) h += `<div class="conn" style="border-left:3px solid #${EDGE_COLOR[ty].toString(16)}"><span class="ar">→</span> ${NMAP[t].name}<br><span style="color:#808080">${p}</span></div>`;
+  for(const [f,t,ty,p] of ins) h += `<div class="conn" style="border-left:3px solid #${EDGE_COLOR[ty].toString(16)}"><span class="ar">←</span> ${NMAP[f].name}<br><span style="color:#808080">${p}</span></div>`;
+  return h+'</div>';
+}
+function hideDetail(){ detail.classList.remove('show'); }
+
+function showIntro(){
+  document.getElementById('d-name').textContent = 'Cómo leer esta ciudad';
+  document.getElementById('d-repo').textContent = '12 proyectos · 4 hubs de datos · 3 barrios';
+  const chips=document.getElementById('d-chips'); chips.innerHTML=
+    '<span class="chip"><span style="color:#27AE60">●</span> Producción</span>'+
+    '<span class="chip"><span style="color:#E67E22">●</span> MVP</span>'+
+    '<span class="chip"><span style="color:#95A5A6">●</span> Prototipo</span>'+
+    '<span class="chip"><span style="color:#141413">●</span> Infra</span>';
+  document.getElementById('tc-que').innerHTML =
+    '<h4>La idea</h4><p>Cada <b>edificio es un proyecto</b> tuyo de GitHub. La <b>altura</b> es cuánto código tiene '+
+    '(RetencionesPro es el rascacielos). El <b>color</b> es el estado: 🟢 producción, 🟠 MVP, ⚪ prototipo. '+
+    'El <b>techo dorado</b> marca los 2 launchers (Suite y NTT-ERP).</p>'+
+    '<h4>Barrios</h4><p>🟡 <b>MR &amp; Asociados</b> (el estudio, 9 apps) · 🔵 <b>NTT DATA</b> (corporativo, 2) · '+
+    '🌸 <b>Personal</b> (casamiento). Chermisqui queda punteado afuera porque no es un repo.</p>'+
+    '<h4>Los 4 hubs negros con punta dorada</h4>'+
+    '<div class="conns">'+
+    '<div class="conn" style="border-left:3px solid #141413"><b>ARCA (AFIP)</b><br><span style="color:#808080">fuente fiscal externa: Libro IVA, Portal IVA, CAE, percepciones. La usan 6 apps.</span></div>'+
+    '<div class="conn" style="border-left:3px solid #141413"><b>Supabase</b><br><span style="color:#808080">4 bases Postgres. Una es central y la comparten RetencionesPro + DDJJ + Contabilidad + Juicios.</span></div>'+
+    '<div class="conn" style="border-left:3px solid #141413"><b>SAP</b><br><span style="color:#808080">asientos del ERP corporativo que el Conciliador cruza contra ARCA.</span></div>'+
+    '<div class="conn" style="border-left:3px solid #141413"><b>Firebase</b><br><span style="color:#808080">RSVP de los invitados del casamiento.</span></div>'+
+    '</div>'+
+    '<p style="color:#808080;font-size:12px">👉 Clickeá cualquier hub o edificio para ver <b>qué guarda</b> y <b>cómo se conecta</b>. Los puntitos que viajan son la data moviéndose entre proyectos.</p>';
+  document.getElementById('tc-como').innerHTML =
+    '<h4>Cómo moverte</h4>'+
+    '<ul class="store">'+
+    '<li><b>Arrastrar</b> rota la cámara · <b>scroll</b> hace zoom</li>'+
+    '<li><b>Click</b> en un edificio: lo enfoca, atenúa el resto y muestra sus conexiones con su etiqueta</li>'+
+    '<li><b>Filtros arriba</b>: aíslan un barrio y la cámara vuela hasta él</li>'+
+    '<li><b>Play/Pausa · paso a paso · velocidad</b>: controlan los flujos de datos animados</li>'+
+    '<li><b>ESC</b>: limpia la selección</li>'+
+    '</ul>'+
+    '<h4>Las conexiones (colores)</h4>'+
+    '<ul class="store">'+
+    '<li><span style="color:#FCBC45">▬</span> <b>Launcher</b>: la Suite/ERP clona, actualiza y lanza la app</li>'+
+    '<li><span style="color:#16A085">▬</span> <b>Flujo de datos</b>: un proyecto le pasa un archivo/dato a otro</li>'+
+    '<li><span style="color:#2E86C1">▬</span> <b>Infra compartida</b>: la app usa ARCA / SAP / Supabase / Firebase</li>'+
+    '<li><span style="color:#8E44AD">▬</span> <b>Dependencia</b>: bootstrap (una app instala la Suite)</li>'+
+    '</ul>';
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.t==='que'));
+  document.getElementById('tc-que').classList.add('active');
+  document.getElementById('tc-como').classList.remove('active');
+  detail.classList.add('show');
+}
+document.getElementById('btn-guide').onclick = showIntro;
+
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+  document.getElementById('tc-que').classList.toggle('active',t.dataset.t==='que');
+  document.getElementById('tc-como').classList.toggle('active',t.dataset.t==='como');
+});
+
+function selectNode(id, fromList){
+  selected = id;
+  [...sb.querySelectorAll('.row')].forEach(r=>r.classList.toggle('sel',r.dataset.id===id));
+  showDetail(NMAP[id]);
+  apply();
+  if(fromList) focusOn(id);
+}
+function clearSel(){ selected=null; [...sb.querySelectorAll('.row')].forEach(r=>r.classList.remove('sel')); hideDetail(); apply(); }
+
+// controls
+const btnPlay=document.getElementById('btn-play'), playLbl=document.getElementById('play-lbl');
+btnPlay.onclick=()=>{ playing=!playing; btnPlay.firstChild.textContent = playing?'▶ ':'⏸ '; playLbl.textContent = playing?'Play':'Pausa'; };
+document.getElementById('btn-step').onclick=()=>{ stepOnce(); };
+document.querySelectorAll('.spd b').forEach(b=>b.onclick=()=>{
+  speed=parseFloat(b.dataset.s); document.querySelectorAll('.spd b').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+});
+
+/* ======================================================= INTERACTION ===== */
+const tooltip = document.getElementById('tooltip');
+const mouse = new THREE.Vector2();
+let hovered = null;
+renderer.domElement.addEventListener('pointermove', ev=>{
+  mouse.x = (ev.clientX/W())*2-1; mouse.y = -(ev.clientY/H())*2+1;
+  raycaster.setFromCamera(mouse,camera);
+  const hits = raycaster.intersectObjects(buildingMeshes.filter(m=>m.visible));
+  if(hits.length){
+    const id = hits[0].object.userData.id;
+    hovered = id;
+    tooltip.style.display='block'; tooltip.style.left=ev.clientX+'px'; tooltip.style.top=ev.clientY+'px';
+    tooltip.textContent = NMAP[id].name;
+    renderer.domElement.style.cursor='pointer';
+  } else { hovered=null; tooltip.style.display='none'; renderer.domElement.style.cursor='grab'; }
+});
+let downXY=null;
+renderer.domElement.addEventListener('pointerdown', ev=>{ downXY=[ev.clientX,ev.clientY]; });
+renderer.domElement.addEventListener('pointerup', ev=>{
+  if(!downXY) return;
+  const moved = Math.hypot(ev.clientX-downXY[0], ev.clientY-downXY[1]);
+  downXY=null;
+  if(moved>5) return; // was a drag
+  if(hovered) selectNode(hovered);
+  else clearSel();
+});
+window.addEventListener('keydown', e=>{ if(e.key==='Escape') clearSel(); });
+
+/* ======================================================= CAMERA FRAMING == */
+function frameBarrio(k){
+  let tx=-5,tz=0,zoom=0.85;
+  if(k==='mrasoc'){ tx=-55; tz=-5; zoom=1.15; }
+  else if(k==='ntt'){ tx=57; tz=-25; zoom=1.5; }
+  else if(k==='per'){ tx=60; tz=48; zoom=1.9; }
+  else { tx=-5; tz=0; zoom=0.82; }
+  animateCam(tx,tz,zoom);
+}
+function focusOn(id){
+  const p = nodeObjs[id].top;
+  animateCam(p.x, p.z, Math.max(controls.object.zoom,1.3));
+}
+let camAnim=null;
+function animateCam(tx,tz,zoom){
+  camAnim={ fromT:controls.target.clone(), toT:new THREE.Vector3(tx,4,tz), fromZ:camera.zoom, toZ:zoom, t:0 };
+}
+
+/* ============================================================= LOOP ====== */
+const clock = new THREE.Clock();
+function stepOnce(){
+  for(const e of edgeObjs) for(const d of e.dots){ d.userData.p=(d.userData.p+0.07)%1; }
+  updateDotPos();
+}
+function updateDotPos(){
+  for(const e of edgeObjs){
+    if(!e.dots[0]||!e.dots[0].visible) continue;
+    for(const d of e.dots){ e.curve.getPointAt(d.userData.p, d.position); }
+  }
+}
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(),0.05);
+  if(playing){ for(const e of edgeObjs) for(const d of e.dots){ d.userData.p=(d.userData.p+dt*0.14*speed)%1; } }
+  updateDotPos();
+  // pulse hubs
+  const t = clock.elapsedTime;
+  for(const id of ['arca','suite','ntterp']){ const o=nodeObjs[id]; if(o&&o.cap) o.cap.rotation.y=t*0.5; }
+  if(camAnim){
+    camAnim.t=Math.min(1,camAnim.t+dt*2.2); const e=1-Math.pow(1-camAnim.t,3);
+    controls.target.lerpVectors(camAnim.fromT,camAnim.toT,e);
+    camera.zoom = camAnim.fromZ+(camAnim.toZ-camAnim.fromZ)*e; camera.updateProjectionMatrix();
+    if(camAnim.t>=1) camAnim=null;
+  }
+  controls.update();
+  renderer.render(scene,camera);
+  labelRenderer.render(scene,camera);
+}
+apply(); showIntro(); animate();
+
+window.addEventListener('resize', ()=>{
+  const a=W()/H();
+  camera.left=-FR*a/2; camera.right=FR*a/2; camera.top=FR/2; camera.bottom=-FR/2;
+  camera.updateProjectionMatrix();
+  renderer.setSize(W(),H()); labelRenderer.setSize(W(),H());
+});
+</script>
+</body>
+</html>
