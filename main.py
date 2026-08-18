@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QFrame, QMessageBox, QScrollArea, QStackedWidget, QButtonGroup,
 )
 from PyQt6.QtCore import Qt, QObject, pyqtSignal, QTimer, QRectF
-from PyQt6.QtGui import QIcon, QPixmap, QPainter, QFont, QColor
+from PyQt6.QtGui import QIcon, QPixmap, QPainter, QFont, QColor, QPalette
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config
@@ -143,6 +143,20 @@ QScrollBar::handle:vertical:hover { background:#3a4658; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background:transparent; }
 QScrollBar:horizontal { height:0px; }
+
+/* ── Diálogos y mensajes (evita el "texto invisible" en los QMessageBox) ──
+   Los QMessageBox son ventanas top-level: si el tema sólo pone color de texto
+   claro pero no un fondo oscuro, quedan con el fondo claro por defecto de
+   Fusion y el texto blanco desaparece. Fijamos fondo + texto explícitos. */
+QDialog, QMessageBox { background:#0f1218; }
+QMessageBox QLabel { background:transparent; color:#eef2f8; }
+QMessageBox QPushButton, QDialog QPushButton {
+    background:#1c222e; color:#eef2f8; border:1px solid #242c39;
+    border-radius:8px; padding:6px 16px; font-size:12px; font-weight:600; min-width:78px; }
+QMessageBox QPushButton:hover, QDialog QPushButton:hover {
+    border-color:#2ee6a6; color:#5cf0bd; }
+QMessageBox QPushButton:focus, QDialog QPushButton:focus {
+    border-color:#2ee6a6; }
 """
 
 
@@ -1297,6 +1311,32 @@ class Launcher(QWidget):
             self._rebuild_updates_page()
 
 
+def _dark_palette():
+    """QPalette oscura para las partes NATIVAS (QMessageBox, diálogos de sistema,
+    tooltips): el stylesheet por sí solo no alcanza para los top-level, y sin
+    esto el fondo queda claro (Fusion) y el texto blanco se vuelve invisible."""
+    p = QPalette()
+    c = QColor
+    p.setColor(QPalette.ColorRole.Window, c("#0f1218"))
+    p.setColor(QPalette.ColorRole.WindowText, c("#eef2f8"))
+    p.setColor(QPalette.ColorRole.Base, c("#171c26"))
+    p.setColor(QPalette.ColorRole.AlternateBase, c("#1c222e"))
+    p.setColor(QPalette.ColorRole.Text, c("#eef2f8"))
+    p.setColor(QPalette.ColorRole.Button, c("#1c222e"))
+    p.setColor(QPalette.ColorRole.ButtonText, c("#eef2f8"))
+    p.setColor(QPalette.ColorRole.ToolTipBase, c("#1d2430"))
+    p.setColor(QPalette.ColorRole.ToolTipText, c("#eef2f8"))
+    p.setColor(QPalette.ColorRole.Highlight, c("#2ee6a6"))
+    p.setColor(QPalette.ColorRole.HighlightedText, c("#04120c"))
+    p.setColor(QPalette.ColorRole.PlaceholderText, c("#8a94a6"))
+    p.setColor(QPalette.ColorRole.Link, c("#5cf0bd"))
+    dis = QPalette.ColorGroup.Disabled
+    p.setColor(dis, QPalette.ColorRole.Text, c("#5b6472"))
+    p.setColor(dis, QPalette.ColorRole.ButtonText, c("#5b6472"))
+    p.setColor(dis, QPalette.ColorRole.WindowText, c("#5b6472"))
+    return p
+
+
 def main():
     # En Windows, para que la barra de tareas muestre el ícono propio (y no el
     # de python/pythonw) hay que declarar un AppUserModelID antes de crear la
@@ -1311,6 +1351,11 @@ def main():
 
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+    # Paleta oscura + stylesheet a NIVEL DE APLICACIÓN: así los QMessageBox y
+    # demás diálogos top-level heredan el tema (antes salían con fondo claro de
+    # Fusion y el texto blanco quedaba invisible).
+    app.setPalette(_dark_palette())
+    app.setStyleSheet(QSS)
     ico = os.path.join(_BASE, "assets", "suite.ico")
     if os.path.isfile(ico):
         app.setWindowIcon(QIcon(ico))
