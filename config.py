@@ -65,7 +65,7 @@ APPS = [
         "color": "#8E44AD",
         "env_dir": "EMPLOYEE_PRO_DIR",
         "dir": os.environ.get("EMPLOYEE_PRO_DIR", r"D:\PROYECTOS CLAUDE\employee-pro"),
-        "entradas": ["main.py"],
+        "entradas": ["run.bat", "main.py"],
         "version_file": "version.py",
         "repo": "ematiromero98/employee-pro",
     },
