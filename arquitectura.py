@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
     QGraphicsRectItem, QGraphicsSimpleTextItem, QGraphicsPathItem,
     QGraphicsPixmapItem,
     QListWidget, QListWidgetItem, QTextBrowser, QPushButton, QLabel, QFrame,
+    QLineEdit,
 )
 
 # ----------------------------------------------------------------- paleta
@@ -350,7 +351,77 @@ PROYECTOS = {
         ],
         "rel_datos": SUPA_COMPARTIDA,
     },
+    # ── Webs companion (front-ends que corren en el celular) ──────────────
+    "comprobantes": {
+        "nombre": "Comprobantes (Web QR)", "emoji": "📲", "color": "#27AE9A",
+        "parent": "reten",
+        "proposito": "Es la web que se abre en el CELULAR (con un QR desde "
+                     "RetencionesPro) para sacarle la foto al comprobante de un pago "
+                     "y subirla, sin instalar nada. Cubre las órdenes de pago a "
+                     "proveedores y los pagos de DDJJ de retenciones.",
+        "stack": "HTML/CSS/JS estático en GitHub Pages (sin build). Habla con una "
+                 "Edge Function de Supabase (Deno) protegida por un PIN; el navegador "
+                 "del celular nunca ve las claves de la base.",
+        "entrypoint": "ematiromero98.github.io/comprobantes-cel/ (QR desde «Pasar Pagos»)",
+        "datos": SUPA_COMPARTIDA + " · Edge Function comprobantes-cel · buckets "
+                 "comprobantes / pdfs · tablas bandeja_comprobantes, ddjj_recaudacion_pagos",
+        "capas": [
+            ("Front (GitHub Pages)", ["index.html — lista de órdenes/DDJJ y cámara del celular",
+                                        "Acceso por PIN (no hay login por persona)"]),
+            ("Edge Function (Deno)", ["comprobantes-cel/index.ts — API con header x-pin",
+                                        "GET /ordenes · GET /ddjj · POST /subir · POST /subir-ddjj"]),
+            ("Datos", ["RPC ordenes_para_comprobantes / ddjj_para_comprobantes",
+                        "Storage: sube la foto al bucket (comprobantes / pdfs)",
+                        "PIN guardado en app_config (clave pin_comprobantes)"]),
+        ],
+        "integraciones": ["RetencionesPro (Pasar Pagos · QR)", "Supabase Edge Functions",
+                           "GitHub Pages"],
+        "flujo": [
+            "En RetencionesPro, «Pasar Pagos» arma un QR que incluye el PIN.",
+            "El celular abre la web y valida el PIN contra app_config.",
+            "Lista las órdenes pendientes y las DDJJ que esperan comprobante.",
+            "Se elige una y se saca la foto del comprobante de pago.",
+            "La Edge Function sube la imagen al bucket con la service-role key.",
+            "Marca la orden/DDJJ como comprobada; el escritorio la muestra sin cambios.",
+        ],
+        "rel_datos": SUPA_COMPARTIDA,
+    },
+    "juicios_carga": {
+        "nombre": "Carga de Juicios (Web)", "emoji": "📝", "color": "#5DADE2",
+        "parent": "juicios",
+        "proposito": "Es el formulario público (link + QR) que se le pasa a los "
+                     "abogados para que carguen o completen un juicio desde el "
+                     "celular, sin entrar al sistema. Lo que cargan aparece "
+                     "automáticamente en Control de Juicios.",
+        "stack": "HTML/CSS/JS estático en GitHub Pages (sin build, sin dependencias). "
+                 "Escribe a través de una Edge Function de Supabase (Deno); no expone "
+                 "ninguna clave de la base.",
+        "entrypoint": "ematiromero98.github.io/juicios-carga/ (link/QR desde Control de Juicios)",
+        "datos": SUPA_COMPARTIDA + " · Edge Function juicio-abogado · tablas juicios_*",
+        "capas": [
+            ("Front (GitHub Pages)", ["index.html — formulario responsive",
+                                        "Modo Nuevo (?nuevo=clave) o Editar (?token=…)"]),
+            ("Edge Function (Deno)", ["juicio-abogado — GET ?meta (empresas) · GET ?data (juicio)",
+                                        "POST — alta o edición del juicio"]),
+            ("Datos", ["Escribe en juicios_* (base compartida)",
+                        "Valida por token/clave; sin login por persona"]),
+        ],
+        "integraciones": ["Control de Juicios (recibe las cargas)", "Supabase Edge Functions",
+                           "WhatsApp / QR", "GitHub Pages"],
+        "flujo": [
+            "Desde Control de Juicios se comparte el link/QR (nuevo o para editar uno).",
+            "El abogado abre el formulario en el celular.",
+            "Elige la empresa (alta) o se le precarga el juicio (edición).",
+            "Completa carátula, etapa, montos, juzgado, abogado y notas.",
+            "«Enviar»: la Edge Function guarda en juicios_* de la base compartida.",
+            "Control de Juicios detecta la carga nueva (badge 🔔) y la revisa.",
+        ],
+        "rel_datos": SUPA_COMPARTIDA,
+    },
 }
+
+# Webs companion (front-ends en el celular) → app de escritorio que las usa.
+COMPANIONS_ORDEN = ["comprobantes", "juicios_carga"]
 
 # Sistemas externos y bases, para la vista general.
 EXTERNOS = {
@@ -486,9 +557,19 @@ class PaginaArquitectura(QWidget):
         tit = QLabel("🗺️  Arquitectura")
         tit.setStyleSheet(f"color:{TXT}; font-size:15px; font-weight:800;")
         izq.addWidget(tit)
-        sub = QLabel("Cómo está armado todo por dentro")
+        sub = QLabel("Elegí un proyecto para verlo solo")
         sub.setStyleSheet(f"color:{SUB}; font-size:11px;")
         izq.addWidget(sub)
+        # Filtro: escribí y la lista se achica a los proyectos que coinciden.
+        self.filtro = QLineEdit()
+        self.filtro.setPlaceholderText("🔎  Filtrar proyecto…")
+        self.filtro.setClearButtonEnabled(True)
+        self.filtro.setStyleSheet(
+            f"QLineEdit{{background:{CARD2}; border:1px solid {BORDE}; border-radius:9px;"
+            f"color:{TXT}; font-size:12px; padding:7px 9px;}}"
+            f"QLineEdit:focus{{border:1px solid {MENTA};}}")
+        self.filtro.textChanged.connect(self._filtrar_lista)
+        izq.addWidget(self.filtro)
         self.lista = QListWidget()
         self.lista.setStyleSheet(
             f"QListWidget{{background:{CARD2}; border:1px solid {BORDE};"
@@ -499,6 +580,14 @@ class PaginaArquitectura(QWidget):
         it_gen = QListWidgetItem(_emoji_icon("🌐", 18), "  Vista general del ERP", self.lista)
         it_gen.setData(32, "general")
         for k in APPS_ORDEN:
+            p = PROYECTOS[k]
+            it = QListWidgetItem(_emoji_icon(p["emoji"], 18), "  " + p["nombre"], self.lista)
+            it.setData(32, k)
+        # Webs companion (celular), agrupadas al final con un separador visual.
+        sep = QListWidgetItem("  webs del estudio (celular)", self.lista)
+        sep.setFlags(Qt.ItemFlag.NoItemFlags)
+        sep.setForeground(QColor(SUB))
+        for k in COMPANIONS_ORDEN:
             p = PROYECTOS[k]
             it = QListWidgetItem(_emoji_icon(p["emoji"], 18), "  " + p["nombre"], self.lista)
             it.setData(32, k)
@@ -541,6 +630,17 @@ class PaginaArquitectura(QWidget):
             self.mostrar_general()
         else:
             self.mostrar_proyecto(key)
+
+    def _filtrar_lista(self, texto):
+        """Achica la lista a los proyectos cuyo nombre contiene `texto`."""
+        q = (texto or "").strip().lower()
+        for i in range(self.lista.count()):
+            it = self.lista.item(i)
+            es_sep = not (it.flags() & Qt.ItemFlag.ItemIsSelectable)
+            if es_sep:                      # el separador "webs del estudio…"
+                it.setHidden(bool(q))       # se oculta cuando hay filtro activo
+                continue
+            it.setHidden(bool(q) and q not in it.text().lower())
 
     def _on_nodo(self, key):
         # Clic en un nodo del diagrama general → seleccionar en la lista.
@@ -644,7 +744,24 @@ class PaginaArquitectura(QWidget):
             _texto(sc, exx + 12, exy + 30, desc, color=SUB, size=8)
             exx += ext_w + gape
 
-        sc.setSceneRect(0, 0, W, 520)
+        # Webs companion (celular) — fila clickeable, atadas a su app de escritorio.
+        wy = 520
+        _texto(sc, 40, wy - 4, "Webs del estudio (celular):", color=SUB, size=9, bold=True)
+        cw, gapc = 250, 24
+        total_c = len(COMPANIONS_ORDEN) * cw + gapc * (len(COMPANIONS_ORDEN) - 1)
+        wx = (W - total_c) / 2
+        for ck in COMPANIONS_ORDEN:
+            p = PROYECTOS[ck]
+            caja = _caja(sc, wx, wy + 14, cw, 50, p["color"], relleno="#101a22")
+            caja.setData(0, ck)
+            caja.setCursor(Qt.CursorShape.PointingHandCursor)
+            _emoji_item(sc, wx + 12, wy + 25, p["emoji"], 18, key=ck)
+            _texto(sc, wx + 40, wy + 22, p["nombre"], color=TXT, size=10, bold=True).setData(0, ck)
+            _texto(sc, wx + 40, wy + 40, "↳ " + PROYECTOS[p["parent"]]["nombre"],
+                   color=SUB, size=8).setData(0, ck)
+            wx += cw + gapc
+
+        sc.setSceneRect(0, 0, W, 600)
         self._ajustar()
         self._explicacion_general()
 
@@ -672,8 +789,14 @@ class PaginaArquitectura(QWidget):
         y <b style='color:#bfe9d5'>Depósito</b> tienen su propia base, separada.</li></ul>
         <h3 style='color:{TXT};margin:10px 0 4px'>Las apps</h3>
         <table style='font-size:12px'>{filas}</table>
+        <h3 style='color:{TXT};margin:12px 0 4px'>Webs del celular</h3>
+        <p style='color:{SUB};font-size:12px;margin:0 0 8px'>
+        Dos front-ends que corren en el <b>celular</b> (GitHub Pages + una Edge
+        Function de Supabase): <b style='color:#27AE9A'>Comprobantes (QR)</b> sube la
+        foto del pago para RetencionesPro, y <b style='color:#5DADE2'>Carga de Juicios</b>
+        deja que los abogados carguen un juicio para Control de Juicios.</p>
         <p style='color:{SUB};font-size:11px;margin-top:12px'>
-        Tocá una app (acá o en el diagrama) para ver cómo está hecha por dentro.</p>
+        Tocá una app o web (acá o en el diagrama) para ver cómo está hecha por dentro.</p>
         </div>""")
 
     # ------------------------------------------------------------ vista proyecto
