@@ -21,12 +21,17 @@ from __future__ import annotations
 
 from PyQt6.QtCharts import (
     QChart, QChartView, QBarSeries, QBarSet, QHorizontalBarSeries,
-    QBarCategoryAxis, QValueAxis, QCategoryAxis, QLineSeries, QAreaSeries, QPieSeries,
+    QStackedBarSeries, QBarCategoryAxis, QValueAxis, QCategoryAxis,
+    QLineSeries, QAreaSeries, QPieSeries,
 )
-from PyQt6.QtCore import Qt, QMargins, QPointF
-from PyQt6.QtGui import QColor, QPainter, QLinearGradient, QBrush, QPen, QFont
+from PyQt6.QtCore import Qt, QMargins, QPointF, QRectF
+from PyQt6.QtGui import (QColor, QPainter, QLinearGradient, QBrush, QPen, QFont,
+                         QPainterPath)
+from PyQt6.QtWidgets import (QWidget, QFrame, QLabel, QVBoxLayout, QHBoxLayout,
+                             QSizePolicy)
 
-from suite_theme import TEXT, MUTED, HAIR, BORDER, PANEL, ACCENT
+from suite_theme import (TEXT, MUTED, HAIR, BORDER, PANEL, ACCENT,
+                         BG_DEEP, ACCENT_INK, GOOD, WARN, BAD)
 # Paleta categórica validada (ver dataviz): menta·azul·ámbar·rosa. Distinción
 # CVD ΔE >= 8 en oscuro. A partir del 5º color hace falta encoding secundario.
 PALETTE = ["#2ee6a6", "#5bb0ff", "#f6b64b", "#e879c7", "#a0aec0", "#f6465d"]
@@ -133,6 +138,12 @@ def bars(items, color: str = ACCENT, titulo: str = "", horizontal: bool = False)
     bset = QBarSet("")
     for v in vals:
         bset.append(v)
+    # Relleno con degradé sutil (look boardui) en vez de color plano.
+    _grad = QLinearGradient(0, 0, (1 if horizontal else 0), (0 if horizontal else 1))
+    _grad.setCoordinateMode(QLinearGradient.CoordinateMode.ObjectBoundingMode)
+    _c1 = QColor(color); _c2 = QColor(color); _c2.setAlpha(140)
+    _grad.setColorAt(0, _c1); _grad.setColorAt(1, _c2)
+    bset.setBrush(QBrush(_grad))
     bset.setColor(QColor(color))
     bset.setBorderColor(QColor(PANEL))
     series = QHorizontalBarSeries() if horizontal else QBarSeries()
@@ -263,3 +274,256 @@ def donut(items, center_top: str = "", center_bottom: str = "TOTAL", hole: float
     ov.addStretch(); ov.addWidget(top); ov.addWidget(bot); ov.addStretch()
     grid.addWidget(overlay, 0, 0)
     return cont
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  Componentes "boardui": KPI card, sparkline, gauge y funnel (pintados a mano,
+#  sin depender de QtCharts, así funcionan aun sin PyQt6-Charts).
+# ════════════════════════════════════════════════════════════════════════════
+_CARD_INNER = BG_DEEP        # pista / fondo interno
+
+
+class Sparkline(QWidget):
+    """Mini línea + área con degradé para meter dentro de una KPI card."""
+
+    def __init__(self, valores, color=ACCENT, parent=None):
+        super().__init__(parent)
+        self._v = [float(x or 0) for x in (valores or [])]
+        self._c = QColor(color)
+        self.setFixedSize(104, 32)
+
+    def set_valores(self, valores):
+        self._v = [float(x or 0) for x in (valores or [])]
+        self.update()
+
+    def paintEvent(self, _e):
+        if len(self._v) < 2:
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h, pad = self.width(), self.height(), 3
+        lo, hi = min(self._v), max(self._v)
+        rng = (hi - lo) or 1
+        n = len(self._v)
+        pts = [QPointF(pad + i * (w - 2 * pad) / (n - 1),
+                       h - pad - (v - lo) / rng * (h - 2 * pad))
+               for i, v in enumerate(self._v)]
+        grad = QLinearGradient(0, 0, 0, h)
+        c1 = QColor(self._c); c1.setAlpha(90)
+        c2 = QColor(self._c); c2.setAlpha(0)
+        grad.setColorAt(0, c1); grad.setColorAt(1, c2)
+        area = QPainterPath(); area.moveTo(pts[0].x(), h)
+        for pt in pts:
+            area.lineTo(pt)
+        area.lineTo(pts[-1].x(), h); area.closeSubpath()
+        p.fillPath(area, QBrush(grad))
+        p.setPen(QPen(self._c, 1.7, Qt.PenStyle.SolidLine,
+                      Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+        path = QPainterPath(pts[0])
+        for pt in pts[1:]:
+            path.lineTo(pt)
+        p.drawPath(path)
+        p.setBrush(QBrush(self._c)); p.setPen(Qt.PenStyle.NoPen)
+        p.drawEllipse(pts[-1], 2.4, 2.4)
+        p.end()
+
+
+class KpiCard(QFrame):
+    """Tarjeta de métrica: etiqueta + valor grande + (badge de variación o
+    subtítulo) + sparkline opcional. `delta` es un texto ya formateado."""
+
+    def __init__(self, titulo: str, valor: str, *, delta: str = None,
+                 delta_up: bool = True, sub: str = None, color: str = ACCENT,
+                 spark=None, parent=None):
+        super().__init__(parent)
+        self.setObjectName("kpiCard")
+        self.setStyleSheet(
+            f"QFrame#kpiCard{{background:{PANEL};border:1px solid {BORDER};"
+            f"border-radius:14px;}}")
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        lay = QVBoxLayout(self); lay.setContentsMargins(15, 13, 15, 13); lay.setSpacing(7)
+
+        top = QHBoxLayout(); top.setSpacing(8)
+        punto = QLabel(); punto.setFixedSize(9, 9)
+        punto.setStyleSheet(f"background:{color};border-radius:4px;")
+        lb = QLabel(titulo); lb.setStyleSheet(f"color:{MUTED};font-size:12px;background:transparent;")
+        top.addWidget(punto); top.addWidget(lb); top.addStretch()
+        lay.addLayout(top)
+
+        val = QLabel(valor)
+        val.setStyleSheet(f"color:{TEXT};font-size:23px;font-weight:700;background:transparent;")
+        lay.addWidget(val)
+
+        row = QHBoxLayout(); row.setSpacing(10)
+        if delta is not None:
+            col = GOOD if delta_up else BAD
+            arrow = "▲" if delta_up else "▼"
+            bg = "rgba(46,230,166,.12)" if delta_up else "rgba(246,70,93,.12)"
+            badge = QLabel(f"{arrow} {delta}")
+            badge.setStyleSheet(
+                f"color:{col};background:{bg};border-radius:6px;"
+                f"padding:2px 8px;font-size:11px;font-weight:600;")
+            row.addWidget(badge)
+        elif sub:
+            s = QLabel(sub); s.setStyleSheet(f"color:{MUTED};font-size:11px;background:transparent;")
+            row.addWidget(s)
+        row.addStretch()
+        if spark is not None and len(spark) >= 2:
+            row.addWidget(Sparkline(spark, color))
+        lay.addLayout(row)
+
+
+class GaugeWidget(QWidget):
+    """Semicírculo con % al centro."""
+
+    def __init__(self, pct: float, titulo: str = "", color=ACCENT, parent=None):
+        super().__init__(parent)
+        self._pct = max(0.0, min(100.0, float(pct or 0)))
+        self._titulo = titulo
+        self._c = QColor(color)
+        self.setMinimumHeight(160)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+    def set_pct(self, pct):
+        self._pct = max(0.0, min(100.0, float(pct or 0)))
+        self.update()
+
+    def paintEvent(self, _e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+        margen = 22
+        lado = min(w - 2 * margen, (h - 26) * 2)
+        r = lado / 2
+        cx = w / 2
+        cy = h - 30
+        rect = QRectF(cx - r, cy - r, 2 * r, 2 * r)
+        p.setPen(QPen(QColor(_CARD_INNER), 17, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.drawArc(rect, 180 * 16, -180 * 16)
+        p.setPen(QPen(self._c, 17, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.drawArc(rect, 180 * 16, -int(180 * 16 * self._pct / 100))
+        p.setPen(QColor(TEXT))
+        f = QFont("Segoe UI", 21); f.setBold(True); p.setFont(f)
+        p.drawText(QRectF(cx - r, cy - r * 0.7, 2 * r, r * 0.7),
+                   Qt.AlignmentFlag.AlignCenter, f"{self._pct:.0f}%")
+        if self._titulo:
+            p.setPen(QColor(MUTED)); p.setFont(QFont("Segoe UI", 10))
+            p.drawText(QRectF(cx - r, cy - r * 0.12, 2 * r, 20),
+                       Qt.AlignmentFlag.AlignCenter, self._titulo)
+        p.end()
+
+
+class FunnelWidget(QWidget):
+    """Barras horizontales decrecientes con etiqueta y valor. `pasos` =
+    [(label, valor), ...] de mayor a menor."""
+
+    def __init__(self, pasos, fmt=None, parent=None):
+        super().__init__(parent)
+        self._pasos = [(str(l), float(v or 0)) for l, v in (pasos or [])]
+        self._fmt = fmt or (lambda v: f"{int(v):,}".replace(",", "."))
+        self.setMinimumHeight(max(120, 46 * len(self._pasos)))
+
+    def paintEvent(self, _e):
+        if not self._pasos:
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+        n = len(self._pasos); gap = 10
+        bh = min(34, (h - gap * (n - 1)) / n)
+        base = max((v for _, v in self._pasos), default=1) or 1
+        meta_w = 160
+        avail = max(w - meta_w, 40)
+        y = (h - (bh * n + gap * (n - 1))) / 2
+        for i, (label, val) in enumerate(self._pasos):
+            frac = (val / base) if base else 0
+            bw = max(avail * frac, 6)
+            col = QColor(PALETTE[i % len(PALETTE)])
+            p.setPen(Qt.PenStyle.NoPen)
+            p.setBrush(QColor(_CARD_INNER))
+            p.drawRoundedRect(QRectF(0, y, avail, bh), 8, 8)
+            grad = QLinearGradient(0, 0, bw, 0)
+            c2 = QColor(col); c2.setAlpha(200)
+            grad.setColorAt(0, col); grad.setColorAt(1, c2)
+            p.setBrush(QBrush(grad))
+            p.drawRoundedRect(QRectF(0, y, bw, bh), 8, 8)
+            p.setPen(QColor(ACCENT_INK))
+            f = QFont("Segoe UI", 9); f.setBold(True); p.setFont(f)
+            p.drawText(QRectF(12, y, bw - 12, bh),
+                       Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, label)
+            p.setPen(QColor(MUTED)); p.setFont(QFont("Segoe UI", 9))
+            p.drawText(QRectF(avail + 10, y, meta_w - 10, bh),
+                       Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
+                       f"{self._fmt(val)}  ·  {round(frac*100)}%")
+            y += bh + gap
+        p.end()
+
+
+def stacked(cats, series_defs, titulo: str = "") -> QChartView:
+    """Barras apiladas. `series_defs` = [(label, [valores], color), ...]."""
+    chart = QChart()
+    if titulo:
+        chart.setTitle(titulo)
+    series = QStackedBarSeries()
+    for label, valores, color in series_defs:
+        bs = QBarSet(label)
+        for v in valores:
+            bs.append(float(v or 0))
+        bs.setColor(QColor(color))
+        bs.setBorderColor(QColor(PANEL))
+        series.append(bs)
+    chart.addSeries(series)
+    ax = QBarCategoryAxis(); ax.append([str(c) for c in cats])
+    chart.addAxis(ax, Qt.AlignmentFlag.AlignBottom); series.attachAxis(ax)
+    tope = 1.0
+    for i in range(len(cats)):
+        tope = max(tope, sum(float(v[i] or 0) for _, v, _ in series_defs))
+    ay = QValueAxis(); ay.setRange(0, tope * 1.15)
+    chart.addAxis(ay, Qt.AlignmentFlag.AlignLeft); series.attachAxis(ay)
+    chart.legend().setVisible(True)
+    chart.legend().setAlignment(Qt.AlignmentFlag.AlignBottom)
+    theme_chart(chart, recolor=False)
+    return theme_view(QChartView(chart))
+
+
+def bars_trend(items, linea, color: str = ACCENT, linea_label: str = "Tendencia",
+               titulo: str = "") -> QChartView:
+    """Barras (degradé) + línea en un eje secundario propio (así las barras no
+    se aplastan cuando la línea es un acumulado mucho mayor). `items` =
+    [(label, value), ...]; `linea` = [y, ...] del mismo largo."""
+    chart = QChart()
+    if titulo:
+        chart.setTitle(titulo)
+    labels = [str(l) for l, _ in items]
+    vals = [float(v or 0) for _, v in items]
+    bset = QBarSet("")
+    for v in vals:
+        bset.append(v)
+    g = QLinearGradient(0, 0, 0, 1)
+    g.setCoordinateMode(QLinearGradient.CoordinateMode.ObjectBoundingMode)
+    c1 = QColor(color); c2 = QColor(color); c2.setAlpha(140)
+    g.setColorAt(0, c1); g.setColorAt(1, c2)
+    bset.setBrush(QBrush(g)); bset.setColor(QColor(color)); bset.setBorderColor(QColor(PANEL))
+    series = QBarSeries(); series.append(bset)
+    chart.addSeries(series)
+    ax = QBarCategoryAxis(); ax.append(labels)
+    chart.addAxis(ax, Qt.AlignmentFlag.AlignBottom); series.attachAxis(ax)
+    ay = QValueAxis(); ay.setRange(0, (max(vals) if vals else 1) * 1.15)
+    chart.addAxis(ay, Qt.AlignmentFlag.AlignLeft); series.attachAxis(ay)
+
+    ls = QLineSeries(); ls.setName(linea_label)
+    for i, v in enumerate(linea):
+        ls.append(i, float(v or 0))
+    lp = QPen(QColor("#5bb0ff")); lp.setWidthF(2.4); lp.setCapStyle(Qt.PenCapStyle.RoundCap)
+    ls.setPen(lp)
+    chart.addSeries(ls)
+    axx = QValueAxis(); axx.setRange(-0.5, len(labels) - 0.5); axx.setVisible(False)
+    chart.addAxis(axx, Qt.AlignmentFlag.AlignBottom); ls.attachAxis(axx)
+    ay2 = QValueAxis(); ay2.setRange(0, (max([float(v or 0) for v in linea]) or 1) * 1.10)
+    chart.addAxis(ay2, Qt.AlignmentFlag.AlignRight); ls.attachAxis(ay2)
+    ay2.setLabelsColor(QColor("#5bb0ff"))
+
+    chart.legend().setVisible(True)
+    chart.legend().setAlignment(Qt.AlignmentFlag.AlignBottom)
+    theme_chart(chart, recolor=False)
+    return theme_view(QChartView(chart))
