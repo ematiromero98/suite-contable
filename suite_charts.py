@@ -527,3 +527,85 @@ def bars_trend(items, linea, color: str = ACCENT, linea_label: str = "Tendencia"
     chart.legend().setAlignment(Qt.AlignmentFlag.AlignBottom)
     theme_chart(chart, recolor=False)
     return theme_view(QChartView(chart))
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  WaterfallChart — cascada del resultado (pintada a mano, sin QtCharts)
+# ════════════════════════════════════════════════════════════════════════════
+class WaterfallChart(QWidget):
+    """Cascada Ingresos → (egresos, restando) → Resultado. Pintada a mano.
+    `egresos` = [(label, monto), ...] (montos positivos, se restan)."""
+
+    def __init__(self, ingresos=0.0, egresos=None, resultado=None, parent=None):
+        super().__init__(parent)
+        self._pasos = []
+        self.setMinimumHeight(240)
+        self.set_datos(ingresos, egresos, resultado)
+
+    def _fmt(self, v):
+        a = abs(float(v or 0))
+        s = "-" if v < 0 else ""
+        if a >= 1e6:
+            return f"{s}${a/1e6:.1f}".replace(".", ",") + "M"
+        if a >= 1e3:
+            return f"{s}${a/1e3:.0f}k"
+        return f"{s}${a:.0f}"
+
+    def set_datos(self, ingresos, egresos=None, resultado=None):
+        ing = float(ingresos or 0)
+        egr = [(str(l), float(m or 0)) for l, m in (egresos or []) if float(m or 0) > 0]
+        if resultado is None:
+            resultado = ing - sum(m for _, m in egr)
+        pasos = [("Ingresos", 0.0, ing, ACCENT, ing)]   # (label, y0, y1, color, valor)
+        run = ing
+        for lbl, m in egr:
+            pasos.append((lbl, run - m, run, WARN, -m))
+            run -= m
+        col = GOOD if resultado >= 0 else BAD
+        pasos.append(("Resultado", 0.0, float(resultado), col, float(resultado)))
+        self._pasos = pasos
+        self.update()
+
+    def paintEvent(self, _e):
+        if not self._pasos:
+            return
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+        top_m, bot_m = 22, 40
+        plot_h = h - top_m - bot_m
+        vmax = max([max(abs(y0), abs(y1)) for _, y0, y1, _, _ in self._pasos] + [1])
+        n = len(self._pasos)
+        step = w / n
+        bw = min(46, step * 0.6)
+
+        def Y(v):
+            return top_m + plot_h - (v / vmax) * plot_h
+
+        prev_x = prev_y = None
+        for i, (label, y0, y1, color, valor) in enumerate(self._pasos):
+            cx = step * (i + 0.5)
+            x = cx - bw / 2
+            yt, yb = Y(max(y0, y1)), Y(min(y0, y1))
+            # conector con la barra anterior (línea de nivel)
+            if prev_x is not None:
+                p.setPen(QPen(QColor(BORDER), 1, Qt.PenStyle.DashLine))
+                p.drawLine(int(prev_x), int(prev_y), int(x), int(prev_y))
+            col = QColor(color)
+            grad = QLinearGradient(0, yt, 0, yb)
+            c2 = QColor(col); c2.setAlpha(150)
+            grad.setColorAt(0, col); grad.setColorAt(1, c2)
+            p.setPen(Qt.PenStyle.NoPen); p.setBrush(QBrush(grad))
+            p.drawRoundedRect(QRectF(x, yt, bw, max(yb - yt, 2)), 4, 4)
+            # valor arriba
+            p.setPen(QColor(TEXT)); f = _font(8, bold=True); p.setFont(f)
+            p.drawText(QRectF(cx - step / 2, yt - 16, step, 14),
+                       Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom,
+                       self._fmt(valor))
+            # etiqueta abajo
+            p.setPen(QColor(MUTED)); p.setFont(_font(8))
+            et = label if len(label) <= 12 else label[:11] + "…"
+            p.drawText(QRectF(cx - step / 2, h - bot_m + 4, step, bot_m - 6),
+                       Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop, et)
+            prev_x, prev_y = x + bw, Y(y1)
+        p.end()
