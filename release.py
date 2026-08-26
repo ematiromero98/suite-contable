@@ -129,8 +129,11 @@ def main():
     with open(vf_path, encoding="utf-8") as f:
         actual = _leer_version(f.read())
 
-    # árbol limpio (o sólo el archivo de versión tocado)
-    est = _git(d, "status", "--porcelain").stdout.strip().splitlines()
+    # árbol limpio (o sólo el archivo de versión tocado).
+    # OJO: NO usar .strip() sobre el output entero — le come el espacio inicial
+    # de la 1ª línea porcelain (" M archivo") y descoloca el l[3:] de abajo, así
+    # un único archivo modificado-sin-stagear se leía como "sucio" por error.
+    est = _git(d, "status", "--porcelain").stdout.splitlines()
     sucios = [l for l in est if l[3:].strip() != vf.replace("\\", "/")]
     if sucios:
         _fail("Hay cambios sin commitear (aparte del archivo de versión):\n  "
