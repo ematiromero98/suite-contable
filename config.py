@@ -105,4 +105,16 @@ APPS = [
         "version_file": "VERSION",
         "repo": "ematiromero98/contabilidad",
     },
+    {
+        "key": "conciliador",
+        "nombre": "Conciliador Bancario",
+        "emoji": "🏦",
+        "desc": "Concilia el Mayor de Tango contra el extracto del banco (BBVA).",
+        "color": "#0F9D78",
+        "env_dir": "CONCILIADOR_DIR",
+        "dir": os.environ.get("CONCILIADOR_DIR", r"D:\PROYECTOS CLAUDE\conciliador-bancario"),
+        "entradas": ["run.bat", "main.py"],
+        "version_file": "VERSION",
+        "repo": "ematiromero98/conciliador-bancario",
+    },
 ]
