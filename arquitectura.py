@@ -79,6 +79,7 @@ SUPA_COMPARTIDA = "Supabase «ORDENES DE PAGO» (zpwccecovhjmeibxafkg)"
 SUPA_COBRANZAS = "Supabase Cobranzas (rrarmatjyvmrpohsvfzg)"
 SUPA_EMPLOYEE = "Supabase Employee (ffczbimnuodzcbgsdxbx)"
 SUPA_DEPOSITO = "Supabase Depósito (ioycuhefaalpqivhhryb)"
+SUPA_CONCILIADOR = "Supabase Conciliador (qaaxestmwmqmylthnwts)"
 
 PROYECTOS = {
     "erp": {
@@ -351,6 +352,39 @@ PROYECTOS = {
         ],
         "rel_datos": SUPA_COMPARTIDA,
     },
+    "conciliador": {
+        "nombre": "Conciliador Bancario", "emoji": "🏦", "color": "#0F9D78",
+        "proposito": "Concilia el Mayor de Tango contra el extracto del banco "
+                     "(BBVA, Excel o PDF): cruza los movimientos, propone el asiento "
+                     "de gastos bancarios y arma el cuadro de conciliación saldo-a-saldo "
+                     "estilo Reconcile de QuickBooks.",
+        "stack": "Python + PyQt6. Supabase propio (sin RLS) por REST con anon key "
+                 "embebida. pandas / pdfplumber (lee Tango y BBVA) · openpyxl / reportlab "
+                 "(export Excel y PDF).",
+        "entrypoint": "run.bat → python main.py",
+        "datos": SUPA_CONCILIADOR + " · conciliacion, movimiento, asiento, asiento_linea",
+        "capas": [
+            ("UI (PyQt6 · ui/)", ["main_window.py — solapas (QTabWidget)",
+                                    "panel_pendientes.py (4 categorías)",
+                                    "reconcile_tab.py (cuadro saldo-a-saldo)",
+                                    "asiento_dialog.py / cheque_dialog.py"]),
+            ("Lógica (logic/)", ["matching.py (cascada exacto/ref/tolerancia)",
+                                   "conceptos.py (15 conceptos del banco)",
+                                   "asientos.py (asiento de gastos bancarios)",
+                                   "reconcile.py + sesion.py", "exportar.py (Excel/PDF)"]),
+            ("Parsers / Datos", ["parsers/ (Tango xlsx, BBVA xls/xlsx/pdf)",
+                                   "db/rest.py — Supabase REST", "db/repo.py"]),
+        ],
+        "integraciones": ["Tango (Mayor Excel)", "BBVA (extracto Excel/PDF)", "GitHub"],
+        "flujo": [
+            "Carga el Mayor de Tango y el extracto del BBVA (Excel o PDF).",
+            "Cruza los movimientos en cascada (importe / fecha / referencia).",
+            "Propone el asiento de gastos bancarios (SIRCREB, Ley 25.413, comisiones…).",
+            "Clasifica las pendientes en 4 solapas y arma el cuadro Mayor → Banco.",
+            "Guarda la conciliación por cuenta y período; exporta a Excel / PDF.",
+        ],
+        "rel_datos": SUPA_CONCILIADOR,
+    },
     # ── Webs companion (front-ends que corren en el celular) ──────────────
     "comprobantes": {
         "nombre": "Comprobantes (Web QR)", "emoji": "📲", "color": "#27AE9A",
@@ -436,9 +470,10 @@ BASES = {
     "cobranzas": ("🗄️", "Supabase Cobranzas", "rrarmatjyvmrpohsvfzg", ["cobranzas"]),
     "employee": ("🗄️", "Supabase Employee", "ffczbimnuodzcbgsdxbx", ["employee"]),
     "deposito": ("🗄️", "Supabase Depósito", "ioycuhefaalpqivhhryb", ["deposito"]),
+    "conciliador": ("🗄️", "Supabase Conciliador", "qaaxestmwmqmylthnwts", ["conciliador"]),
 }
 APPS_ORDEN = ["reten", "ddjj", "cobranzas", "facturador",
-              "employee", "juicios", "deposito", "contabilidad"]
+              "employee", "juicios", "deposito", "contabilidad", "conciliador"]
 
 
 # ============================================================ VISTA (Qt)
@@ -690,9 +725,9 @@ class PaginaArquitectura(QWidget):
                   "lanza / actualiza / instala")
         erp_bottom = (W / 2, 134)
 
-        # Apps: 8 en 2 filas de 4
+        # Apps: 9 en 2 filas (5 + 4)
         aw, ah, gx, gy = 176, 64, 18, 16
-        cols = 4
+        cols = 5
         row_w = cols * aw + (cols - 1) * gx
         x0 = (W - row_w) / 2
         ry = [176, 176 + ah + gy]                 # y de cada fila
@@ -706,14 +741,15 @@ class PaginaArquitectura(QWidget):
             bottoms[k] = y + ah
             _linea(sc, erp_bottom, (x + aw / 2, y), color="#2e3a4d", ancho=2)
 
-        # Fila de bases (datos) — 4 bases
+        # Fila de bases (datos)
         by = 352
-        base_w = {"compartida": 290, "cobranzas": 200, "employee": 200, "deposito": 210}
+        base_w = {"compartida": 290, "cobranzas": 200, "employee": 200,
+                  "deposito": 210, "conciliador": 210}
         gapb = 22
         total_b = sum(base_w.values()) + gapb * (len(base_w) - 1)
         bx0 = (W - total_b) / 2
         base_pos, cx = {}, bx0
-        for bk in ("compartida", "cobranzas", "employee", "deposito"):
+        for bk in ("compartida", "cobranzas", "employee", "deposito", "conciliador"):
             base_pos[bk] = (cx, by, base_w[bk])
             cx += base_w[bk] + gapb
         for bk, (emoji, nombre, ref, apps) in BASES.items():
