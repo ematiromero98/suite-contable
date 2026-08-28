@@ -145,7 +145,7 @@
 <div id="tooltip"></div>
 
 <div id="topbar">
-  <div id="brand"><div class="dot"></div><div><b>Ecosistema de Proyectos</b><span>12 repos · ciudad isométrica 3D</span></div></div>
+  <div id="brand"><div class="dot"></div><div><b>Ecosistema de Proyectos</b><span>15 repos · ciudad isométrica 3D</span></div></div>
   <div id="filters"></div>
   <button id="btn-guide" class="fbtn" style="pointer-events:auto;margin-left:auto">ⓘ Guía</button>
 </div>
@@ -223,80 +223,100 @@ const BARRIOS = {
 // estado: prod | mvp | proto ;  loc para altura ; pos [x,z]
 const NODES = [
   // ---- MR & Asociados ----
-  { id:'reten', name:'RetencionesPro', barrio:'mrasoc', estado:'prod', loc:38766, files:161, ver:'v1.48.0', mod:'18-ago-2026',
+  { id:'reten', name:'RetencionesPro', barrio:'mrasoc', estado:'prod', loc:44595, files:104, ver:'v1.66.0', mod:'26-ago-2026',
     repo:'ematiromero98/RetencionesPro', stack:'PyQt6 · Supabase',
     pos:[-75,-25],
     que:'El buque insignia del estudio. Calcula retenciones (Ganancias, IVA, SUSS, IIBB), arma órdenes de pago con su cuenta contable por nombre de proveedor, concilia el Libro de Compras de ARCA y exporta percepciones de IVA sufridas al Portal IVA.',
-    como:'PyQt6 sobre Supabase. 91 archivos .py (~38,7k líneas), 26 SQL. Entry <code>main.py</code>; la Nueva Orden vive en <code>form_orden.py</code>. Se autoactualiza por GitHub Releases y bootstrapea la Suite con el token del .env.',
+    como:'PyQt6 sobre Supabase. 104 archivos .py (~44,6k líneas), 32 SQL. Entry <code>main.py</code>; la Nueva Orden vive en <code>form_orden.py</code>. Se autoactualiza por GitHub Releases y bootstrapea la Suite con el token del .env.',
     data:'Supabase <b>base central</b> <code>zpwcce…</code> (compartida con DDJJ, Contabilidad y Juicios): proveedores, órdenes de pago, retenciones, facturas de compra, plan de cuentas.',
     key:['main.py','ui/form_orden.py','ui/columnas_flex.py','logic/','db/','version.py'] },
-  { id:'ddjj', name:'DDJJ Impuestos', barrio:'mrasoc', estado:'prod', loc:7550, files:41, ver:'v2.5.1', mod:'15-ago-2026',
+  { id:'ddjj', name:'DDJJ Impuestos', barrio:'mrasoc', estado:'prod', loc:8797, files:18, ver:'v2.8.0', mod:'26-ago-2026',
     repo:'ematiromero98/ddjj-impuestos', stack:'PyQt6 · Supabase · Selenium',
-    pos:[-55,-25],
-    que:'Arma las DDJJ de IVA + SIRCREB directo en ARCA (Portal IVA). Módulo "IVA mes a mes" (pivote empresas × meses por alícuota) y conciliación de compras contra RetencionesPro.',
-    como:'PyQt6 + Supabase + Selenium para el Portal IVA. 17 .py, 5 SQL. Entry <code>scripts/main.py</code>. Migraciones 003/004/005. Instala la Suite/ERP al abrir.',
+    pos:[-58,-25],
+    que:'Arma las DDJJ de IVA + SIRCREB directo en ARCA (Portal IVA). Módulo "IVA mes a mes" (pivote empresas × meses por alícuota) y conciliación de compras contra RetencionesPro. Descarga el Libro IVA Digital de ARCA.',
+    como:'PyQt6 + Supabase + Selenium para el Portal IVA. 18 .py, 5 SQL. Entry <code>scripts/main.py</code>. Migraciones 003/004/005. Instala la Suite/ERP al abrir.',
     data:'Supabase <b>base central</b> <code>zpwcce…</code> (misma que RetencionesPro): libros IVA importados, conciliaciones de compras, corridas.',
-    key:['scripts/main.py','page_iva_mensual.py','scripts/version.py'] },
-  { id:'cobranzas', name:'Cobranzas OSECAC', barrio:'mrasoc', estado:'prod', loc:16842, files:91, ver:'v2.12.0', mod:'14-ago-2026',
+    key:['scripts/main.py','page_iva_mensual.py','scripts/portal_iva.py','scripts/version.py'] },
+  { id:'cobranzas', name:'Cobranzas OSECAC', barrio:'mrasoc', estado:'prod', loc:19454, files:62, ver:'v2.24.0', mod:'27-ago-2026',
     repo:'ematiromero98/cobranzas-osecac', stack:'PyQt6 · Supabase',
-    pos:[-35,-25],
-    que:'Suite de cobranzas de OSECAC: retenciones, asientos contables y facturación. UI "Panel Oscuro" (dark + menta).',
-    como:'PyQt6 + Supabase. 58 .py, 7 SQL. Entry <code>cobranzas_qt.py</code>. Credenciales en <code>secretos.json</code> (fuera del repo).',
+    pos:[-40,-25],
+    que:'Suite de cobranzas de OSECAC: retenciones, asientos contables y facturación. Dashboard interactivo, reportes Excel dinámicos con drill-down, descarga automática de ARCA los lunes. UI "Panel Oscuro" (dark + menta).',
+    como:'PyQt6 + Supabase. 62 .py, 8 SQL. Entry <code>cobranzas_qt.py</code>. Credenciales embebidas + <code>secretos.json</code> opcional. Reportes en <code>excel_dinamico.py</code>.',
     data:'Supabase <b>proyecto propio</b> <code>rrarma…</code>: cobranzas, retenciones, asientos y facturación.',
-    key:['cobranzas_qt.py','Iniciar Cobranzas.bat','secretos.json'] },
-  { id:'facturador', name:'Facturador ARCA', barrio:'mrasoc', estado:'prod', loc:5566, files:70, ver:'v8.11', mod:'14-ago-2026',
+    key:['cobranzas_qt.py','excel_dinamico.py','Iniciar Cobranzas.bat'] },
+  { id:'facturador', name:'Facturador ARCA', barrio:'mrasoc', estado:'prod', loc:6846, files:41, ver:'v8.19', mod:'27-ago-2026',
     repo:'ematiromero98/facturador-arca', stack:'PyQt6 · zeep/WSFEV1',
+    pos:[-22,-25],
+    que:'Facturación electrónica contra ARCA vía web service WSFEV1 (firma con cryptography + zeep). PDF calcado de Comprobantes en Línea. UI Panel Oscuro.',
+    como:'PyQt6 + cryptography + zeep. 41 .py. Entry <code>main.py</code>, estilo en <code>src/estilo.py</code>, PDF en <code>src/comprobante_pdf.py</code>.',
+    key:['main.py','src/estilo.py','src/comprobante_pdf.py'] },
+  { id:'deposito', name:'Depósito Avalos', barrio:'mrasoc', estado:'mvp', loc:7614, files:65, ver:'v0.12.0', mod:'26-ago-2026',
+    repo:'ematiromero98/deposito-avalos', stack:'PySide6 · Supabase',
     pos:[-75,-5],
-    que:'Facturación electrónica contra ARCA vía web service WSFEV1 (firma con cryptography + zeep). UI Panel Oscuro.',
-    como:'PyQt6 + cryptography + zeep. 38 .py. Entry <code>main.py</code>, estilo en <code>src/estilo.py</code>.',
-    key:['main.py','src/estilo.py'] },
-  { id:'suite', name:'Suite Contable', barrio:'mrasoc', estado:'prod', loc:3685, files:23, ver:'v1.16.1', mod:'18-ago-2026', hub:true,
+    que:'Control de stock del depósito de artículos de limpieza: 11 secciones, 15 informes (Excel/PDF), trazabilidad por usuario/puesto, integridad por RPC atómicas.',
+    como:'PySide6 + Supabase propio (ioycuhefaalpqivhhryb). 65 .py, 8 SQL. Entry <code>app.py</code>. Fallback de credenciales embebido en <code>config/settings.py</code>.',
+    data:'Supabase <b>proyecto propio</b> <code>ioycuh…</code>: productos, stock (v_productos_stock, movimientos_stock), inventarios, salidas, proveedores, categorías, unidades, usuarios, objetivos. Integridad por RPC atómicas.',
+    key:['app.py','config/settings.py','tools/demo.py'] },
+  { id:'suite', name:'Suite Contable', barrio:'mrasoc', estado:'prod', loc:4294, files:11, ver:'v1.20.0', mod:'27-ago-2026', hub:true,
     repo:'ematiromero98/suite-contable', stack:'PyQt6 (launcher/ERP)',
-    pos:[-55,-5],
-    que:'El launcher/ERP del estudio: abre, instala y actualiza las 8 apps desde una sola ventana. El botón Actualizar hace fetch + realinea repos divergentes + instala dependencias, sin tocar tus datos.',
-    como:'PyQt6, dark/menta por QSS nativo (sin QWebEngine). Catálogo de apps en <code>config.py</code>. 11 .py. Módulo Arquitectura + ARQUITECTURA.md.',
-    key:['main.py','config.py','credenciales.py','arquitectura.py'] },
-  { id:'employee', name:'Employee Pro', barrio:'mrasoc', estado:'mvp', loc:8903, files:81, ver:'—', mod:'14-ago-2026',
+    pos:[-58,-5],
+    que:'El launcher/ERP del estudio: abre, instala y actualiza las 9 apps desde una sola ventana. El botón Actualizar hace fetch + realinea repos divergentes + instala dependencias, sin tocar tus datos. Trae los módulos 🗺️ Arquitectura y 🏙️ Ecosistema 3D.',
+    como:'PyQt6, dark/menta por QSS nativo (sin QWebEngine). Catálogo de apps en <code>config.py</code>. 11 .py. Módulos Arquitectura + Ecosistema 3D + ARQUITECTURA.md.',
+    key:['main.py','config.py','credenciales.py','arquitectura.py','assets/ecosistema-3d.html'] },
+  { id:'employee', name:'Employee Pro', barrio:'mrasoc', estado:'mvp', loc:8930, files:49, ver:'v0.3.0', mod:'26-ago-2026',
     repo:'ematiromero98/employee-pro', stack:'PyQt6 · Supabase',
-    pos:[-35,-5],
+    pos:[-40,-5],
     que:'Gestión de RR.HH. multiempresa: legajos, ausencias, sueldos. Decisiones firmes: sin RLS y sin liquidación.',
     como:'PyQt6 + Supabase (proyecto ffczbimnuodzcbgsdxbx). 49 .py, 16 SQL. Entry <code>main.py</code>. Ícono propio en la barra de tareas.',
     data:'Supabase <b>proyecto propio</b> <code>ffczbi…</code>: empleados, empresas, vacaciones, datos_salariales, recibos, sanciones, fichadas, medicina_laboral, evaluaciones, novedades.',
     key:['main.py','secretos.json'] },
-  { id:'deposito', name:'Depósito Avalos', barrio:'mrasoc', estado:'mvp', loc:6161, files:85, ver:'v0.8.1', mod:'18-ago-2026',
-    repo:'ematiromero98/deposito-avalos', stack:'PySide6 · Supabase',
-    pos:[-75,15],
-    que:'Control de stock del depósito de artículos de limpieza: 11 secciones, 15 informes (Excel/PDF), trazabilidad por usuario/puesto, integridad por RPC atómicas.',
-    como:'PySide6 + Supabase propio (ioycuhefaalpqivhhryb). 62 .py, 7 SQL. Entry <code>app.py</code>. Fallback de credenciales embebido en <code>config/settings.py</code>.',
-    data:'Supabase <b>proyecto propio</b> <code>ioycuh…</code>: productos, stock (v_productos_stock, movimientos_stock), inventarios, salidas, proveedores, categorías, unidades, usuarios, objetivos. Integridad por RPC atómicas.',
-    key:['app.py','config/settings.py','tools/demo.py'] },
-  { id:'contabilidad', name:'Contabilidad', barrio:'mrasoc', estado:'mvp', loc:5953, files:62, ver:'v0.23.0', mod:'15-ago-2026',
+  { id:'concbanco', name:'Conciliador Bancario', barrio:'mrasoc', estado:'mvp', loc:3066, files:33, ver:'v0.2.0', mod:'27-ago-2026',
+    repo:'ematiromero98/conciliador-bancario', stack:'PyQt6 · Supabase',
+    pos:[-22,-5],
+    que:'Concilia el Mayor de Tango (Excel) contra el extracto del banco BBVA (Excel .xls/.xlsx y PDF): motor en cascada, catálogo de 15 conceptos, generador del asiento de gastos bancarios, arrastre y export a Excel.',
+    como:'PyQt6 + Supabase propio (ref qaaxestmwmqmylthnwts) por API REST con anon key embebida (arranca sin config en cualquier PC). 33 .py, 2 SQL, 20 tests. Entry <code>main.py</code>. Registrado en la Suite.',
+    data:'Supabase <b>proyecto propio</b> <code>qaaxes…</code>: conciliaciones, movimientos del Mayor y del extracto, catálogo de conceptos.',
+    key:['main.py','parsers/','motor/','db/','version.py'] },
+  { id:'contabilidad', name:'Contabilidad', barrio:'mrasoc', estado:'mvp', loc:6656, files:43, ver:'v0.27.0', mod:'26-ago-2026',
     repo:'ematiromero98/contabilidad', stack:'PyQt6 · Supabase',
-    pos:[-55,15],
+    pos:[-66,15],
     que:'Contabilidad paralela de MR & Asociados: Libro Diario/Mayor y estados. Devenga las ventas desde el Libro IVA de ARCA y concilia contra Tango.',
-    como:'PyQt6 + Supabase. 42 .py, 8 SQL. Entry <code>main.py</code>. Ver docs/HANDOFF.md.',
+    como:'PyQt6 + Supabase. 43 .py, 8 SQL. Entry <code>main.py</code>. Ver docs/HANDOFF.md.',
     data:'Supabase <b>base central</b> <code>zpwcce…</code> (misma que RetencionesPro): asientos del diario, plan de cuentas, <code>ddjj_iva_libros</code>.',
     key:['main.py','ddjj_iva_libros'] },
-  { id:'juicios', name:'Control de Juicios', barrio:'mrasoc', estado:'prod', loc:1630, files:21, ver:'v1.4.1', mod:'14-ago-2026',
+  { id:'juicios', name:'Control de Juicios', barrio:'mrasoc', estado:'prod', loc:1639, files:12, ver:'v1.5.0', mod:'26-ago-2026',
     repo:'ematiromero98/control-juicios', stack:'PyQt6 · Supabase',
-    pos:[-35,15],
+    pos:[-48,15],
     que:'Seguimiento de juicios y contingencias laborales de las empresas clientes del estudio.',
     como:'PyQt6 + Supabase (habla directo con PostgREST vía requests). 12 .py. Entry <code>main.py</code>, dashboard en <code>ui_dashboard.py</code>. Trae <code>bootstrap_suite.py</code> para instalar la Suite.',
     data:'Supabase <b>base central</b> <code>zpwcce…</code> (credenciales centrales, misma base del estudio): juicios y contingencias laborales.',
     key:['main.py','ui_dashboard.py','db.py','bootstrap_suite.py'] },
   // ---- NTT DATA ----
-  { id:'ntterp', name:'NTT-DATA-ERP', barrio:'ntt', estado:'proto', loc:602, files:17, ver:'v0.1.0', mod:'18-ago-2026', hub:true,
+  { id:'ntterp', name:'NTT-DATA-ERP', barrio:'ntt', estado:'proto', loc:628, files:7, ver:'v0.1.0', mod:'19-ago-2026', hub:true,
     repo:'ematiromero98/NTT-DATA-ERP', stack:'PyQt6 (launcher)',
-    pos:[45,-15],
-    que:'Launcher del mundo NTT DATA (mismo patrón "repos separados + launcher"). Por ahora orquesta 1 módulo: Compras.',
+    pos:[42,-24],
+    que:'Launcher del mundo NTT DATA (mismo patrón "repos separados + launcher"). Orquesta 3 módulos: Compras, Retenciones F110 y Facturador.',
     como:'PyQt6. 7 .py. Catálogo en <code>config.py</code>, orquestación en <code>src/modulos.py</code> (clona/actualiza/lanza por git).',
     key:['main.py','config.py','src/modulos.py'] },
-  { id:'conciliador', name:'Conciliador ARCA-SAP', barrio:'ntt', estado:'mvp', loc:3505, files:31, ver:'v0.6.0', mod:'18-ago-2026',
+  { id:'conciliador', name:'Conciliador ARCA-SAP', barrio:'ntt', estado:'mvp', loc:3505, files:16, ver:'v0.6.0', mod:'18-ago-2026',
     repo:'ematiromero98/NTT-DATA-Compras', stack:'PyQt6 · pandas',
-    pos:[70,-15],
-    que:'Concilia el Libro de Compras de ARCA contra SAP: cuadre, matching en cascada + base acumulativa + manual, confirmar/rechazar sugeridos, cierre de mes. Pendiente de aprobación de IT.',
+    pos:[68,-24],
+    que:'Módulo Compras del ERP NTT DATA. Concilia el Libro de Compras de ARCA contra SAP: cuadre, matching en cascada + base acumulativa + manual, confirmar/rechazar sugeridos, cierre de mes. Pendiente de aprobación de IT.',
     como:'PyQt6 + pandas. 16 .py con tests. Matching en <code>src/matching.py</code>, servicio en <code>src/servicio.py</code>. Carpeta canónica NTT-DATA-Compras.',
     key:['main.py','src/matching.py','src/servicio.py','src/db.py'] },
+  { id:'nttreten', name:'Retenciones F110', barrio:'ntt', estado:'proto', loc:1670, files:12, ver:'v0.1.0', mod:'18-ago-2026',
+    repo:'ematiromero98/NTT-DATA-Retenciones', stack:'PyQt6 · pandas',
+    pos:[42,-6],
+    que:'Módulo Retenciones del ERP NTT DATA. Calcula retenciones (Ganancias, IVA, SUSS, IIBB Tucumán y CABA) sobre el pago masivo F110 de SAP. Motor validado 136/137 contra Excel; falta UI/DB definitivas.',
+    como:'PyQt6 + pandas. 12 .py. Entry <code>main.py</code>. Motor de cálculo en desarrollo; preguntas abiertas: padrones y formato de salida para SAP.',
+    key:['main.py','motor/'] },
+  { id:'nttfact', name:'Facturador NTT', barrio:'ntt', estado:'mvp', loc:3337, files:17, ver:'v0.2.0', mod:'25-ago-2026',
+    repo:'ematiromero98/NTT-DATA-Facturador', stack:'PyQt6 · SQLite',
+    pos:[68,-6],
+    que:'Módulo Facturador del ERP NTT DATA, clonado del Facturador ARCA en modo SIMULACIÓN (sin ARCA real: numeración + CAE locales). Todos los tipos (A/B/C + NC/ND) con validaciones ARCA, lote por Excel, ABM de clientes y análisis. Emisor de prueba NTT DATA ARGENTINA S.A.',
+    como:'PyQt6 + SQLite + PDF calcado de Comprobantes en Línea. 17 .py. Entry <code>main.py</code>. Numeración y CAE locales (sin web service).',
+    data:'<b>SQLite local</b> (sin Supabase): comprobantes emitidos, numeración, CAE simulado, clientes.',
+    key:['main.py','db.py','comprobante_pdf.py'] },
   // ---- Personal ----
   { id:'casamiento', name:'Casamiento (Pasaporte)', barrio:'per', estado:'prod', loc:2600, files:65, ver:'—', mod:'07-ago-2026',
     repo:'ematiromero98/casamiento-pasaporte', stack:'Web vanilla · Firebase',
@@ -311,15 +331,15 @@ const NODES = [
     guarda:['Libro de Compras / Ventas (IVA) — comprobantes de proveedores y clientes','Portal IVA — DDJJ de IVA + SIRCREB presentadas','Comprobantes electrónicos + CAE (web service WSFEV1)','Padrón de contribuyentes (CUIT, condición fiscal)','Percepciones de IVA (régimen 602)'],
     flujos:[['conciliador','descarga el Libro de Compras'],['contabilidad','lee el Libro de IVA para devengar ventas'],['ddjj','arma el borrador de DDJJ IVA + SIRCREB (Selenium)'],['reten','exporta CSV de Perc. IVA sufridas (rég. 602)'],['facturador','emite comprobantes y obtiene el CAE (WSFEV1)'],['cobranzas','retenciones / facturación']] },
   { id:'sap', name:'SAP', barrio:null, landmark:true, pos:[70,-48], h:30,
-    que:'El ERP corporativo de NTT DATA / su cliente. Es la <b>fuente de los asientos contables</b> que el Conciliador cruza contra el Libro de Compras de ARCA para detectar diferencias.',
-    stack:'SAP · export de asientos',
-    guarda:['Asientos contables / registraciones de compras del ERP corporativo','Se exportan y se comparan (matching) contra los comprobantes de ARCA'],
-    flujos:[['conciliador','trae los asientos SAP y los concilia contra ARCA']] },
-  { id:'supabase', name:'Supabase (4 proyectos)', barrio:null, landmark:true, pos:[-55,-52], h:32,
-    que:'El backend Postgres de las apps del estudio. Son <b>4 proyectos independientes</b>. El más importante es la <b>base central</b>, compartida por 4 apps a la vez — por eso RetencionesPro, DDJJ, Contabilidad y Juicios pueden conciliar entre sí: es literalmente la misma base.',
-    stack:'PostgreSQL · PostgREST · 4 proyectos',
-    guarda:['🟢 <b>Base central</b> <code>zpwcce…</code> — <b>compartida</b>: RetencionesPro · DDJJ · Contabilidad · Juicios → proveedores, órdenes de pago, retenciones, facturas de compra, libros IVA, conciliaciones, asientos del diario, plan de cuentas, juicios','🟣 <b>Employee Pro</b> <code>ffczbi…</code> → empleados, empresas, vacaciones, datos_salariales, recibos, sanciones, fichadas, medicina_laboral, evaluaciones, novedades','🟤 <b>Depósito Avalos</b> <code>ioycuh…</code> → productos, stock, movimientos_stock, inventarios, salidas, proveedores, categorías, unidades','🟠 <b>Cobranzas OSECAC</b> <code>rrarma…</code> → cobranzas, retenciones, asientos, facturación'],
-    flujos:[['reten','base central: proveedores, órdenes de pago, retenciones'],['ddjj','base central: libros IVA + conciliaciones'],['contabilidad','base central: asientos y plan de cuentas'],['juicios','base central: juicios y contingencias'],['employee','proyecto propio: legajos y sueldos'],['deposito','proyecto propio: stock e inventarios'],['cobranzas','proyecto propio: cobranzas y asientos']] },
+    que:'El ERP corporativo de NTT DATA / su cliente. Es la <b>fuente de los asientos contables</b> que el Conciliador cruza contra el Libro de Compras de ARCA, y del <b>pago masivo F110</b> sobre el que Retenciones F110 calcula las retenciones.',
+    stack:'SAP · export de asientos / F110',
+    guarda:['Asientos contables / registraciones de compras del ERP corporativo','Se exportan y se comparan (matching) contra los comprobantes de ARCA','Pago masivo F110 — base para el cálculo de retenciones'],
+    flujos:[['conciliador','trae los asientos SAP y los concilia contra ARCA'],['nttreten','lee el pago masivo F110 para calcular retenciones']] },
+  { id:'supabase', name:'Supabase (5 proyectos)', barrio:null, landmark:true, pos:[-55,-52], h:32,
+    que:'El backend Postgres de las apps del estudio. Son <b>5 proyectos independientes</b>. El más importante es la <b>base central</b>, compartida por 4 apps a la vez — por eso RetencionesPro, DDJJ, Contabilidad y Juicios pueden conciliar entre sí: es literalmente la misma base.',
+    stack:'PostgreSQL · PostgREST · 5 proyectos',
+    guarda:['🟢 <b>Base central</b> <code>zpwcce…</code> — <b>compartida</b>: RetencionesPro · DDJJ · Contabilidad · Juicios → proveedores, órdenes de pago, retenciones, facturas de compra, libros IVA, conciliaciones, asientos del diario, plan de cuentas, juicios','🟣 <b>Employee Pro</b> <code>ffczbi…</code> → empleados, empresas, vacaciones, datos_salariales, recibos, sanciones, fichadas, medicina_laboral, evaluaciones, novedades','🟤 <b>Depósito Avalos</b> <code>ioycuh…</code> → productos, stock, movimientos_stock, inventarios, salidas, proveedores, categorías, unidades','🟠 <b>Cobranzas OSECAC</b> <code>rrarma…</code> → cobranzas, retenciones, asientos, facturación','🏦 <b>Conciliador Bancario</b> <code>qaaxes…</code> → conciliaciones Tango vs banco, movimientos, catálogo de conceptos'],
+    flujos:[['reten','base central: proveedores, órdenes de pago, retenciones'],['ddjj','base central: libros IVA + conciliaciones'],['contabilidad','base central: asientos y plan de cuentas'],['juicios','base central: juicios y contingencias'],['employee','proyecto propio: legajos y sueldos'],['deposito','proyecto propio: stock e inventarios'],['cobranzas','proyecto propio: cobranzas y asientos'],['concbanco','proyecto propio: conciliaciones bancarias']] },
   { id:'firebase', name:'Firebase', barrio:null, landmark:true, pos:[82,52], h:22,
     que:'Backend liviano de la invitación de casamiento. Guarda las confirmaciones de asistencia (RSVP) que cargan los invitados desde la web.',
     stack:'Firebase Realtime Database',
@@ -333,7 +353,7 @@ const NODES = [
 
 // tipo: launcher | dep | data | infra
 const EDGES = [
-  // launcher: Suite -> 8 apps
+  // launcher: Suite -> 9 apps
   ['suite','ddjj','launcher','clona / actualiza / lanza'],
   ['suite','reten','launcher','clona / actualiza / lanza'],
   ['suite','cobranzas','launcher','clona / actualiza / lanza'],
@@ -342,8 +362,11 @@ const EDGES = [
   ['suite','deposito','launcher','clona / actualiza / lanza'],
   ['suite','juicios','launcher','clona / actualiza / lanza'],
   ['suite','contabilidad','launcher','clona / actualiza / lanza'],
-  // launcher: NTT-ERP -> conciliador
+  ['suite','concbanco','launcher','clona / actualiza / lanza'],
+  // launcher: NTT-ERP -> 3 módulos
   ['ntterp','conciliador','launcher','clona / lanza módulo Compras'],
+  ['ntterp','nttreten','launcher','clona / lanza módulo Retenciones F110'],
+  ['ntterp','nttfact','launcher','clona / lanza módulo Facturador'],
   // dep: bootstrap de la Suite
   ['reten','suite','dep','bootstrap: instala la Suite (token .env)'],
   ['ddjj','suite','dep','bootstrap Suite/ERP al abrir'],
@@ -359,6 +382,7 @@ const EDGES = [
   ['cobranzas','arca','infra','retenciones / facturación'],
   // infra: SAP
   ['conciliador','sap','infra','asientos SAP'],
+  ['nttreten','sap','infra','pago masivo F110'],
   // infra: Supabase
   ['reten','supabase','infra','persistencia'],
   ['ddjj','supabase','infra','persistencia'],
@@ -367,6 +391,7 @@ const EDGES = [
   ['employee','supabase','infra','persistencia'],
   ['deposito','supabase','infra','persistencia'],
   ['juicios','supabase','infra','persistencia'],
+  ['concbanco','supabase','infra','persistencia'],
   // infra: Firebase
   ['casamiento','firebase','infra','RSVP invitados'],
 ];
@@ -430,8 +455,8 @@ grid2.material.opacity = .5; grid2.material.transparent = true; scene.add(grid2)
 /* ============================================================ BARRIOS ==== */
 // district plates + labels
 const districtDefs = {
-  mrasoc:{ x:-55,z:-5, w:66, d:66, color:0xFCBC45 },
-  ntt:{ x:57,z:-15, w:52, d:34, color:0x2E86C1 },
+  mrasoc:{ x:-45,z:-5, w:80, d:66, color:0xFCBC45 },
+  ntt:{ x:55,z:-15, w:56, d:44, color:0x2E86C1 },
   per:{ x:55,z:45, w:30, d:26, color:0xE91E63 },
   ext:{ x:-92,z:55, w:34, d:22, color:0x808080 },
 };
@@ -735,7 +760,7 @@ function hideDetail(){ detail.classList.remove('show'); }
 
 function showIntro(){
   document.getElementById('d-name').textContent = 'Cómo leer esta ciudad';
-  document.getElementById('d-repo').textContent = '12 proyectos · 4 hubs de datos · 3 barrios';
+  document.getElementById('d-repo').textContent = '15 proyectos · 4 hubs de datos · 3 barrios';
   const chips=document.getElementById('d-chips'); chips.innerHTML=
     '<span class="chip"><span style="color:#27AE60">●</span> Producción</span>'+
     '<span class="chip"><span style="color:#E67E22">●</span> MVP</span>'+
@@ -745,12 +770,12 @@ function showIntro(){
     '<h4>La idea</h4><p>Cada <b>edificio es un proyecto</b> tuyo de GitHub. La <b>altura</b> es cuánto código tiene '+
     '(RetencionesPro es el rascacielos). El <b>color</b> es el estado: 🟢 producción, 🟠 MVP, ⚪ prototipo. '+
     'El <b>techo dorado</b> marca los 2 launchers (Suite y NTT-ERP).</p>'+
-    '<h4>Barrios</h4><p>🟡 <b>MR &amp; Asociados</b> (el estudio, 9 apps) · 🔵 <b>NTT DATA</b> (corporativo, 2) · '+
+    '<h4>Barrios</h4><p>🟡 <b>MR &amp; Asociados</b> (el estudio: 9 apps + su ERP) · 🔵 <b>NTT DATA</b> (corporativo: 3 módulos + su ERP) · '+
     '🌸 <b>Personal</b> (casamiento). Chermisqui queda punteado afuera porque no es un repo.</p>'+
     '<h4>Los 4 hubs negros con punta dorada</h4>'+
     '<div class="conns">'+
     '<div class="conn" style="border-left:3px solid #141413"><b>ARCA (AFIP)</b><br><span style="color:#808080">fuente fiscal externa: Libro IVA, Portal IVA, CAE, percepciones. La usan 6 apps.</span></div>'+
-    '<div class="conn" style="border-left:3px solid #141413"><b>Supabase</b><br><span style="color:#808080">4 bases Postgres. Una es central y la comparten RetencionesPro + DDJJ + Contabilidad + Juicios.</span></div>'+
+    '<div class="conn" style="border-left:3px solid #141413"><b>Supabase</b><br><span style="color:#808080">5 bases Postgres. Una es central y la comparten RetencionesPro + DDJJ + Contabilidad + Juicios.</span></div>'+
     '<div class="conn" style="border-left:3px solid #141413"><b>SAP</b><br><span style="color:#808080">asientos del ERP corporativo que el Conciliador cruza contra ARCA.</span></div>'+
     '<div class="conn" style="border-left:3px solid #141413"><b>Firebase</b><br><span style="color:#808080">RSVP de los invitados del casamiento.</span></div>'+
     '</div>'+
@@ -832,8 +857,8 @@ window.addEventListener('keydown', e=>{ if(e.key==='Escape') clearSel(); });
 /* ======================================================= CAMERA FRAMING == */
 function frameBarrio(k){
   let tx=-5,tz=0,zoom=0.85;
-  if(k==='mrasoc'){ tx=-55; tz=-5; zoom=1.15; }
-  else if(k==='ntt'){ tx=57; tz=-25; zoom=1.5; }
+  if(k==='mrasoc'){ tx=-45; tz=-5; zoom=1.1; }
+  else if(k==='ntt'){ tx=55; tz=-15; zoom=1.5; }
   else if(k==='per'){ tx=60; tz=48; zoom=1.9; }
   else { tx=-5; tz=0; zoom=0.82; }
   animateCam(tx,tz,zoom);

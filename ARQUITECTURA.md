@@ -18,20 +18,27 @@ están separados, y cómo funcionan la **instalación** y la **actualización**.
 | **Control de Juicios** | `control-juicios` | main | Juicios y contingencias laborales (KPIs) | — |
 | **Depósito Avalos** | `deposito-avalos` | main | Control de stock (artículos de limpieza) | **PySide6** |
 | **Contabilidad** | `contabilidad` | main | Libro Diario/Mayor, estados, concilia Tango | — |
+| **Conciliador Bancario** | `conciliador-bancario` | main | Concilia el Mayor de Tango vs el extracto del banco (BBVA) | — |
 
-Son **8 apps** (todas **PyQt6 + Supabase**, salvo **Depósito Avalos**, que usa
-**PySide6**). Comparten la **misma base de Supabase** —salvo Cobranzas, Employee
-y Depósito, que tienen la suya— y ahí es donde la integración importa: la
-conciliación de compras cruza datos de DDJJ y RetencionesPro en la misma base, y
-Contabilidad devenga sobre ella.
+Son **9 apps** (todas **PyQt6 + Supabase**, salvo **Depósito Avalos**, que usa
+**PySide6**). Comparten la **misma base de Supabase** —salvo Cobranzas, Employee,
+Depósito y Conciliador Bancario, que tienen la suya— y ahí es donde la
+integración importa: la conciliación de compras cruza datos de DDJJ y
+RetencionesPro en la misma base, y Contabilidad devenga sobre ella.
 
 ### Diagrama en vivo
 
-El propio ERP trae el módulo **🗺️ Arquitectura** (`arquitectura.py`): un diagrama
-navegable —ERP → 8 apps → bases Supabase → sistemas externos (ARCA/OSECAC/Tango/
-Drive)— con el detalle por capas de cada app y su flujo principal animado. Es la
-fuente visual de esta misma doc; si cambia una app, se edita `DATOS` en ese
-archivo.
+El propio ERP trae dos vistas del ecosistema:
+
+- **🗺️ Arquitectura** (`arquitectura.py`): un diagrama navegable —ERP → 9 apps →
+  bases Supabase → sistemas externos (ARCA/OSECAC/Tango/Drive)— con el detalle
+  por capas de cada app y su flujo principal animado.
+- **🏙️ Ecosistema 3D** (`assets/ecosistema-3d.html`): la ciudad isométrica de
+  los 15 repos del universo (MR & Asociados, NTT DATA y Personal), con estado,
+  versión, métricas de código y flujos de datos animados por app.
+
+Son la fuente visual de esta misma doc; si cambia una app, se edita `DATOS` en
+`arquitectura.py` y los arrays `NODES`/`EDGES` de `ecosistema-3d.html`.
 
 ---
 
