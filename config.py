@@ -117,4 +117,16 @@ APPS = [
         "version_file": "VERSION",
         "repo": "ematiromero98/conciliador-bancario",
     },
+    {
+        "key": "ausencias",
+        "nombre": "Calendario de Ausencias",
+        "emoji": "📅",
+        "desc": "Vacaciones y licencias del equipo. Carga desde el celular.",
+        "color": "#2ee6a6",
+        "env_dir": "CALENDARIO_AUSENCIAS_DIR",
+        "dir": os.environ.get("CALENDARIO_AUSENCIAS_DIR", r"D:\PROYECTOS CLAUDE\calendario-ausencias"),
+        "entradas": ["run.bat", "main.py"],
+        "version_file": "version.py",
+        "repo": "ematiromero98/calendario-ausencias",
+    },
 ]
