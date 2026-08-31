@@ -129,4 +129,16 @@ APPS = [
         "version_file": "version.py",
         "repo": "ematiromero98/calendario-ausencias",
     },
+    {
+        "key": "veps",
+        "nombre": "VEP Autónomos",
+        "emoji": "🏛️",
+        "desc": "Genera en tanda los VEP de Autónomos en ARCA (login + SETI).",
+        "color": "#7D3C98",
+        "env_dir": "VEP_AUTONOMOS_DIR",
+        "dir": os.environ.get("VEP_AUTONOMOS_DIR", r"D:\arca-vep-autonomos"),
+        "entradas": ["run.bat", "main.py"],
+        "version_file": "VERSION",
+        "repo": "ematiromero98/arca-vep-autonomos",
+    },
 ]

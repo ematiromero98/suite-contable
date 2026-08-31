@@ -46,7 +46,7 @@ CUENTA_ESTUDIO = "ematiromero98@gmail.com"
 
 # Apps que leen un `.env` local con las credenciales COMPARTIDAS de la Suite
 # (mismo proyecto Supabase): RetencionesPro, DDJJ Impuestos y Control de Juicios.
-_APPS_ENV = ("reten", "ddjj", "juicios", "contabilidad")
+_APPS_ENV = ("reten", "ddjj", "juicios", "contabilidad", "veps")
 
 # Apps con secreto PROPIO (no usan el `.env` compartido). Cada una guarda sus
 # credenciales en un archivo aparte, gitignored, que vive PRIVADO en la carpeta
