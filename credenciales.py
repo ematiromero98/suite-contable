@@ -66,6 +66,22 @@ _APPS_SECRETO = (
      "marca": "secretos.json", "configurar": False},
 )
 
+# Certificados de ARCA de apps cuyo repo de código es PÚBLICO (no pueden versionar
+# los .crt/.key ahí). Viven en el repo PRIVADO de secretos (carpeta `<x>.certs/`)
+# — mismo criterio que el facturador-arca con los suyos — y se despliegan en
+# <app>/certs/. A diferencia del secreto, se re-chequean SIEMPRE (aunque la app ya
+# tenga su `.env`/config), para cubrir PCs que ya estaban configuradas pero sin
+# los certs. La clave privada nunca sale del Drive/repo privado del estudio.
+#   key       : key de la app en config.APPS
+#   repo_dir  : carpeta dentro del repo de secretos (y de "Suite Contable/" en Drive)
+#   local_dir : carpeta dentro de la app donde van los certs
+#   archivos  : nombres de los certs esperados
+_CERTS = (
+    {"key": "cobranzas", "repo_dir": "cobranzas.certs", "local_dir": "certs",
+     "archivos": ("prod.crt", "prod.key", "homo.crt", "homo.key",
+                  "aperseg.crt", "aperseg.key")},
+)
+
 # Repo PRIVADO de GitHub con las credenciales (reemplaza al Google Drive en el
 # modelo "cero logins": el instalador loguea `gh` con un token de sólo-lectura y
 # de ahí en más TODO —código y credenciales— viene de GitHub, sin login de Google).
@@ -240,6 +256,84 @@ def secretos_pendientes():
     return [s for s in _APPS_SECRETO if _secreto_pendiente(s)]
 
 
+def _certs_faltan(spec):
+    """True si esa app está instalada pero le falta algún cert en <app>/certs/."""
+    d = _dir_app(spec["key"])
+    if not d or not os.path.isdir(d):
+        return False
+    destino = os.path.join(d, spec["local_dir"])
+    return any(not os.path.isfile(os.path.join(destino, a)) for a in spec["archivos"])
+
+
+def certs_pendientes():
+    """Apps instaladas a las que les falta algún certificado de ARCA."""
+    return [s for s in _CERTS if _certs_faltan(s)]
+
+
+def _copiar_certs(origen, spec):
+    """Copia los certs faltantes desde la carpeta `origen` a <app>/certs/ (sin pisar
+    los que ya estén). Best-effort. Devuelve True si quedaron todos, False si no,
+    None si la app no está instalada."""
+    d = _dir_app(spec["key"])
+    if not d or not os.path.isdir(d):
+        return None
+    if not os.path.isdir(origen):
+        return False
+    destino = os.path.join(d, spec["local_dir"])
+    os.makedirs(destino, exist_ok=True)
+    for a in spec["archivos"]:
+        src = os.path.join(origen, a)
+        dst = os.path.join(destino, a)
+        if os.path.isfile(src) and not os.path.isfile(dst):
+            try:
+                shutil.copy2(src, dst)
+            except OSError:
+                pass
+    return not _certs_faltan(spec)
+
+
+def _instalar_certs_desde(repo):
+    """Despliega los certs de todas las apps desde el repo de secretos clonado.
+    Devuelve la lista de carpetas <app>/certs/ que quedaron completas."""
+    puestos = []
+    for spec in _CERTS:
+        if _copiar_certs(os.path.join(repo, spec["repo_dir"]), spec):
+            d = _dir_app(spec["key"])
+            if d:
+                puestos.append(os.path.join(d, spec["local_dir"]))
+    return puestos
+
+
+def _traer_certs_drive(rc, spec):
+    """Baja los certs de una app del Drive (carpeta) a <app>/certs/. Best-effort.
+    Devuelve True/False, o None si no aplica."""
+    d = _dir_app(spec["key"])
+    if not d or not os.path.isdir(d) or not _certs_faltan(spec):
+        return None
+    destino = os.path.join(d, spec["local_dir"])
+    os.makedirs(destino, exist_ok=True)
+    try:
+        _rclone(rc, "copy", f"{REMOTO}:Suite Contable/{spec['repo_dir']}",
+                destino, timeout=90)
+    except Exception:                                       # noqa: BLE001
+        pass
+    return not _certs_faltan(spec)
+
+
+def _asegurar_certs(key):
+    """Si a la app le faltan certs, los baja del repo de secretos (gh, sin logins)
+    y los despliega. Best-effort, silencioso."""
+    cspec = next((s for s in _CERTS if s["key"] == key), None)
+    if cspec is None or not _certs_faltan(cspec):
+        return
+    try:
+        repo = _clonar_o_actualizar_secretos()
+        if repo:
+            _copiar_certs(os.path.join(repo, cspec["repo_dir"]), cspec)
+    except Exception:                                       # noqa: BLE001
+        pass
+
+
 def _python_de(dir_):
     """Python para correr el configurar.py de una app: el de su `.venv` si existe,
     si no el del proceso actual. configurar.py sólo usa la stdlib."""
@@ -279,9 +373,10 @@ def _traer_secreto(rc, spec):
 
 
 def todo_listo():
-    """True si esta PC tiene TODO: el `.env` compartido y, para cada app con
-    secreto propio instalada, su configuración."""
-    return env_presente() and not secretos_pendientes()
+    """True si esta PC tiene TODO: el `.env` compartido, la config de cada app con
+    secreto propio, y los certs de ARCA de las apps que los usan."""
+    return (env_presente() and not secretos_pendientes()
+            and not certs_pendientes())
 
 
 def tiene_secreto_propio(key):
@@ -293,6 +388,9 @@ def asegurar_secreto(key):
     """Al abrir una app con secreto propio: si le falta, intenta bajarlo SIN pedir
     logins — primero de GitHub (gh) y, si no, del Drive con el remoto que ya exista.
     Silencioso. True/False, o None si no aplica."""
+    # Certs de ARCA: se aseguran SIEMPRE (aunque el secreto ya esté configurado),
+    # porque una PC puede tener el `.env` pero haber quedado sin los certificados.
+    _asegurar_certs(key)
     spec = next((s for s in _APPS_SECRETO if s["key"] == key), None)
     if spec is None or not _secreto_pendiente(spec):
         return None
@@ -436,6 +534,8 @@ def traer_github():
             d = _dir_app(spec["key"])
             if d:
                 puestos.append(d)
+    # certs de ARCA (Cobranzas): del mismo repo privado a <app>/certs/
+    puestos.extend(_instalar_certs_desde(repo))
     detalle = "\n".join(f"  • {p}" for p in puestos) or "  • (nada)"
     return True, ("Credenciales instaladas desde GitHub (sin Drive) en esta PC.\n"
                   "\nQuedó en:\n" + detalle)
@@ -476,6 +576,9 @@ def traer():
         elif r is False:
             detalle += (f"\n  • {nombre}: NO pude bajar su secreto "
                         f"({spec['drive']}) del Drive.")
+    # certs de ARCA (Cobranzas): del Drive a <app>/certs/
+    for spec in _CERTS:
+        _traer_certs_drive(rc, spec)
     return True, ("Credenciales instaladas en esta PC. Ya podés abrir las "
                   "apps.\n\nQuedó en:\n" + detalle)
 
