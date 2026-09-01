@@ -36,6 +36,10 @@ $AppDirs = [ordered]@{
     "EMPLOYEE_PRO_DIR"   = "\PROYECTOS CLAUDE\employee-pro"
     "JUICIOS_DIR"        = "\control-juicios"
     "CONTABILIDAD_DIR"   = "\contabilidad"
+    "DEPOSITO_AVALOS_DIR" = "\PROYECTOS CLAUDE\deposito-avalos"
+    "CONCILIADOR_DIR"    = "\PROYECTOS CLAUDE\conciliador-bancario"
+    "CALENDARIO_AUSENCIAS_DIR" = "\PROYECTOS CLAUDE\calendario-ausencias"
+    "VEP_AUTONOMOS_DIR"  = "\arca-vep-autonomos"
 }
 if ($Drive -ne "D:") {
     Write-Host "Esta PC no tiene disco D:, uso $Drive y redirijo las carpetas." -ForegroundColor Yellow
@@ -73,7 +77,7 @@ $reqs = @(
 foreach ($r in $reqs) {
     if (-not (Existe $r.cmd)) {
         Write-Host "Instalando $($r.cmd)..." -ForegroundColor Yellow
-        winget install --id $r.id -e --silent --accept-package-agreements --accept-source-agreements
+        winget install --id $r.id -e --source winget --silent --accept-package-agreements --accept-source-agreements
         Refrescar-Path
     }
 }
@@ -99,7 +103,8 @@ if (Test-Path "$SUITE\.git") {
     git -C $SUITE remote set-url origin $CleanUrl
 } else {
     Write-Host "Bajando el ERP a $SUITE ..." -ForegroundColor Yellow
-    New-Item -ItemType Directory -Force -Path (Split-Path $SUITE) | Out-Null
+    $__parent = Split-Path $SUITE
+    if ($__parent -and -not (Test-Path $__parent)) { New-Item -ItemType Directory -Force -Path $__parent | Out-Null }
     git clone $AuthUrl $SUITE
     if (Test-Path "$SUITE\.git") { git -C $SUITE remote set-url origin $CleanUrl }
 }
