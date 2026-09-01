@@ -206,14 +206,11 @@ def _tile_emoji(emoji, lado, color, radio, emoji_px):
     return tile
 
 
-def _leer_version(app):
-    """Lee la versión de una app: soporta `__version__ = "x"` / `VERSION = "x"`
-    en un .py, o un archivo VERSION con la versión en texto plano."""
-    ruta = os.path.join(app["dir"], app["version_file"])
-    try:
-        with open(ruta, encoding="utf-8") as f:
-            txt = f.read()
-    except OSError:
+def _parse_version_txt(txt):
+    """Extrae la versión de un texto: `__version__="x"` / `VERSION="x"` en un
+    .py, o un archivo VERSION con la versión en texto plano. None si no la
+    reconoce."""
+    if not txt:
         return None
     m = re.search(r'(?:__version__|VERSION)\s*=\s*["\']([^"\']+)["\']', txt)
     if m:
@@ -223,6 +220,17 @@ def _leer_version(app):
     if re.match(r"^v?\d+(\.\d+)*$", linea):
         return linea.lstrip("vV")
     return None
+
+
+def _leer_version(app):
+    """Lee la versión INSTALADA de una app desde su archivo de versión local."""
+    ruta = os.path.join(app["dir"], app["version_file"])
+    try:
+        with open(ruta, encoding="utf-8") as f:
+            txt = f.read()
+    except OSError:
+        return None
+    return _parse_version_txt(txt)
 
 
 def _entrada(app):
@@ -293,6 +301,64 @@ def _ultima_release(repo):
     return None
 
 
+def _version_en_rama(repo, version_file):
+    """Versión declarada en el `version_file` en la PUNTA de la rama por defecto
+    del repo (la que el botón «Actualizar» baja con `git pull @{u}`). Necesaria
+    para las apps que se distribuyen pusheando a la rama y NO cortan release (ej.
+    Cobranzas OSECAC): ahí `releases/latest` queda viejo y el aviso de
+    actualización nunca aparecía. Se omite el `?ref=` a propósito: la API de
+    contents devuelve la rama por defecto, que no siempre es `main` (hay repos
+    en `master`). Prueba `gh` y luego la API con el token del runtime. None si no
+    se pudo leer."""
+    if not repo or not version_file:
+        return None
+    path = version_file.replace("\\", "/")
+    import base64
+    # 1) gh (login personal, si hay)
+    try:
+        r = subprocess.run(
+            ["gh", "api", f"repos/{repo}/contents/{path}", "-q", ".content"],
+            capture_output=True, text=True, timeout=10,
+            creationflags=_NO_WINDOW)
+        if r.returncode == 0 and r.stdout.strip():
+            txt = base64.b64decode(r.stdout.strip()).decode("utf-8", "replace")
+            v = _parse_version_txt(txt)
+            if v:
+                return v
+    except Exception:                                   # noqa: BLE001
+        pass
+    # 2) API de GitHub con el token del runtime (sin gh personal)
+    tok = _token_runtime()
+    if tok:
+        try:
+            import json
+            import urllib.request
+            req = urllib.request.Request(
+                f"https://api.github.com/repos/{repo}/contents/{path}",
+                headers={"Authorization": f"token {tok}",
+                         "Accept": "application/vnd.github+json"})
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                contenido = json.load(resp).get("content")
+            if contenido:
+                txt = base64.b64decode(contenido).decode("utf-8", "replace")
+                return _parse_version_txt(txt)
+        except Exception:                               # noqa: BLE001
+            pass
+    return None
+
+
+def _mayor_disponible(*versiones):
+    """La mayor de varias versiones (ignora None/''). None si no hay ninguna."""
+    cand = [v for v in versiones if v]
+    if not cand:
+        return None
+    mejor = cand[0]
+    for v in cand[1:]:
+        if _es_mayor(v, mejor):
+            mejor = v
+    return mejor
+
+
 class _CredWorker(QObject):
     """Trae el `.env` en segundo plano (la parte del OAuth abre el navegador y
     bloquea, por eso no puede correr en el hilo de la interfaz)."""
@@ -315,7 +381,14 @@ class _Chequeador(QObject):
     def correr(self, apps):
         def _run():
             for a in apps:
-                latest = _ultima_release(a.get("repo"))
+                # La actualización de la Suite baja de la rama por defecto
+                # (`git pull @{u}`), así que el aviso también la mira —y no sólo
+                # releases/latest, que en las apps sin tag (Cobranzas) queda
+                # viejo—. Tomamos la mayor de ambas fuentes para cubrir los dos
+                # esquemas.
+                release = _ultima_release(a.get("repo"))
+                en_rama = _version_en_rama(a.get("repo"), a.get("version_file"))
+                latest = _mayor_disponible(release, en_rama)
                 inst = _leer_version(a)
                 if latest and inst is None:
                     # Versión instalada ilegible: igual avisamos que hay release
