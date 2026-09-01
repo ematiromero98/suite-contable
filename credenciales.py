@@ -583,6 +583,82 @@ def traer():
                   "apps.\n\nQuedó en:\n" + detalle)
 
 
+def _reemplazar_token_en(ruta, token):
+    """Reescribe SÓLO la línea `GITHUB_TOKEN=` de un `.env` existente, dejando el
+    resto del archivo intacto (Supabase, VEP_CRYPTO_KEY, etc.). Si la línea no
+    está, la agrega al final. Best-effort. True si el archivo quedó con el token
+    pedido."""
+    try:
+        with open(ruta, encoding="utf-8") as f:
+            lineas = f.readlines()
+    except OSError:
+        return False
+    nueva = f"GITHUB_TOKEN={token}\n"
+    encontrada = False
+    cambiado = False
+    for i, ln in enumerate(lineas):
+        if ln.lstrip().startswith("GITHUB_TOKEN="):
+            encontrada = True
+            if ln.rstrip("\r\n") != nueva.rstrip("\n"):
+                lineas[i] = nueva
+                cambiado = True
+            break
+    if not encontrada:
+        if lineas and not lineas[-1].endswith("\n"):
+            lineas[-1] += "\n"
+        lineas.append(nueva)
+        cambiado = True
+    if cambiado:
+        try:
+            with open(ruta, "w", encoding="utf-8") as f:
+                f.writelines(lineas)
+        except OSError:
+            return False
+    return True
+
+
+def _token_github_canonico(repo):
+    """Lee el GITHUB_TOKEN del `.env` del repo de secretos ya clonado (o '')."""
+    try:
+        with open(os.path.join(repo, ".env"), encoding="utf-8") as f:
+            for ln in f:
+                if ln.lstrip().startswith("GITHUB_TOKEN="):
+                    return ln.split("=", 1)[1].strip()
+    except OSError:
+        pass
+    return ""
+
+
+def refrescar_token_github():
+    """Propaga el `GITHUB_TOKEN` CANÓNICO (el de suite-secretos) a los `.env` que
+    YA existen en esta PC, reescribiendo sólo esa línea. Sirve para que un cambio
+    de token (p. ej. cuando vence y se regenera) llegue a las PCs ya configuradas
+    con un simple `git pull` de la Suite, sin reinstalar ni tocar cada máquina.
+
+    Silencioso y best-effort: baja el repo de secretos con el token del RUNTIME
+    (nunca abre el navegador ni pide logins). Devuelve cuántos `.env` se
+    actualizaron (0 si no se pudo o si ya estaban al día)."""
+    try:
+        repo = _clonar_o_actualizar_secretos()
+        if not repo:
+            return 0
+        token = _token_github_canonico(repo)
+        if not token:
+            return 0
+        vistos = set()
+        n = 0
+        for ruta in _candidatos_env():
+            ruta = os.path.normcase(os.path.abspath(ruta))
+            if ruta in vistos or not os.path.isfile(ruta):
+                continue
+            vistos.add(ruta)
+            if _reemplazar_token_en(ruta, token):
+                n += 1
+        return n
+    except Exception:                                          # noqa: BLE001
+        return 0
+
+
 if __name__ == "__main__":
     # CLI: usada por el instalador (setup_pc.py) para traer credenciales sin UI.
     _ok, _msg = traer()

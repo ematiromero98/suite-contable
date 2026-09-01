@@ -689,6 +689,13 @@ class Launcher(QWidget):
         # Auto-actualizar la propia Suite (git pull) en segundo plano, para que
         # el ERP quede siempre al día en cualquier PC. Best-effort.
         threading.Thread(target=self._auto_update_suite, daemon=True).start()
+        # Refrescar el GITHUB_TOKEN de los `.env` ya presentes desde el valor
+        # canónico (suite-secretos), por si el token venció y se regeneró. Así el
+        # cambio llega a las PCs ya configuradas sin reinstalar. Best-effort y
+        # silencioso: sólo reescribe esa línea, no toca el resto del `.env`.
+        if credenciales is not None:
+            threading.Thread(target=credenciales.refrescar_token_github,
+                             daemon=True).start()
         # Chequear actualizaciones de las apps y avisar en cada tarjeta.
         self._chequeador = _Chequeador()
         self._chequeador.listo.connect(self._on_update)
