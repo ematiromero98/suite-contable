@@ -22,6 +22,18 @@ APPS = [
         "repo": "ematiromero98/ddjj-impuestos",
     },
     {
+        "key": "cm03",
+        "nombre": "CM03 Convenio Multilateral",
+        "emoji": "🗺️",
+        "desc": "Liquidación de IIBB – Convenio Multilateral (CM03) de las 9 empresas.",
+        "color": "#5DADE2",
+        "env_dir": "CM03_DIR",
+        "dir": os.environ.get("CM03_DIR", r"D:\PROYECTOS CLAUDE\cm03-convenio-multilateral"),
+        "entradas": ["ejecutar.bat", "app.py"],
+        "version_file": "version.py",
+        "repo": "ematiromero98/cm03-convenio-multilateral",
+    },
+    {
         "key": "reten",
         "nombre": "RetencionesPro",
         "emoji": "🧾",
