@@ -16,6 +16,7 @@ import webbrowser
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel,
     QPushButton, QFrame, QMessageBox, QScrollArea, QStackedWidget, QButtonGroup,
+    QTableWidget, QTableWidgetItem, QAbstractItemView,
 )
 from PyQt6.QtCore import Qt, QObject, pyqtSignal, QTimer, QRectF
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QFont, QColor, QPalette
@@ -144,6 +145,15 @@ QScrollBar::handle:vertical:hover { background:#3a4658; }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
 QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background:transparent; }
 QScrollBar:horizontal { height:0px; }
+
+/* ── Tabla (Registro de Backups) ── */
+QTableWidget { background:#171c26; alternate-background-color:#141924; color:#eef2f8;
+    gridline-color:#1d2530; border:1px solid #242c39; border-radius:12px; }
+QTableWidget::item { padding:6px 8px; }
+QTableWidget::item:selected { background:#12271f; color:#5cf0bd; }
+QHeaderView::section { background:#1c222e; color:#8a94a6; padding:8px 9px; border:none;
+    border-bottom:1px solid #242c39; font-weight:700; }
+QTableCornerButton::section { background:#1c222e; border:none; }
 
 /* ── Diálogos y mensajes (evita el "texto invisible" en los QMessageBox) ──
    Los QMessageBox son ventanas top-level: si el tema sólo pone color de texto
@@ -684,6 +694,76 @@ class _UpdateAllWorker(QObject):
         threading.Thread(target=_run, daemon=True).start()
 
 
+class _BackupsLoader(QObject):
+    """Lee el registro de backups desde Supabase en 2° plano (no congela la UI).
+
+    Usa la publishable/anon key (solo lectura) leída del `.env` del estudio; sin
+    dependencias nuevas (urllib de stdlib), igual que el chequeo de updates.
+    """
+    listo = pyqtSignal(list, str)  # (filas, mensaje_de_error)
+
+    def correr(self):
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        import json
+        import urllib.request
+        try:
+            url, key = self._credenciales()
+            if not url or not key:
+                self.listo.emit(
+                    [], "No encuentro el .env con las credenciales de Supabase. "
+                        "Probá «Traer credenciales» en Ajustes.")
+                return
+            endpoint = (url.rstrip("/") + "/rest/v1/suite_backup_runs"
+                        "?select=*&order=creado_at.desc&limit=200")
+            req = urllib.request.Request(endpoint, headers={
+                "apikey": key,
+                "Authorization": f"Bearer {key}",
+                "Accept": "application/json",
+            })
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            self.listo.emit(data if isinstance(data, list) else [], "")
+        except Exception as e:                                 # noqa: BLE001
+            self.listo.emit([], f"No pude leer el registro: {e}")
+
+    @staticmethod
+    def _credenciales():
+        """(SUPABASE_URL, key de lectura) desde el primer `.env` que exista."""
+        rutas = []
+        if credenciales is not None:
+            try:
+                rutas = list(credenciales._candidatos_env())
+            except Exception:                                  # noqa: BLE001
+                rutas = []
+        root = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
+        rutas.append(os.path.join(root, "Suite Contable", ".env"))
+        for ruta in rutas:
+            if not ruta or not os.path.isfile(ruta):
+                continue
+            vals = {}
+            try:
+                with open(ruta, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        k, val = line.split("=", 1)
+                        vals[k.strip()] = val.strip().strip('"').strip("'")
+            except Exception:                                  # noqa: BLE001
+                continue
+            url = vals.get("SUPABASE_URL")
+            # La secret key es la que ya usan las apps y funciona vía REST; la
+            # publishable/anon queda de fallback (en varios .env está vencida).
+            key = (vals.get("SUPABASE_SECRET_KEY")
+                   or vals.get("SUPABASE_PUBLISHABLE_KEY")
+                   or vals.get("SUPABASE_ANON_KEY"))
+            if url and key:
+                return url, key
+        return None, None
+
+
 class Launcher(QWidget):
     def __init__(self):
         super().__init__()
@@ -741,6 +821,7 @@ class Launcher(QWidget):
         self._stack.addWidget(self._page_settings())   # 2
         self._stack.addWidget(self._page_arquitectura())  # 3
         self._stack.addWidget(self._page_ecosistema())    # 4
+        self._stack.addWidget(self._page_backups())        # 5
         self._stack.currentChanged.connect(self._on_page_change)
         rv.addWidget(self._stack, stretch=1)
         root.addWidget(right, stretch=1)
@@ -795,6 +876,8 @@ class Launcher(QWidget):
         v.addWidget(self._nav_arq)
         self._nav_eco = self._nav_item("🌐   Ecosistema 3D", 4)
         v.addWidget(self._nav_eco)
+        self._nav_bk = self._nav_item("💾   Registro de Backups", 5)
+        v.addWidget(self._nav_bk)
         v.addSpacing(8)
         lbl_s = QLabel("SISTEMA")
         lbl_s.setObjectName("navLabel")
@@ -1107,6 +1190,8 @@ class Launcher(QWidget):
     def _on_page_change(self, idx):
         if idx == 1:
             self._rebuild_updates_page()
+        elif idx == 5:
+            self._load_backups()
 
     # ------------------------------------------------------------ pág. arquitectura
     def _page_arquitectura(self):
@@ -1263,6 +1348,147 @@ class Launcher(QWidget):
         fila.addWidget(info)
         v.addLayout(fila)
         return page
+
+    # ------------------------------------------------------- pág. registro de backups
+    def _page_backups(self):
+        """Registro (compartido, visible en todas las PCs) de los backups semanales."""
+        page = QWidget()
+        v = QVBoxLayout(page)
+        v.setContentsMargins(24, 22, 24, 18)
+        v.setSpacing(12)
+
+        head = QHBoxLayout()
+        st = QLabel("REGISTRO DE BACKUPS")
+        st.setObjectName("secTitle")
+        head.addWidget(st)
+        head.addStretch()
+        btn = QPushButton("⟳  Actualizar")
+        btn.setObjectName("action")
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.clicked.connect(self._load_backups)
+        head.addWidget(btn)
+        v.addLayout(head)
+
+        sub = QLabel("Backups semanales de las bases y archivos de Supabase. Cada PC que "
+                     "ejecuta el backup deja su registro acá automáticamente.")
+        sub.setObjectName("greetSub")
+        sub.setWordWrap(True)
+        v.addWidget(sub)
+
+        self._bk_status = QLabel("Cargando…")
+        self._bk_status.setObjectName("cardDesc")
+        v.addWidget(self._bk_status)
+
+        cols = ["Fecha", "Archivo (.zip)", "PC", "Usuario", "Inicio", "Fin",
+                "Duración", "Estado", "Proyectos", "Tamaño", "Off-site"]
+        t = QTableWidget(0, len(cols))
+        t.setHorizontalHeaderLabels(cols)
+        t.verticalHeader().setVisible(False)
+        t.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        t.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        t.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        t.setAlternatingRowColors(True)
+        t.horizontalHeader().setStretchLastSection(True)
+        t.setWordWrap(False)
+        self._bk_table = t
+        v.addWidget(t, stretch=1)
+
+        self._bk_loader = _BackupsLoader()
+        self._bk_loader.listo.connect(self._on_backups)
+        return page
+
+    def _load_backups(self):
+        if not hasattr(self, "_bk_table"):
+            return
+        self._bk_status.setText("Cargando…")
+        self._bk_loader.correr()
+
+    def _on_backups(self, filas, error):
+        t = self._bk_table
+        t.setRowCount(0)
+        if error:
+            self._bk_status.setText("⚠  " + error)
+            return
+        if not filas:
+            self._bk_status.setText("Todavía no hay backups registrados.")
+            return
+        ult = self._fmt_dt(filas[0].get("fin"))
+        self._bk_status.setText(f"{len(filas)} backup(s) registrado(s).  Último: {ult}")
+        for r in filas:
+            self._add_backup_row(t, r)
+        t.resizeColumnsToContents()
+
+    def _add_backup_row(self, t, r):
+        row = t.rowCount()
+        t.insertRow(row)
+        estado = (r.get("estado") or "").upper()
+        ok = estado == "OK"
+        det = r.get("detalle") or []
+        tip = "\n".join(
+            f"• {d.get('name', '?')}: {'OK' if d.get('valid') else 'REVISAR'}"
+            f" — {self._fmt_bytes(d.get('dump_bytes', 0))}"
+            + ("" if d.get("storage_ok") is None
+               else f", {d.get('storage_files', 0)} arch.")
+            for d in det) or "(sin detalle)"
+        vals = [
+            r.get("tag", ""),
+            r.get("zip_nombre", "") or "—",
+            r.get("pc", ""),
+            r.get("usuario", ""),
+            self._fmt_dt(r.get("inicio")),
+            self._fmt_dt(r.get("fin")),
+            self._fmt_dur(r.get("duracion_seg")),
+            "OK" if ok else (estado.title() or "?"),
+            f"{r.get('proyectos_ok', '?')}/{r.get('proyectos_total', '?')}",
+            self._fmt_bytes(r.get("zip_bytes")),
+            "Sí" if r.get("offsite_ok") else "No",
+        ]
+        for c, val in enumerate(vals):
+            it = QTableWidgetItem(str(val))
+            if c == 7:
+                it.setForeground(QColor(ACCENT if ok else BAD))
+            if c == 8:
+                it.setToolTip(tip)
+            if c == 10:
+                it.setForeground(QColor(ACCENT if r.get("offsite_ok") else WARN))
+            t.setItem(row, c, it)
+
+    @staticmethod
+    def _fmt_dt(iso):
+        if not iso:
+            return "—"
+        from datetime import datetime
+        try:
+            dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00")).astimezone()
+            return dt.strftime("%d/%m/%Y %H:%M")
+        except Exception:                                      # noqa: BLE001
+            return str(iso)[:16]
+
+    @staticmethod
+    def _fmt_dur(seg):
+        try:
+            seg = int(seg)
+        except Exception:                                      # noqa: BLE001
+            return "—"
+        m, s = divmod(seg, 60)
+        h, m = divmod(m, 60)
+        if h:
+            return f"{h} h {m:02d} min"
+        if m:
+            return f"{m} min {s:02d} s"
+        return f"{s} s"
+
+    @staticmethod
+    def _fmt_bytes(n):
+        try:
+            x = float(n)
+        except Exception:                                      # noqa: BLE001
+            return "—"
+        for u in ("B", "KB", "MB", "GB", "TB"):
+            if x < 1024 or u == "TB":
+                return f"{x:.1f} {u}"
+            x /= 1024
+        return f"{x:.1f} TB"
 
     # ---------------------------------------------------------------- refrescos
     def _refrescar_kpis(self):
