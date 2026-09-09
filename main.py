@@ -499,8 +499,20 @@ def _leer_token_env(dir_):
 
 
 def _git(dir_, args, timeout=240):
-    return subprocess.run(["git", "-C", dir_] + args, capture_output=True,
-                          text=True, timeout=timeout, creationflags=_NO_WINDOW)
+    # Modo NO interactivo: si git no tiene credenciales cacheadas para un repo
+    # privado, que falle EN EL ACTO en vez de abrir el diálogo de Git Credential
+    # Manager ("Select an account"). Así el flujo cae solo al fetch con el token
+    # embebido en la URL (_actualizar_app_core / _auto_update_suite) sin molestar
+    # al usuario. En PCs con credencial cacheada (`gh auth setup-git`), git la usa
+    # igual sin preguntar. Las operaciones locales (remote get-url, merge, etc.)
+    # no se ven afectadas.
+    env = dict(os.environ)
+    env["GIT_TERMINAL_PROMPT"] = "0"   # git no pide credenciales por consola
+    env["GCM_INTERACTIVE"] = "never"   # Git Credential Manager: sin ventana
+    return subprocess.run(
+        ["git", "-C", dir_, "-c", "credential.interactive=false"] + args,
+        capture_output=True, text=True, timeout=timeout,
+        creationflags=_NO_WINDOW, env=env)
 
 
 def _remote_oficial(dir_, repo):
