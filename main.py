@@ -702,7 +702,8 @@ class _BackupsLoader(QObject):
     """
     listo = pyqtSignal(list, str)  # (filas, mensaje_de_error)
 
-    def correr(self):
+    def correr(self, limit=200):
+        self._limit = limit
         threading.Thread(target=self._run, daemon=True).start()
 
     def _run(self):
@@ -715,8 +716,9 @@ class _BackupsLoader(QObject):
                     [], "No encuentro el .env con las credenciales de Supabase. "
                         "Probá «Traer credenciales» en Ajustes.")
                 return
+            lim = getattr(self, "_limit", 200)
             endpoint = (url.rstrip("/") + "/rest/v1/suite_backup_runs"
-                        "?select=*&order=creado_at.desc&limit=200")
+                        f"?select=*&order=creado_at.desc&limit={lim}")
             req = urllib.request.Request(endpoint, headers={
                 "apikey": key,
                 "Authorization": f"Bearer {key}",
@@ -797,6 +799,10 @@ class Launcher(QWidget):
         self._chequeador = _Chequeador()
         self._chequeador.listo.connect(self._on_update)
         self._chequeador.correr(config.APPS)
+        # Chequear salud del último backup y avisar arriba si falló o está atrasado.
+        self._bk_alert_loader = _BackupsLoader()
+        self._bk_alert_loader.listo.connect(self._on_backup_health)
+        self._bk_alert_loader.correr(limit=1)
         # Si esta PC no tiene el .env, ofrecer traerlo apenas abre la ventana.
         if credenciales is not None and not credenciales.todo_listo():
             QTimer.singleShot(700, lambda: self._traer_credenciales(auto=True))
@@ -815,6 +821,14 @@ class Launcher(QWidget):
         rv.setContentsMargins(0, 0, 0, 0)
         rv.setSpacing(0)
         rv.addWidget(self._build_topbar())
+        # Nota de alerta de backup (roja/naranja): oculta salvo que el ultimo
+        # backup haya fallado o este atrasado. Clic -> pagina Registro de Backups.
+        self._bk_alert = QPushButton("")
+        self._bk_alert.setObjectName("bkAlert")
+        self._bk_alert.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._bk_alert.setVisible(False)
+        self._bk_alert.clicked.connect(self._ir_a_backups)
+        rv.addWidget(self._bk_alert)
         self._stack = QStackedWidget()
         self._stack.addWidget(self._page_panel())      # 0
         self._stack.addWidget(self._page_updates())    # 1
@@ -1402,6 +1416,52 @@ class Launcher(QWidget):
             return
         self._bk_status.setText("Cargando…")
         self._bk_loader.correr()
+
+    def _ir_a_backups(self):
+        """Clic en el cartel -> ir a la página Registro de Backups."""
+        if hasattr(self, "_nav_bk"):
+            self._nav_bk.setChecked(True)
+        self._stack.setCurrentIndex(5)
+
+    def _on_backup_health(self, filas, error):
+        """Muestra la nota roja/naranja arriba si el último backup falló o se atrasó."""
+        if not hasattr(self, "_bk_alert"):
+            return
+        if error or not filas:
+            self._bk_alert.setVisible(False)   # sin datos o sin conexión: no alarmar
+            return
+        r = filas[0]
+        estado = (r.get("estado") or "").upper()
+        fecha = self._fmt_dt(r.get("fin") or r.get("creado_at"))
+        msg, color = None, "#f6465d"
+        if estado != "OK":
+            msg = f"⚠  El último backup ({fecha}) FALLÓ.  Clic acá para ver el detalle."
+        else:
+            dias = self._dias_desde(r.get("creado_at") or r.get("fin"))
+            if dias is not None and dias > 8:
+                color = "#b9812f"
+                msg = (f"⚠  Hace {dias} días que no se hace un backup "
+                       f"(último: {fecha}).  Clic acá para ver.")
+        if not msg:
+            self._bk_alert.setVisible(False)
+            return
+        self._bk_alert.setText(msg)
+        self._bk_alert.setStyleSheet(
+            f"QPushButton#bkAlert {{ background:{color}; color:#ffffff; text-align:left;"
+            f" border:none; padding:11px 24px; font-size:13px; font-weight:700; }}"
+            f"QPushButton#bkAlert:hover {{ background:{color}; }}")
+        self._bk_alert.setVisible(True)
+
+    @staticmethod
+    def _dias_desde(iso):
+        if not iso:
+            return None
+        from datetime import datetime, timezone
+        try:
+            dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+            return int((datetime.now(timezone.utc) - dt).total_seconds() // 86400)
+        except Exception:                                      # noqa: BLE001
+            return None
 
     def _on_backups(self, filas, error):
         t = self._bk_table
