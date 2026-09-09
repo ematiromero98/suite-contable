@@ -696,6 +696,11 @@ class Launcher(QWidget):
         if credenciales is not None:
             threading.Thread(target=credenciales.refrescar_token_github,
                              daemon=True).start()
+            # Propagar las credenciales de login de la cuenta compartida (Supabase
+            # Auth) a las PCs ya configuradas: fusiona login_email/login_password
+            # del secreto canónico sin pisar el resto. Best-effort y silencioso.
+            threading.Thread(target=credenciales.refrescar_secretos_apps,
+                             daemon=True).start()
         # Chequear actualizaciones de las apps y avisar en cada tarjeta.
         self._chequeador = _Chequeador()
         self._chequeador.listo.connect(self._on_update)

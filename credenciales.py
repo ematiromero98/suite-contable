@@ -18,6 +18,7 @@ IMPORTANTE: acá NO hay ninguna credencial. Sólo la lógica que pide el acceso.
 Los secretos viven en el Drive privado del estudio y en Supabase.
 """
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -656,6 +657,75 @@ def refrescar_token_github():
                 n += 1
         return n
     except Exception:                                          # noqa: BLE001
+        return 0
+
+
+# Claves de credencial que se PROPAGAN a los secretos ya presentes en la PC
+# (análogo al GITHUB_TOKEN del `.env`). Sirve para que un cambio central —p. ej.
+# la cuenta compartida de login de Supabase Auth, o su rotación— llegue a las PCs
+# YA configuradas con un `git pull` de la Suite, sin tocar cada máquina ni pisar
+# el resto del archivo (supabase_url/key, bucket, etc.).
+_PROPAGABLES = ("login_email", "login_password")
+
+
+def _merge_propagables(ruta, canon):
+    """Fusiona en el JSON local `ruta` sólo las claves _PROPAGABLES tomadas del
+    secreto canónico `canon`. Deja el resto intacto. True si el archivo cambió."""
+    try:
+        with open(ruta, encoding="utf-8") as f:
+            local = json.load(f)
+    except (OSError, ValueError):
+        return False
+    cambiado = False
+    for k in _PROPAGABLES:
+        if k in canon and local.get(k) != canon[k]:
+            local[k] = canon[k]
+            cambiado = True
+    if cambiado:
+        try:
+            with open(ruta, "w", encoding="utf-8") as f:
+                json.dump(local, f, ensure_ascii=False, indent=2)
+        except OSError:
+            return False
+    return cambiado
+
+
+def refrescar_secretos_apps():
+    """Propaga las credenciales _PROPAGABLES (login de la cuenta compartida y su
+    rotación) desde el secreto CANÓNICO (suite-secretos) a los `secretos.json` que
+    YA existen en esta PC. Sin esto, el mecanismo no re-baja el secreto para no
+    pisarlo, y un cambio central no llegaría a las PCs ya configuradas. Baja el
+    repo con el token del RUNTIME (nunca abre navegador ni pide logins).
+    Best-effort y silencioso. Devuelve cuántos secretos se actualizaron."""
+    try:
+        repo = _clonar_o_actualizar_secretos()
+        if not repo:
+            return 0
+        n = 0
+        for spec in _APPS_SECRETO:
+            d = _dir_app(spec["key"])
+            if not d or not os.path.isdir(d):
+                continue
+            local = os.path.join(d, spec["local"])
+            src = os.path.join(repo, spec["drive"])
+            if not (os.path.isfile(local) and os.path.isfile(src)):
+                continue
+            try:
+                with open(src, encoding="utf-8") as f:
+                    canon = json.load(f)
+            except (OSError, ValueError):
+                continue
+            if _merge_propagables(local, canon):
+                n += 1
+                if spec["configurar"]:      # ej. Cobranzas regenera .env/config.json
+                    try:
+                        subprocess.run([_python_de(d), "configurar.py"], cwd=d,
+                                       capture_output=True, text=True, timeout=90,
+                                       creationflags=_NO_WINDOW)
+                    except Exception:       # noqa: BLE001
+                        pass
+        return n
+    except Exception:                       # noqa: BLE001
         return 0
 
 
