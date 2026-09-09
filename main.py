@@ -48,6 +48,12 @@ try:
 except Exception:                                          # noqa: BLE001
     PaginaArquitectura = None
 
+# Módulo "Conexiones a base de datos" (organigrama de las bases Supabase).
+try:
+    from conexiones_db import PaginaConexionesDB
+except Exception:                                          # noqa: BLE001
+    PaginaConexionesDB = None
+
 _BASE = os.path.dirname(os.path.abspath(__file__))
 # Evitar que se abran consolas negras al llamar a gh/.bat en Windows.
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -836,6 +842,7 @@ class Launcher(QWidget):
         self._stack.addWidget(self._page_arquitectura())  # 3
         self._stack.addWidget(self._page_ecosistema())    # 4
         self._stack.addWidget(self._page_backups())        # 5
+        self._stack.addWidget(self._page_conexiones())     # 6
         self._stack.currentChanged.connect(self._on_page_change)
         rv.addWidget(self._stack, stretch=1)
         root.addWidget(right, stretch=1)
@@ -890,6 +897,8 @@ class Launcher(QWidget):
         v.addWidget(self._nav_arq)
         self._nav_eco = self._nav_item("🌐   Ecosistema 3D", 4)
         v.addWidget(self._nav_eco)
+        self._nav_cx = self._nav_item("🗄   Conexiones DB", 6)
+        v.addWidget(self._nav_cx)
         self._nav_bk = self._nav_item("💾   Registro de Backups", 5)
         v.addWidget(self._nav_bk)
         v.addSpacing(8)
@@ -1220,6 +1229,20 @@ class Launcher(QWidget):
             v.addStretch()
             return ph
         return PaginaArquitectura(self)
+
+    # ------------------------------------------------------------ pág. conexiones DB
+    def _page_conexiones(self):
+        """Organigrama de las bases Supabase y cómo se conecta cada app."""
+        if PaginaConexionesDB is None:
+            ph = QWidget()
+            v = QVBoxLayout(ph)
+            v.setContentsMargins(24, 22, 24, 18)
+            lbl = QLabel("El módulo de conexiones no está disponible en esta versión.")
+            lbl.setStyleSheet("color:#8a94a6; font-size:13px;")
+            v.addWidget(lbl)
+            v.addStretch()
+            return ph
+        return PaginaConexionesDB(self)
 
     # ------------------------------------------------------------ pág. ecosistema
     def _page_ecosistema(self):
