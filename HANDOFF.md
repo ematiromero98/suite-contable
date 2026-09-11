@@ -148,11 +148,11 @@ semanal cifrado de las 5 + Storage: repo `suite-backups` (`RESTORE.md` para rest
   repos de la suite **y** `suite-secretos`.
 - **`GITHUB_TOKEN` del `.env` compartido** (`suite-secretos`): fine-grained
   **«RetencionesPro - clientes»** (id 15397886). Lo usan los actualizadores propios de las apps
-  (RetencionesPro `update.bat`, Cobranzas `actualizador.py`). Desde el **11-09-2026 incluye 12
-  repos**: RetencionesPro, cobranzas-osecac, ddjj-impuestos, contabilidad, deposito-avalos,
-  facturador-arca, employee-pro, cm03-convenio-multilateral, calendario-ausencias,
-  conciliador-bancario, control-juicios, arca-vep-autonomos. **No incluye `impuestos` ni
-  `suite-secretos`** (a propósito lo segundo). Los fine-grained no pueden leer un repo privado
+  (RetencionesPro `update.bat`, Cobranzas `actualizador.py`). Desde el **11-09-2026 incluye 13
+  repos**: RetencionesPro, cobranzas-osecac, impuestos, ddjj-impuestos, contabilidad,
+  deposito-avalos, facturador-arca, employee-pro, cm03-convenio-multilateral,
+  calendario-ausencias, conciliador-bancario, control-juicios, arca-vep-autonomos. **No
+  incluye `suite-secretos`** (a propósito). Los fine-grained no pueden leer un repo privado
   fuera de su lista: el síntoma es 403 «Write access to repository not granted», y antes
   Cobranzas lo tragaba en silencio (arreglado en Cobranzas 2.61.1).
 - El otro token fine-grained, **«Instalador Suite»** (todos los repos), es el candidato natural
@@ -162,18 +162,15 @@ semanal cifrado de las 5 + Storage: repo `suite-backups` (`RESTORE.md` para rest
 
 ## 5. Pendientes
 
-1. **Agregar `impuestos` al token «RetencionesPro - clientes»** (GitHub → Settings → Developer
-   settings → Fine-grained tokens → editar → Repository access) si la app Impuestos usa el
-   `GITHUB_TOKEN` del `.env` para actualizarse; si no, verificar cómo se actualiza.
-2. **Diagramas internos desactualizados:** `arquitectura.py` (`DATOS`, 9 apps: le faltan
+1. **Diagramas internos desactualizados:** `arquitectura.py` (`DATOS`, 9 apps: le faltan
    Impuestos, Calendario de Ausencias, VEP, y sobra DDJJ/CM03 como apps del menú),
    `assets/ecosistema-3d.html` (`NODES`/`EDGES`) y `conexiones_db.py` (`BASES` nombra DDJJ y
    CM03; agregar Impuestos). Son datos a mano.
-3. **Docs viejas con listas de apps:** `README.md` (5 apps), `GUIA.md` §1 (6 apps),
+2. **Docs viejas con listas de apps:** `README.md` (5 apps), `GUIA.md` §1 (6 apps),
    `ARQUITECTURA.md` §1 (9 apps). Este HANDOFF es la referencia; actualizarlas cuando se
    toquen.
-4. `assets/apps/ddjj.png` y `cm03.png` quedan sin uso mientras esas apps no estén en el menú.
-5. Sin tests: si crece `main.py`, extraer lo puro (`_es_mayor`, `_parse_version_txt`,
+3. `assets/apps/ddjj.png` y `cm03.png` quedan sin uso mientras esas apps no estén en el menú.
+4. Sin tests: si crece `main.py`, extraer lo puro (`_es_mayor`, `_parse_version_txt`,
    `_mayor_disponible`, `_actualizar_app_core` sin red) a un módulo testeable.
 
 ---
