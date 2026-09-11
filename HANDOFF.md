@@ -113,7 +113,8 @@ siguen existiendo por si vuelven.
 - **Arquitectura / Ecosistema 3D / Conexiones DB:** `arquitectura.py` (diagrama con `DATOS`),
   `assets/ecosistema-3d.html` (ciudad isométrica, arrays `NODES`/`EDGES`),
   `conexiones_db.py` (`BASES`: las 5 bases y cómo se conecta cada app: login / directo /
-  edge). **Son datos escritos a mano: al cambiar una app hay que editarlos** (ver §5).
+  edge). **Son datos escritos a mano: al cambiar una app hay que editarlos** (al día con
+  las 11 apps desde el 11-09-2026; la vista general se acomoda sola en filas de 4).
 - **Bootstrap desde las apps:** cada app trae `bootstrap_suite.py` que clona la Suite si falta
   (`D:\suite-contable`) y crea el acceso directo. Best-effort.
 - **Instaladores:** `instalar_suite.ps1` («cero logins»: pegar el token de solo lectura, instala
@@ -162,15 +163,11 @@ semanal cifrado de las 5 + Storage: repo `suite-backups` (`RESTORE.md` para rest
 
 ## 5. Pendientes
 
-1. **Diagramas internos desactualizados:** `arquitectura.py` (`DATOS`, 9 apps: le faltan
-   Impuestos, Calendario de Ausencias, VEP, y sobra DDJJ/CM03 como apps del menú),
-   `assets/ecosistema-3d.html` (`NODES`/`EDGES`) y `conexiones_db.py` (`BASES` nombra DDJJ y
-   CM03; agregar Impuestos). Son datos a mano.
-2. **Docs viejas con listas de apps:** `README.md` (5 apps), `GUIA.md` §1 (6 apps),
+1. **Docs viejas con listas de apps:** `README.md` (5 apps), `GUIA.md` §1 (6 apps),
    `ARQUITECTURA.md` §1 (9 apps). Este HANDOFF es la referencia; actualizarlas cuando se
    toquen.
-3. `assets/apps/ddjj.png` y `cm03.png` quedan sin uso mientras esas apps no estén en el menú.
-4. Sin tests: si crece `main.py`, extraer lo puro (`_es_mayor`, `_parse_version_txt`,
+2. `assets/apps/ddjj.png` y `cm03.png` quedan sin uso mientras esas apps no estén en el menú.
+3. Sin tests: si crece `main.py`, extraer lo puro (`_es_mayor`, `_parse_version_txt`,
    `_mayor_disponible`, `_actualizar_app_core` sin red) a un módulo testeable.
 
 ---

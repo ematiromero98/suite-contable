@@ -3,7 +3,7 @@
 arquitectura.py — Módulo "🗺️ Arquitectura" del ERP.
 
 Muestra, DENTRO del launcher, un diagrama navegable y dinámico de:
-  • la Suite completa (el ERP + las 8 apps + las bases Supabase + los sistemas
+  • la Suite completa (el ERP + las 11 apps + las bases Supabase + los sistemas
     externos como ARCA, OSECAC y el Drive), y
   • cada proyecto por separado (capas UI / Lógica / Datos / Integraciones), con
     una explicación en lenguaje simple y el flujo del caso de uso principal
@@ -85,7 +85,7 @@ PROYECTOS = {
     "erp": {
         "nombre": "Suite Contable (ERP)", "emoji": "🖥️", "color": "#3ddc97",
         "proposito": "Es el «menú de inicio» del estudio: una sola ventana desde "
-                     "la que se abren, instalan y actualizan las 8 apps. No toca "
+                     "la que se abren, instalan y actualizan las 11 apps. No toca "
                      "datos; sólo lanza cada programa y lo mantiene al día y con "
                      "sus credenciales puestas.",
         "stack": "Python + PyQt6. Usa git y gh (GitHub CLI) y rclone (Google Drive) "
@@ -94,19 +94,19 @@ PROYECTOS = {
         "datos": "No usa base de datos. Reparte credenciales a las apps.",
         "capas": [
             ("Ventana (PyQt6)", ["main.py — launcher, tarjetas por app, KPIs"]),
-            ("Config", ["config.py — registro de las 8 apps (ruta, repo, versión)"]),
-            ("Servicios", ["credenciales.py — baja el .env y los secretos del Drive",
+            ("Config", ["config.py — registro de las 11 apps (ruta, repo, versión)"]),
+            ("Servicios", ["credenciales.py — trae el .env, secretos y certs (suite-secretos / Drive)",
                             "release.py — publica versiones", "version.py"]),
             ("Core compartido", ["suite_theme.py — tema visual",
                                    "suite_charts.py — gráficos", "formatos.py — $ y CUIT",
                                    "arquitectura.py — este módulo"]),
         ],
         "integraciones": ["git / gh (auto-update y clone)", "GitHub Releases",
-                           "Google Drive vía rclone (credenciales)"],
+                           "suite-secretos (GitHub) o Google Drive vía rclone (credenciales)"],
         "flujo": [
             "El usuario abre el ERP; en segundo plano se auto-actualiza (git pull).",
             "Chequea la última versión de cada app en GitHub y avisa en su tarjeta.",
-            "Si falta el .env, ofrece traer las credenciales del Drive (OAuth 1 vez).",
+            "Si falta el .env, ofrece traer las credenciales (suite-secretos o Drive).",
             "El usuario toca «Abrir» y el ERP lanza esa app en su carpeta.",
             "O toca «Actualizar»: git pull + reinstala dependencias en su .venv.",
         ],
@@ -140,32 +140,42 @@ PROYECTOS = {
         ],
         "rel_datos": SUPA_COMPARTIDA,
     },
-    "ddjj": {
-        "nombre": "DDJJ Impuestos", "emoji": "📑", "color": "#2E86C1",
-        "proposito": "Prepara mes a mes las DDJJ de IVA y las retenciones de IIBB "
-                     "(SIRCREB) de los 9 clientes en ARCA. Arma la DDJJ hasta la "
-                     "Vista Previa (PDF + Excel) y guarda todo en la nube. Regla de "
-                     "oro: NUNCA presenta (eso lo hace una persona después).",
-        "stack": "Python + PyQt6. Postgres DIRECTO con psycopg2. Playwright "
-                 "(navegador Chromium para ARCA), pandas, openpyxl.",
-        "entrypoint": "DDJJ Impuestos.bat → pythonw scripts/main.py",
-        "datos": SUPA_COMPARTIDA + " · tablas ddjj_iva, ddjj_sircreb, ddjj_historial",
+    "impuestos": {
+        "nombre": "Impuestos (IIBB + IVA)", "emoji": "🧮", "color": "#2EE6A6",
+        "proposito": "Liquida mes a mes los impuestos de las 9 empresas: Ingresos "
+                     "Brutos por Convenio Multilateral (CM03: liquidación, DDJJ "
+                     "presentadas, comparativos, asientos, bot de SIFERE) e IVA "
+                     "(sincroniza retenciones y percepciones sufridas, liquida, arma "
+                     "el borrador en el Portal IVA y concilia compras contra "
+                     "RetencionesPro). Reemplaza a DDJJ Impuestos y a CM03 en el ERP. "
+                     "Regla de oro: NUNCA presenta (eso lo hace una persona).",
+        "stack": "Python + PyQt6. Postgres DIRECTO con psycopg2 (motores de ARCA) y "
+                 "supabase-py (CM03). Selenium/Playwright para Portal IVA, SIFERE y "
+                 "SIRCREB. openpyxl, reportlab.",
+        "entrypoint": "ejecutar.bat → python app.py",
+        "datos": SUPA_COMPARTIDA + " · tablas cm03_*, ddjj_*, iva_* · lee Cobranzas (rrarma…)",
         "capas": [
-            ("UI (PyQt6)", ["scripts/main.py", "main_window.py",
-                             "page_ejecutar.py", "page_repositorio.py", "page_conciliacion.py"]),
-            ("Motores", ["portal_iva.py (Playwright → DDJJ IVA)",
-                          "sircreb.py (SIFERE → retenciones)", "conciliacion.py"]),
-            ("Datos", ["supabase_db.py — psycopg2 (historial, IVA, SIRCREB)"]),
+            ("UI (PyQt6)", ["app.py", "ui/mod_iva_liquidacion.py", "ui/mod_iva_sync.py",
+                             "pantallas CM03 (liquidación, DDJJ, comparativo, asientos)"]),
+            ("Lógica", ["logic/liquidacion.py (CM03)", "logic/iva_liquidacion.py",
+                         "logic/iva_fuentes.py (retenciones/percepciones sufridas)",
+                         "logic/sifere_bot.py", "logic/asiento.py"]),
+            ("Motores ARCA", ["motores/ddjj/portal_iva.py", "motores/ddjj/sircreb.py",
+                               "motores/ddjj/conciliacion.py"]),
+            ("Config", ["config/empresas.py — las 9 empresas por CUIT",
+                         "config/settings.py"]),
         ],
-        "integraciones": ["ARCA · Portal IVA + SIFERE (Playwright, login manual)",
-                           "RetencionesPro (concilia compras)", "GitHub"],
+        "integraciones": ["ARCA · Portal IVA + SIFERE + SIRCREB (navegador, login manual)",
+                           "RetencionesPro (conciliación de compras · pagos CM03 → ddjj_propias)",
+                           "Cobranzas OSECAC (retenciones de IVA sufridas, lectura)",
+                           "GitHub Releases"],
         "flujo": [
-            "Se elige mes, cliente (o «todos») y modo, y se da Iniciar.",
-            "Se abre Chromium; Adrián pone CUIT + Clave Fiscal + CAPTCHA una vez.",
-            "Por cada cliente abre Nueva DDJJ e importa los libros de ARCA.",
-            "Completa aperturas y llega a la Vista Previa.",
-            "Guarda el PDF y PARA (no presenta).",
-            "Guarda el resultado en Supabase para consultas y comparativos.",
+            "Se elige el período y la empresa (o las 9).",
+            "IIBB: liquida el CM03 con ventas, coeficientes y créditos; genera el asiento.",
+            "IVA: sincroniza retenciones/percepciones sufridas desde Cobranzas y RetProp.",
+            "Liquida el IVA por empresa y arma el borrador en el Portal IVA (Selenium).",
+            "Guarda liquidaciones, DDJJ presentadas y asientos en la base compartida.",
+            "PARA antes de presentar: la presentación la hace una persona.",
         ],
         "rel_datos": SUPA_COMPARTIDA,
     },
@@ -386,6 +396,55 @@ PROYECTOS = {
         "rel_datos": SUPA_CONCILIADOR,
     },
     # ── Webs companion (front-ends que corren en el celular) ──────────────
+    "ausencias": {
+        "nombre": "Calendario de Ausencias", "emoji": "📅", "color": "#2ee6a6",
+        "proposito": "Vacaciones y licencias del equipo del estudio: línea de tiempo "
+                     "anual por persona, vista mensual, saldos por persona, alertas de "
+                     "solapamiento por área y flujo de solicitud/aprobación. La gente "
+                     "carga desde el celular (form web) y el ERP aprueba.",
+        "stack": "Python + PyQt6. REST PostgREST (requests). Excel (openpyxl) y PDF "
+                 "(reportlab). Form móvil en GitHub Pages + Edge Function.",
+        "entrypoint": "run.bat → python main.py",
+        "datos": SUPA_EMPLOYEE + " · tablas cal_personas, cal_ausencias, cal_config",
+        "capas": [
+            ("UI (PyQt6)", ["main.py", "ui/timeline.py (wall chart)", "ui/analisis.py"]),
+            ("Lógica", ["logic/calendario.py — días hábiles, feriados, solapamientos"]),
+            ("Datos", ["db/rest.py + db/repo.py — PostgREST"]),
+        ],
+        "integraciones": ["calendario-ausencias-cel (web, GitHub Pages)",
+                           "Edge Function cal-ausencias", "GitHub"],
+        "flujo": [
+            "Un empleado carga su ausencia desde el celular (queda pendiente).",
+            "El ERP muestra las solicitudes pendientes; se aprueban o rechazan.",
+            "El calendario anual avisa solapamientos dentro de la misma área.",
+            "Se exporta el detalle y el resumen por persona a Excel/PDF.",
+        ],
+        "rel_datos": SUPA_EMPLOYEE,
+    },
+    "veps": {
+        "nombre": "VEP Autónomos", "emoji": "🏛️", "color": "#7D3C98",
+        "proposito": "Genera en tanda los VEP de Autónomos (pago mensual) en ARCA para "
+                     "una lista de contribuyentes: login con Clave Fiscal, SETI, "
+                     "período, categoría y medio de pago; guarda el N° de VEP.",
+        "stack": "Python + PyQt6. Selenium (un navegador por cliente). Claves cifradas "
+                 "con Fernet (VEP_CRYPTO_KEY en el .env central).",
+        "entrypoint": "run.bat → python main.py",
+        "datos": SUPA_COMPARTIDA + " · tabla arca_veps_clientes (clave_enc cifrada)",
+        "capas": [
+            ("UI (PyQt6)", ["main.py — grilla editable de clientes (pegar desde Excel)"]),
+            ("Automatización", ["automation.py (Selenium → SETI → VEP)",
+                                 "generar_veps.py (CLI desatendido)"]),
+            ("Datos", ["db.py", "cripto.py (Fernet)", "clientes.py"]),
+        ],
+        "integraciones": ["ARCA · Presentación de DDJJ y Pagos (SETI)", "GitHub"],
+        "flujo": [
+            "Se cargan/pegan los clientes (CUIT, clave, medio, período, categoría).",
+            "«Ensayo» recorre el flujo sin generar; «Generar VEP» genera de verdad.",
+            "Por cliente: login, SETI, Nuevo VEP → Autónomo → período → medio de pago.",
+            "Lee el N° de VEP, lo guarda y deja capturas y un resumen.",
+        ],
+        "rel_datos": SUPA_COMPARTIDA,
+    },
     "comprobantes": {
         "nombre": "Comprobantes (Web QR)", "emoji": "📲", "color": "#27AE9A",
         "parent": "reten",
@@ -461,19 +520,20 @@ COMPANIONS_ORDEN = ["comprobantes", "juicios_carga"]
 EXTERNOS = {
     "arca": ("🏛️", "ARCA / AFIP", "Portal IVA, SIRE, SIFERE, WSFEV1"),
     "osecac": ("🏥", "Portal OSECAC", "Órdenes de pago de prestadores"),
-    "drive": ("☁️", "Google Drive", "Credenciales (.env / secretos)"),
+    "drive": ("☁️", "suite-secretos / Drive", "Credenciales (.env / secretos / certs)"),
     "tango": ("📚", "Tango", "Asientos contables"),
 }
 BASES = {
     "compartida": ("🗄️", "Supabase COMPARTIDA", "zpwccecovhjmeibxafkg",
-                    ["reten", "ddjj", "facturador", "juicios", "contabilidad"]),
+                    ["reten", "impuestos", "facturador", "juicios", "contabilidad", "veps"]),
     "cobranzas": ("🗄️", "Supabase Cobranzas", "rrarmatjyvmrpohsvfzg", ["cobranzas"]),
-    "employee": ("🗄️", "Supabase Employee", "ffczbimnuodzcbgsdxbx", ["employee"]),
+    "employee": ("🗄️", "Supabase Employee", "ffczbimnuodzcbgsdxbx", ["employee", "ausencias"]),
     "deposito": ("🗄️", "Supabase Depósito", "ioycuhefaalpqivhhryb", ["deposito"]),
     "conciliador": ("🗄️", "Supabase Conciliador", "qaaxestmwmqmylthnwts", ["conciliador"]),
 }
-APPS_ORDEN = ["reten", "ddjj", "cobranzas", "facturador",
-              "employee", "juicios", "deposito", "contabilidad", "conciliador"]
+APPS_ORDEN = ["reten", "impuestos", "cobranzas", "facturador",
+              "employee", "juicios", "deposito", "contabilidad", "conciliador",
+              "ausencias", "veps"]
 
 
 # ============================================================ VISTA (Qt)
@@ -715,7 +775,7 @@ class PaginaArquitectura(QWidget):
 
         _label_ico(sc, 40, 12, "🌐", "Suite Contable — MR & Asociados",
                    color=TXT, size=15, bold=True, epx=22)
-        _texto(sc, 40, 44, "Un ERP que abre 8 apps. Tocá cualquier app para ver su detalle.",
+        _texto(sc, 40, 44, "Un ERP que abre 11 apps. Tocá cualquier app para ver su detalle.",
                color=SUB, size=10)
 
         # ERP arriba, centrado
@@ -725,12 +785,15 @@ class PaginaArquitectura(QWidget):
                   "lanza / actualiza / instala")
         erp_bottom = (W / 2, 134)
 
-        # Apps: 9 en 2 filas (5 + 4)
-        aw, ah, gx, gy = 176, 64, 18, 16
-        cols = 5
+        # Apps: en filas de 4 (11 apps → 4 + 4 + 3). Lo de abajo se corre según
+        # cuántas filas haya (dy), así agregar una app nunca pisa las bases.
+        aw, ah, gx, gy = 214, 64, 18, 16          # 214: entra «Calendario de Ausencias»
+        cols = 4
+        filas = (len(APPS_ORDEN) + cols - 1) // cols
         row_w = cols * aw + (cols - 1) * gx
         x0 = (W - row_w) / 2
-        ry = [176, 176 + ah + gy]                 # y de cada fila
+        ry = [176 + r * (ah + gy) for r in range(filas)]   # y de cada fila
+        dy = (filas - 2) * (ah + gy)
         centros, bottoms = {}, {}
         for i, k in enumerate(APPS_ORDEN):
             p = PROYECTOS[k]
@@ -742,7 +805,7 @@ class PaginaArquitectura(QWidget):
             _linea(sc, erp_bottom, (x + aw / 2, y), color="#2e3a4d", ancho=2)
 
         # Fila de bases (datos)
-        by = 352
+        by = 352 + dy
         base_w = {"compartida": 290, "cobranzas": 200, "employee": 200,
                   "deposito": 210, "conciliador": 210}
         gapb = 22
@@ -769,7 +832,7 @@ class PaginaArquitectura(QWidget):
                    color=MENTA, ancho=2, etiqueta="factura → OP (RPC)")
 
         # Externos (abajo)
-        exy = 448
+        exy = 448 + dy
         ext_w, gape = 200, 24
         total_e = len(EXTERNOS) * ext_w + gape * (len(EXTERNOS) - 1)
         exx = (W - total_e) / 2
@@ -781,7 +844,7 @@ class PaginaArquitectura(QWidget):
             exx += ext_w + gape
 
         # Webs companion (celular) — fila clickeable, atadas a su app de escritorio.
-        wy = 520
+        wy = 520 + dy
         _texto(sc, 40, wy - 4, "Webs del estudio (celular):", color=SUB, size=9, bold=True)
         cw, gapc = 250, 24
         total_c = len(COMPANIONS_ORDEN) * cw + gapc * (len(COMPANIONS_ORDEN) - 1)
@@ -797,7 +860,7 @@ class PaginaArquitectura(QWidget):
                    color=SUB, size=8).setData(0, ck)
             wx += cw + gapc
 
-        sc.setSceneRect(0, 0, W, 600)
+        sc.setSceneRect(0, 0, W, 600 + dy)
         self._ajustar()
         self._explicacion_general()
 
@@ -814,15 +877,16 @@ class PaginaArquitectura(QWidget):
         <div style='color:{TXT}'>
         <h2 style='color:{MENTA};margin:0 0 6px'>El ERP de un vistazo</h2>
         <p style='color:{SUB};font-size:12px;margin:0 0 12px'>
-        La <b>Suite Contable</b> es el programa que abre y mantiene al día las 8 apps
+        La <b>Suite Contable</b> es el programa que abre y mantiene al día las 11 apps
         del estudio. Cada app guarda sus datos en Supabase (la «nube») y se conecta
         con sistemas externos como ARCA u OSECAC.</p>
         <h3 style='color:{TXT};margin:10px 0 4px'>Las bases de datos</h3>
         <ul style='color:{SUB};font-size:12px;margin:0 0 10px;padding-left:18px'>
-        <li><b style='color:#bfe9d5'>Compartida</b>: la usan RetencionesPro, DDJJ,
-        Facturador, Juicios y Contabilidad (por eso se cruzan datos entre ellas).</li>
+        <li><b style='color:#bfe9d5'>Compartida</b>: la usan RetencionesPro, Impuestos,
+        Facturador, Juicios, Contabilidad y VEP (por eso se cruzan datos entre ellas).</li>
         <li><b style='color:#bfe9d5'>Cobranzas</b>, <b style='color:#bfe9d5'>Employee</b>
-        y <b style='color:#bfe9d5'>Depósito</b> tienen su propia base, separada.</li></ul>
+        (con Calendario de Ausencias), <b style='color:#bfe9d5'>Depósito</b> y
+        <b style='color:#bfe9d5'>Conciliador</b> tienen su propia base, separada.</li></ul>
         <h3 style='color:{TXT};margin:10px 0 4px'>Las apps</h3>
         <table style='font-size:12px'>{filas}</table>
         <h3 style='color:{TXT};margin:12px 0 4px'>Webs del celular</h3>

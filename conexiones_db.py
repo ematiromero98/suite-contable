@@ -29,18 +29,18 @@ C_EDGE = "#5bb0ff"     # Edge Function (service_role del lado servidor)
 BASES = [
     {
         "nombre": "ORDENES DE PAGO – BELGRANO", "ref": "zpwcc…", "emoji": "⭐",
-        "tablas": "retenciones, órdenes de pago, facturas, DDJJ, contabilidad, juicios, padrones",
+        "tablas": "retenciones, órdenes de pago, facturas, DDJJ/IVA/CM03, contabilidad, juicios, padrones, VEP",
         "apps": [
-            ("RetencionesPro", "directo"), ("DDJJ Impuestos", "directo"),
+            ("RetencionesPro", "directo"), ("Impuestos (IIBB + IVA)", "directo"),
             ("Contabilidad", "directo"), ("VEP Autónomos", "directo"),
-            ("Facturador ARCA", "login"), ("CM03 Convenio Mult.", "login"),
+            ("Facturador ARCA", "login"), ("suite-backups", "directo"),
             ("comprobantes-cel (web)", "edge"),
         ],
     },
     {
         "nombre": "COBRANZAS OSECAC", "ref": "rrarma…", "emoji": "💰",
         "tablas": "cobranzas, retenciones, facturas, usuarios, asientos",
-        "apps": [("Cobranzas OSECAC", "login"), ("CM03 (lectura)", "login")],
+        "apps": [("Cobranzas OSECAC", "login"), ("Impuestos (lectura)", "login")],
     },
     {
         "nombre": "EMPLOYEE-PRO", "ref": "ffczb…", "emoji": "👥",
