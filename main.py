@@ -886,10 +886,21 @@ class Launcher(QWidget):
         # Marca
         brand = QHBoxLayout()
         brand.setSpacing(11)
-        mark = QLabel("MR")
+        # Marca del sidebar: el logo "SC" de la Suite (assets/suite.png, mismo molde
+        # que los logos de las apps). Si el PNG no está, cae al cuadradito con texto.
+        mark = QLabel()
         mark.setObjectName("brandMark")
         mark.setFixedSize(34, 34)
         mark.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        _png = os.path.join(_BASE, "assets", "suite.png")
+        if os.path.isfile(_png):
+            _pm = QPixmap(_png).scaled(68, 68, Qt.AspectRatioMode.KeepAspectRatio,
+                                       Qt.TransformationMode.SmoothTransformation)
+            _pm.setDevicePixelRatio(2)
+            mark.setPixmap(_pm)
+            mark.setStyleSheet("background:transparent; border:none;")
+        else:
+            mark.setText("MR")
         brand.addWidget(mark)
         bc = QVBoxLayout()
         bc.setSpacing(1)
