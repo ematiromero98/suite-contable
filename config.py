@@ -22,6 +22,18 @@ APPS = [
         "repo": "ematiromero98/ddjj-impuestos",
     },
     {
+        "key": "impuestos",
+        "nombre": "Impuestos (IIBB + IVA)",
+        "emoji": "🧮",
+        "desc": "App unificada: Ingresos Brutos CM03 + IVA (Portal IVA, SIRCREB, retenciones) de las 9 empresas.",
+        "color": "#2EE6A6",
+        "env_dir": "IMPUESTOS_DIR",
+        "dir": os.environ.get("IMPUESTOS_DIR", r"D:\PROYECTOS CLAUDE\impuestos"),
+        "entradas": ["ejecutar.bat", "app.py"],
+        "version_file": "version.py",
+        "repo": "ematiromero98/impuestos",
+    },
+    {
         "key": "cm03",
         "nombre": "CM03 Convenio Multilateral",
         "emoji": "🗺️",
