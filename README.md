@@ -1,15 +1,18 @@
 # Suite Contable — MR & Asociados
 
-> ⚠️ **La lista de apps de este documento quedó vieja.** La referencia vigente es
-> [HANDOFF.md](HANDOFF.md) (estado, apps registradas, tokens, pendientes) y `config.APPS`.
+Launcher único para abrir las **11 apps** del estudio desde un solo lugar:
 
-Launcher único para abrir los programas del estudio desde un solo lugar:
-
-- **📑 DDJJ Impuestos** — DDJJ de IVA + SIRCREB en ARCA.
+- **🧮 Impuestos (IIBB + IVA)** — Ingresos Brutos (CM03) + IVA de las 9 empresas.
 - **🧾 RetencionesPro** — retenciones, órdenes de pago y conciliación de compras.
 - **💰 Cobranzas OSECAC** — cobranzas: retenciones, asientos y facturación.
 - **📄 Facturador ARCA** — facturación electrónica (WSFEV1).
 - **👥 Employee Pro** — gestión de RR.HH. (legajos, ausencias, sueldos).
+- **📦 Depósito Avalos** — control de stock del depósito (PySide6).
+- **⚖️ Control de Juicios** — juicios y contingencias laborales.
+- **📚 Contabilidad** — Libro Diario/Mayor y estados; concilia contra Tango.
+- **🏦 Conciliador Bancario** — Mayor de Tango vs. extracto del banco (BBVA).
+- **📅 Calendario de Ausencias** — vacaciones y licencias del equipo.
+- **🏛️ VEP Autónomos** — genera los VEP de Autónomos en tanda (ARCA).
 
 Es solo un lanzador: no toca datos ni bases. Cada programa sigue viviendo en su
 propio proyecto; esta app solamente los **abre, actualiza e instala**.
@@ -24,7 +27,7 @@ Para sumar una app nueva al menú, agregá una entrada en `config.py` (`APPS`).
 ## Uso
 
 Doble clic en **`Suite Contable.bat`** (o `pythonw main.py`). Aparece una
-ventana con las dos apps; tocás **Abrir** en la que quieras.
+ventana con las apps; tocás **Abrir** en la que quieras.
 
 ## Instalación
 
@@ -40,11 +43,17 @@ rojo si no encuentra alguna.
 
 | App | Ruta por defecto | Variable de entorno |
 | --- | --- | --- |
-| DDJJ Impuestos | `D:\ddjj-impuestos` | `DDJJ_IMPUESTOS_DIR` |
+| Impuestos (IIBB + IVA) | `D:\PROYECTOS CLAUDE\impuestos` | `IMPUESTOS_DIR` |
 | RetencionesPro | `D:\RetencionesPro` | `RETENCIONESPRO_DIR` |
 | Cobranzas OSECAC | `D:\PROYECTOS CLAUDE\cobranzas-osecac` | `COBRANZAS_DIR` |
 | Facturador ARCA | `D:\PROYECTOS CLAUDE\facturador-arca` | `FACTURADOR_DIR` |
 | Employee Pro | `D:\PROYECTOS CLAUDE\employee-pro` | `EMPLOYEE_PRO_DIR` |
+| Depósito Avalos | `D:\PROYECTOS CLAUDE\deposito-avalos` | `DEPOSITO_AVALOS_DIR` |
+| Control de Juicios | `D:\control-juicios` | `JUICIOS_DIR` |
+| Contabilidad | `D:\contabilidad` | `CONTABILIDAD_DIR` |
+| Conciliador Bancario | `D:\PROYECTOS CLAUDE\conciliador-bancario` | `CONCILIADOR_DIR` |
+| Calendario de Ausencias | `D:\PROYECTOS CLAUDE\calendario-ausencias` | `CALENDARIO_AUSENCIAS_DIR` |
+| VEP Autónomos | `D:\arca-vep-autonomos` | `VEP_AUTONOMOS_DIR` |
 
 ## Seguridad
 

@@ -1,8 +1,5 @@
 # Guía de operación — Suite Contable
 
-> ⚠️ **La lista de apps de este documento quedó vieja.** La referencia vigente es
-> [HANDOFF.md](HANDOFF.md) (estado, apps registradas, tokens, pendientes) y `config.APPS`.
-
 Cómo instalar, usar, actualizar y desarrollar los programas del estudio. Para el
 diseño/porqué de la separación en repos, ver [ARQUITECTURA.md](ARQUITECTURA.md).
 
@@ -13,13 +10,24 @@ diseño/porqué de la separación en repos, ver [ARQUITECTURA.md](ARQUITECTURA.m
 | Programa | Repo GitHub | Rama | Privado |
 | --- | --- | --- | --- |
 | **Suite Contable (ERP / lanzador)** | `ematiromero98/suite-contable` | `main` | **público** |
-| DDJJ Impuestos (IVA + SIRCREB) | `ematiromero98/ddjj-impuestos` | `master` | privado |
+| Impuestos (IIBB + IVA) | `ematiromero98/impuestos` | `main` | privado |
 | RetencionesPro | `ematiromero98/RetencionesPro` | `main` | privado |
 | Cobranzas OSECAC | `ematiromero98/cobranzas-osecac` | `main` | privado |
 | Facturador ARCA | `ematiromero98/facturador-arca` | `master` | privado |
 | Employee Pro | `ematiromero98/employee-pro` | `main` | privado |
+| Depósito Avalos | `ematiromero98/deposito-avalos` | `main` | privado |
+| Control de Juicios | `ematiromero98/control-juicios` | `main` | privado |
+| Contabilidad | `ematiromero98/contabilidad` | `main` | privado |
+| Conciliador Bancario | `ematiromero98/conciliador-bancario` | `main` | privado |
+| Calendario de Ausencias | `ematiromero98/calendario-ausencias` | `main` | privado |
+| VEP Autónomos | `ematiromero98/arca-vep-autonomos` | `main` | privado |
 
-Todos comparten la **misma base Supabase**. El ERP es público **a propósito**:
+> **Impuestos** reemplaza a **DDJJ Impuestos** (`ddjj-impuestos`) y a **CM03**
+> (`cm03-convenio-multilateral`) en el menú (sep-2026). Esos repos siguen vivos.
+
+La mayoría comparte la **misma base Supabase**; Cobranzas, Employee (con
+Calendario de Ausencias), Depósito y Conciliador Bancario tienen la suya. El ERP
+es público **a propósito**:
 así se instala sin credenciales. Por eso las claves **nunca** van en el código
 del ERP.
 
@@ -86,7 +94,7 @@ git push origin main
 ```
 En cada PC llega al **reabrir** el ERP.
 
-### Una app (DDJJ, RetencionesPro, etc.)
+### Una app (Impuestos, RetencionesPro, etc.)
 El ERP detecta que hay update comparando el **último Release** de GitHub contra
 la versión instalada. Por eso, para que un cambio llegue a las PC **hay que
 publicar un Release** (solo `push` no alcanza):

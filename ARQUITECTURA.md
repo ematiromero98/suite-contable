@@ -1,8 +1,5 @@
 # Arquitectura de la Suite Contable (ERP) — MR & Asociados
 
-> ⚠️ **La lista de apps de este documento quedó vieja.** La referencia vigente es
-> [HANDOFF.md](HANDOFF.md) (estado, apps registradas, tokens, pendientes) y `config.APPS`.
-
 Referencia del ecosistema: cómo se relacionan los programas del estudio, por qué
 están separados, y cómo funcionan la **instalación** y la **actualización**.
 
@@ -13,7 +10,7 @@ están separados, y cómo funcionan la **instalación** y la **actualización**.
 | App | Repo | Rama | Qué hace | Runtime especial |
 |---|---|---|---|---|
 | **Suite Contable** (este) | `suite-contable` | main | Launcher/ERP: abre, actualiza e instala las demás | — |
-| **DDJJ Impuestos** | `ddjj-impuestos` | master | DDJJ de IVA + SIRCREB en ARCA | Playwright |
+| **Impuestos (IIBB + IVA)** | `impuestos` | main | Ingresos Brutos (CM03) + IVA de las 9 empresas | Selenium |
 | **RetencionesPro** | `RetencionesPro` | main | Retenciones, OP, conciliación de compras | — |
 | **Cobranzas OSECAC** | `cobranzas-osecac` | main | Cobranzas: retenciones, asientos, facturación | — |
 | **Facturador ARCA** | `facturador-arca` | master | Facturación electrónica (WSFEV1) | — |
@@ -22,22 +19,28 @@ están separados, y cómo funcionan la **instalación** y la **actualización**.
 | **Depósito Avalos** | `deposito-avalos` | main | Control de stock (artículos de limpieza) | **PySide6** |
 | **Contabilidad** | `contabilidad` | main | Libro Diario/Mayor, estados, concilia Tango | — |
 | **Conciliador Bancario** | `conciliador-bancario` | main | Concilia el Mayor de Tango vs el extracto del banco (BBVA) | — |
+| **Calendario de Ausencias** | `calendario-ausencias` | main | Vacaciones y licencias del equipo | — |
+| **VEP Autónomos** | `arca-vep-autonomos` | main | Genera los VEP de Autónomos en tanda (ARCA) | Selenium |
 
-Son **9 apps** (todas **PyQt6 + Supabase**, salvo **Depósito Avalos**, que usa
-**PySide6**). Comparten la **misma base de Supabase** —salvo Cobranzas, Employee,
-Depósito y Conciliador Bancario, que tienen la suya— y ahí es donde la
-integración importa: la conciliación de compras cruza datos de DDJJ y
-RetencionesPro en la misma base, y Contabilidad devenga sobre ella.
+Son **11 apps** (todas **PyQt6 + Supabase**, salvo **Depósito Avalos**, que usa
+**PySide6**). La mayoría comparte la **misma base de Supabase** —salvo Cobranzas,
+Employee (con Calendario de Ausencias), Depósito y Conciliador Bancario, que
+tienen la suya— y ahí es donde la integración importa: la conciliación de
+compras cruza datos de Impuestos y RetencionesPro en la misma base, y
+Contabilidad devenga sobre ella.
+
+> **Impuestos (IIBB + IVA)** reemplaza en el menú a **DDJJ Impuestos** y a
+> **CM03 Convenio Multilateral** (sep-2026); esos repos siguen vivos.
 
 ### Diagrama en vivo
 
 El propio ERP trae dos vistas del ecosistema:
 
-- **🗺️ Arquitectura** (`arquitectura.py`): un diagrama navegable —ERP → 9 apps →
+- **🗺️ Arquitectura** (`arquitectura.py`): un diagrama navegable —ERP → 11 apps →
   bases Supabase → sistemas externos (ARCA/OSECAC/Tango/Drive)— con el detalle
   por capas de cada app y su flujo principal animado.
 - **🏙️ Ecosistema 3D** (`assets/ecosistema-3d.html`): la ciudad isométrica de
-  los 15 repos del universo (MR & Asociados, NTT DATA y Personal), con estado,
+  los repos del universo (MR & Asociados, NTT DATA y Personal), con estado,
   versión, métricas de código y flujos de datos animados por app.
 
 Son la fuente visual de esta misma doc; si cambia una app, se edita `DATOS` en
@@ -51,9 +54,10 @@ Cada programa es su **propio repo/app**; la Suite unifica el **acceso**, no el
 código. Por qué:
 
 1. **Riesgos distintos.** RetencionesPro maneja plata (CI, tests, updater
-   endurecido). DDJJ es un scraper de ARCA que se rompe cuando ARCA cambia el
-   HTML. Separados, el radio de daño es chico.
-2. **Dependencias pesadas no compartidas.** Solo DDJJ usa Playwright.
+   endurecido). Impuestos scrapea ARCA (Portal IVA) y se rompe cuando ARCA
+   cambia el HTML. Separados, el radio de daño es chico.
+2. **Dependencias pesadas no compartidas.** Impuestos y VEP manejan un
+   navegador (Selenium) para ARCA.
 3. **Actualización por app** (GitHub Releases). Un repo único obligaría a
    actualizar todo junto.
 4. **Lo importante ya está unificado: la base.** Misma Supabase.
@@ -75,7 +79,7 @@ Cada app trae un **`bootstrap_suite.py`** (en RetencionesPro es
 `instalar_suite.bat` + `_bootstrap_suite()`) que se llama al arrancar:
 
 ```
-Abro CUALQUIER app (DDJJ / RetProp / Cobranzas / Facturador / Employee)
+Abro CUALQUIER app (Impuestos / RetProp / Cobranzas / Facturador / …)
         │  bootstrap: ¿está D:\suite-contable ?
         ├── sí  → no-op (sigue abriendo la app)
         └── no  → gh repo clone suite-contable  +  crea acceso directo
@@ -138,8 +142,10 @@ commiteó algo local o que quedaron con una historia vieja.
   repos privados sin manejar tokens a mano.
 - **Disco `D:`** por defecto (la Suite se instala en `D:\suite-contable`).
   Configurable con la variable de entorno **`SUITE_CONTABLE_DIR`**.
-- Rutas de cada app configurables por env: `DDJJ_IMPUESTOS_DIR`,
-  `RETENCIONESPRO_DIR`, `COBRANZAS_DIR`, `FACTURADOR_DIR`, `EMPLOYEE_PRO_DIR`.
+- Rutas de cada app configurables por env: `IMPUESTOS_DIR`,
+  `RETENCIONESPRO_DIR`, `COBRANZAS_DIR`, `FACTURADOR_DIR`, `EMPLOYEE_PRO_DIR`,
+  `DEPOSITO_AVALOS_DIR`, `JUICIOS_DIR`, `CONTABILIDAD_DIR`, `CONCILIADOR_DIR`,
+  `CALENDARIO_AUSENCIAS_DIR`, `VEP_AUTONOMOS_DIR` (ver `config.APPS`).
 
 **Borde conocido:** en una PC con una versión MUY vieja (sin `update.bat`
 todavía), el primer update lo hace la Suite con git pull (sin deps); del segundo
