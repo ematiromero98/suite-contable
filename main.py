@@ -222,6 +222,27 @@ def _tile_emoji(emoji, lado, color, radio, emoji_px):
     return tile
 
 
+def _tile_app(app, lado, radio, emoji_px):
+    """Tile de la tarjeta de una app: el LOGO de la app (assets/apps/<key>.png,
+    molde común de la Suite: cuadrado redondeado + degradé del color de la app +
+    monograma) escalado nítido en hi-DPI. Si el PNG no está, cae al tile de
+    emoji de siempre."""
+    png = os.path.join(_BASE, "assets", "apps", f"{app.get('key', '')}.png")
+    if not os.path.isfile(png):
+        return _tile_emoji(app["emoji"], lado, app["color"], radio, emoji_px)
+    dpr = 2
+    pm = QPixmap(png).scaled(lado * dpr, lado * dpr,
+                             Qt.AspectRatioMode.KeepAspectRatio,
+                             Qt.TransformationMode.SmoothTransformation)
+    pm.setDevicePixelRatio(dpr)
+    tile = QLabel()
+    tile.setFixedSize(lado, lado)
+    tile.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    tile.setStyleSheet("background:transparent; border:none;")
+    tile.setPixmap(pm)
+    return tile
+
+
 def _parse_version_txt(txt):
     """Extrae la versión de un texto: `__version__="x"` / `VERSION="x"` en un
     .py, o un archivo VERSION con la versión en texto plano. None si no la
@@ -1059,7 +1080,7 @@ class Launcher(QWidget):
         # Fila 1: ícono + nombre/desc + pill
         r1 = QHBoxLayout()
         r1.setSpacing(12)
-        tile = _tile_emoji(app["emoji"], 44, app["color"], 13, 24)
+        tile = _tile_app(app, 44, 13, 24)
         r1.addWidget(tile, 0, Qt.AlignmentFlag.AlignTop)
 
         col = QVBoxLayout()
@@ -1190,7 +1211,7 @@ class Launcher(QWidget):
             rh = QHBoxLayout(row)
             rh.setContentsMargins(14, 12, 14, 12)
             rh.setSpacing(13)
-            tile = _tile_emoji(app["emoji"], 40, app["color"], 11, 22)
+            tile = _tile_app(app, 40, 11, 22)
             rh.addWidget(tile)
             col = QVBoxLayout()
             col.setSpacing(2)
