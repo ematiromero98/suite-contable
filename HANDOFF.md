@@ -1,7 +1,7 @@
 # HANDOFF — Suite Contable (launcher / ERP del estudio)
 
 > **Leé esto primero** para continuar el proyecto en un chat nuevo. Estado al **11-09-2026,
-> v1.28.1**. Los documentos anteriores siguen valiendo por partes: `GUIA.md` (operación paso a
+> v1.29.0**. Los documentos anteriores siguen valiendo por partes: `GUIA.md` (operación paso a
 > paso), `ARQUITECTURA.md` (por qué repos separados + cómo se actualiza), `CORE-COMPARTIDO.md`
 > (tema/formatos/`release.py` compartidos), `README.md`. Sus **listas de apps quedaron viejas**
 > (5, 6 o 9 apps): la lista vigente es la de acá y la de `config.APPS`.
@@ -19,7 +19,7 @@ Ecosistema 3D, Conexiones DB). No toca datos: cada app vive en su repo.
   Configurable con `SUITE_CONTABLE_DIR`.
 - **GitHub:** `ematiromero98/suite-contable`, **público a propósito** (se instala sin
   credenciales) → **nunca** un secreto en este repo. Rama `main`.
-- **Versión:** `version.py` (`VERSION = "1.28.1"`). Tags `vX.Y.Z` para las versiones grandes;
+- **Versión:** `version.py` (`VERSION = "1.29.0"`). Tags `vX.Y.Z` para las versiones grandes;
   **el ERP se auto-actualiza con `git pull` de `main` al abrir** (no necesita release).
 - **Sin tests automatizados** en este repo (se verifica a mano: construir `Launcher()` en
   pantalla y capturar, ver §6).
@@ -33,7 +33,7 @@ versión, estado, Abrir/Instalar/Actualizar), 🔄 Actualizaciones, 🗺 Arquite
 
 | key | App | Logo | Carpeta por defecto | Repo | Versión en |
 |---|---|---|---|---|---|
-| impuestos | Impuestos (IIBB + IVA) | IMP menta | `D:\PROYECTOS CLAUDE\impuestos` | `impuestos` (privado, **nuevo 11-09**) | version.py |
+| impuestos | Impuestos (IIBB + IVA) | IMP menta | `D:\PROYECTOS CLAUDE\impuestos` | `impuestos` (privado, **nuevo 11-09**, v1.9.0) | version.py |
 | reten | RetencionesPro | RP verde | `D:\RetencionesPro` | `RetencionesPro` | version.py |
 | cobranzas | Cobranzas OSECAC | COB ámbar | `D:\PROYECTOS CLAUDE\cobranzas-osecac` | `cobranzas-osecac` | VERSION |
 | facturador | Facturador ARCA | FAC teal | `D:\PROYECTOS CLAUDE\facturador-arca` | `facturador-arca` (master) | VERSION |
