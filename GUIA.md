@@ -1,5 +1,8 @@
 # Guía de operación — Suite Contable
 
+> ⚠️ **La lista de apps de este documento quedó vieja.** La referencia vigente es
+> [HANDOFF.md](HANDOFF.md) (estado, apps registradas, tokens, pendientes) y `config.APPS`.
+
 Cómo instalar, usar, actualizar y desarrollar los programas del estudio. Para el
 diseño/porqué de la separación en repos, ver [ARQUITECTURA.md](ARQUITECTURA.md).
 

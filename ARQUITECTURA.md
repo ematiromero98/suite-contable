@@ -1,5 +1,8 @@
 # Arquitectura de la Suite Contable (ERP) — MR & Asociados
 
+> ⚠️ **La lista de apps de este documento quedó vieja.** La referencia vigente es
+> [HANDOFF.md](HANDOFF.md) (estado, apps registradas, tokens, pendientes) y `config.APPS`.
+
 Referencia del ecosistema: cómo se relacionan los programas del estudio, por qué
 están separados, y cómo funcionan la **instalación** y la **actualización**.
 

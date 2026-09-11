@@ -1,5 +1,8 @@
 # Suite Contable — MR & Asociados
 
+> ⚠️ **La lista de apps de este documento quedó vieja.** La referencia vigente es
+> [HANDOFF.md](HANDOFF.md) (estado, apps registradas, tokens, pendientes) y `config.APPS`.
+
 Launcher único para abrir los programas del estudio desde un solo lugar:
 
 - **📑 DDJJ Impuestos** — DDJJ de IVA + SIRCREB en ARCA.
