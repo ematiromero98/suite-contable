@@ -46,8 +46,10 @@ DRIVE_PATH = "suite:Suite Contable/.env"
 CUENTA_ESTUDIO = "ematiromero98@gmail.com"
 
 # Apps que leen un `.env` local con las credenciales COMPARTIDAS de la Suite
-# (mismo proyecto Supabase): RetencionesPro, DDJJ Impuestos y Control de Juicios.
-_APPS_ENV = ("reten", "ddjj", "juicios", "contabilidad", "veps")
+# (mismo proyecto Supabase): RetencionesPro, Impuestos (IIBB+IVA, ex «DDJJ
+# Impuestos» — la key pasó de "ddjj" a "impuestos" al reemplazar la app),
+# Control de Juicios, Contabilidad y VEP Autónomos.
+_APPS_ENV = ("reten", "impuestos", "juicios", "contabilidad", "veps")
 
 # Apps con secreto PROPIO (no usan el `.env` compartido). Cada una guarda sus
 # credenciales en un archivo aparte, gitignored, que vive PRIVADO en la carpeta

@@ -481,6 +481,24 @@ def _instalar_app(app, parent):
     repo, dest = app.get("repo"), app["dir"]
     if not repo:
         return
+    # Idempotencia: si la carpeta destino ya existe y NO está vacía, `git clone`
+    # aborta con "destination path already exists and is not an empty directory".
+    # Pasa cuando la app YA se instaló (el card queda viejo hasta reabrir la Suite
+    # y se vuelve a tocar «Instalar»), o cuando quedó un clon a medias. En vez de
+    # mostrar ese error críptico, resolvemos con sentido:
+    if os.path.isdir(dest) and os.listdir(dest):
+        if _remote_oficial(dest, repo):
+            QMessageBox.information(
+                parent, "Ya está instalada",
+                f"{app['nombre']} ya está en:\n{dest}\n\n"
+                "Cerrá y volvé a abrir la Suite para que aparezca «Abrir».")
+        else:
+            QMessageBox.warning(
+                parent, "La carpeta ya existe",
+                f"La carpeta destino ya existe y tiene archivos que no son un clon "
+                f"de {repo}:\n{dest}\n\n"
+                "Movela o borrala y volvé a tocar «Instalar».")
+        return
     tok = _token_runtime()
     parent.setCursor(Qt.CursorShape.WaitCursor)
     try:
