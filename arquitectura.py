@@ -147,7 +147,7 @@ PROYECTOS = {
                      "presentadas, comparativos, asientos, bot de SIFERE) e IVA "
                      "(sincroniza retenciones y percepciones sufridas, liquida, arma "
                      "el borrador en el Portal IVA y concilia compras contra "
-                     "RetencionesPro). Reemplaza a DDJJ Impuestos y a CM03 en el ERP. "
+                     "Órdenes de Pago). Reemplaza a DDJJ Impuestos y a CM03 en el ERP. "
                      "Regla de oro: NUNCA presenta (eso lo hace una persona).",
         "stack": "Python + PyQt6. Postgres DIRECTO con psycopg2 (motores de ARCA) y "
                  "supabase-py (CM03). Selenium/Playwright para Portal IVA, SIFERE y "
@@ -166,8 +166,8 @@ PROYECTOS = {
                          "config/settings.py"]),
         ],
         "integraciones": ["ARCA · Portal IVA + SIFERE + SIRCREB (navegador, login manual)",
-                           "RetencionesPro (conciliación de compras · pagos CM03 → ddjj_propias)",
-                           "Cobranzas OSECAC (retenciones de IVA sufridas, lectura)",
+                           "Órdenes de Pago (conciliación de compras · pagos CM03 → ddjj_propias)",
+                           "Cobranzas (retenciones de IVA sufridas, lectura)",
                            "GitHub Releases"],
         "flujo": [
             "Se elige el período y la empresa (o las 9).",
@@ -229,14 +229,14 @@ PROYECTOS = {
                                "datos_local.json (emisores)"]),
         ],
         "integraciones": ["ARCA · WSAA + WSFEV1 (SOAP, certificado)",
-                           "RetencionesPro (RPC crear_op_desde_factura)", "GitHub"],
+                           "Órdenes de Pago (RPC crear_op_desde_factura)", "GitHub"],
         "flujo": [
             "Se marcan emisores y se carga el cliente y los ítems.",
             "wsaa.py firma el TRA con el certificado y obtiene el Ticket de Acceso.",
             "wsfev1.py pide el CAE a ARCA (elige tipo A/B/C automático).",
             "comprobante_pdf.py genera el PDF con el QR oficial.",
             "nube.py sube el PDF y guarda la factura.",
-            "La RPC crea 1 Orden de Pago en RetencionesPro (factura → OP).",
+            "La RPC crea 1 Orden de Pago en Órdenes de Pago (factura → OP).",
         ],
         "rel_datos": SUPA_COMPARTIDA,
     },
@@ -351,7 +351,7 @@ PROYECTOS = {
             ("Datos", ["db.py — misma Supabase compartida (.env de la Suite)"]),
         ],
         "integraciones": ["Tango (concilia asientos)", "ARCA · libro IVA (devenga ventas)",
-                           "Cobranzas OSECAC (importa)", "GitHub"],
+                           "Cobranzas (importa)", "GitHub"],
         "flujo": [
             "Importa el libro IVA de ARCA y devenga las ventas del período.",
             "Carga/edita los asientos en el Libro Diario.",
@@ -449,7 +449,7 @@ PROYECTOS = {
         "nombre": "Comprobantes (Web QR)", "emoji": "📲", "color": "#27AE9A",
         "parent": "reten",
         "proposito": "Es la web que se abre en el CELULAR (con un QR desde "
-                     "RetencionesPro) para sacarle la foto al comprobante de un pago "
+                     "Órdenes de Pago) para sacarle la foto al comprobante de un pago "
                      "y subirla, sin instalar nada. Cubre las órdenes de pago a "
                      "proveedores y los pagos de DDJJ de retenciones.",
         "stack": "HTML/CSS/JS estático en GitHub Pages (sin build). Habla con una "
@@ -467,10 +467,10 @@ PROYECTOS = {
                         "Storage: sube la foto al bucket (comprobantes / pdfs)",
                         "PIN guardado en app_config (clave pin_comprobantes)"]),
         ],
-        "integraciones": ["RetencionesPro (Pasar Pagos · QR)", "Supabase Edge Functions",
+        "integraciones": ["Órdenes de Pago (Pasar Pagos · QR)", "Supabase Edge Functions",
                            "GitHub Pages"],
         "flujo": [
-            "En RetencionesPro, «Pasar Pagos» arma un QR que incluye el PIN.",
+            "En Órdenes de Pago, «Pasar Pagos» arma un QR que incluye el PIN.",
             "El celular abre la web y valida el PIN contra app_config.",
             "Lista las órdenes pendientes y las DDJJ que esperan comprobante.",
             "Se elige una y se saca la foto del comprobante de pago.",
@@ -826,7 +826,7 @@ class PaginaArquitectura(QWidget):
                     _linea(sc, (centros[k][0], bottoms[k]), (bx + bw / 2, byy),
                            color="#2b6b52", ancho=2, punteada=True)
 
-        # Puente factura → OP (Facturador → RetencionesPro)
+        # Puente factura → OP (Facturador → Órdenes de Pago)
         if "facturador" in centros and "reten" in centros:
             _linea(sc, centros["facturador"], centros["reten"],
                    color=MENTA, ancho=2, etiqueta="factura → OP (RPC)")
@@ -882,7 +882,7 @@ class PaginaArquitectura(QWidget):
         con sistemas externos como ARCA u OSECAC.</p>
         <h3 style='color:{TXT};margin:10px 0 4px'>Las bases de datos</h3>
         <ul style='color:{SUB};font-size:12px;margin:0 0 10px;padding-left:18px'>
-        <li><b style='color:#bfe9d5'>Compartida</b>: la usan RetencionesPro, Impuestos,
+        <li><b style='color:#bfe9d5'>Compartida</b>: la usan Órdenes de Pago, Impuestos,
         Facturador, Juicios, Contabilidad y VEP (por eso se cruzan datos entre ellas).</li>
         <li><b style='color:#bfe9d5'>Cobranzas</b>, <b style='color:#bfe9d5'>Employee</b>
         (con Calendario de Ausencias), <b style='color:#bfe9d5'>Depósito</b> y
@@ -893,7 +893,7 @@ class PaginaArquitectura(QWidget):
         <p style='color:{SUB};font-size:12px;margin:0 0 8px'>
         Dos front-ends que corren en el <b>celular</b> (GitHub Pages + una Edge
         Function de Supabase): <b style='color:#27AE9A'>Comprobantes (QR)</b> sube la
-        foto del pago para RetencionesPro, y <b style='color:#5DADE2'>Carga de Juicios</b>
+        foto del pago para Órdenes de Pago, y <b style='color:#5DADE2'>Carga de Juicios</b>
         deja que los abogados carguen un juicio para Control de Juicios.</p>
         <p style='color:{SUB};font-size:11px;margin-top:12px'>
         Tocá una app o web (acá o en el diagrama) para ver cómo está hecha por dentro.</p>
