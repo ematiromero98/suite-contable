@@ -1,6 +1,6 @@
 # Suite Contable — MR & Asociados
 
-Launcher único para abrir las **11 apps** del estudio desde un solo lugar:
+Launcher único para abrir las **12 apps** del estudio desde un solo lugar:
 
 - **🧮 Impuestos (IIBB + IVA)** — Ingresos Brutos (CM03) + IVA de las 9 empresas.
 - **🧾 Órdenes de Pago** — retenciones, órdenes de pago y conciliación de compras.
@@ -8,6 +8,7 @@ Launcher único para abrir las **11 apps** del estudio desde un solo lugar:
 - **📄 Facturador Monotributistas** — facturación electrónica (WSFEV1).
 - **👥 Employee Pro** — gestión de RR.HH. (legajos, ausencias, sueldos).
 - **📦 Depósito Avalos** — control de stock del depósito (PySide6).
+- **👔 Depósito Uniformes** — stock de ropa y uniformes del personal de seguridad (por talle, con recibo y firma).
 - **⚖️ Control de Juicios** — juicios y contingencias laborales.
 - **📚 Contabilidad** — Libro Diario/Mayor y estados; concilia contra Tango.
 - **🏦 Conciliador Bancario** — Mayor de Tango vs. extracto del banco (BBVA).
@@ -49,6 +50,7 @@ rojo si no encuentra alguna.
 | Facturador Monotributistas | `D:\PROYECTOS CLAUDE\facturador-arca` | `FACTURADOR_DIR` |
 | Employee Pro | `D:\PROYECTOS CLAUDE\employee-pro` | `EMPLOYEE_PRO_DIR` |
 | Depósito Avalos | `D:\PROYECTOS CLAUDE\deposito-avalos` | `DEPOSITO_AVALOS_DIR` |
+| Depósito Uniformes | `D:\PROYECTOS CLAUDE\deposito-uniformes` | `DEPOSITO_UNIFORMES_DIR` |
 | Control de Juicios | `D:\control-juicios` | `JUICIOS_DIR` |
 | Contabilidad | `D:\contabilidad` | `CONTABILIDAD_DIR` |
 | Conciliador Bancario | `D:\PROYECTOS CLAUDE\conciliador-bancario` | `CONCILIADOR_DIR` |
