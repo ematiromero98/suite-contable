@@ -3,9 +3,9 @@
 Launcher único para abrir las **11 apps** del estudio desde un solo lugar:
 
 - **🧮 Impuestos (IIBB + IVA)** — Ingresos Brutos (CM03) + IVA de las 9 empresas.
-- **🧾 RetencionesPro** — retenciones, órdenes de pago y conciliación de compras.
-- **💰 Cobranzas OSECAC** — cobranzas: retenciones, asientos y facturación.
-- **📄 Facturador ARCA** — facturación electrónica (WSFEV1).
+- **🧾 Órdenes de Pago** — retenciones, órdenes de pago y conciliación de compras.
+- **💰 Cobranzas** — cobranzas OSECAC: retenciones, asientos y facturación.
+- **📄 Facturador Monotributistas** — facturación electrónica (WSFEV1).
 - **👥 Employee Pro** — gestión de RR.HH. (legajos, ausencias, sueldos).
 - **📦 Depósito Avalos** — control de stock del depósito (PySide6).
 - **⚖️ Control de Juicios** — juicios y contingencias laborales.
@@ -44,9 +44,9 @@ rojo si no encuentra alguna.
 | App | Ruta por defecto | Variable de entorno |
 | --- | --- | --- |
 | Impuestos (IIBB + IVA) | `D:\PROYECTOS CLAUDE\impuestos` | `IMPUESTOS_DIR` |
-| RetencionesPro | `D:\RetencionesPro` | `RETENCIONESPRO_DIR` |
-| Cobranzas OSECAC | `D:\PROYECTOS CLAUDE\cobranzas-osecac` | `COBRANZAS_DIR` |
-| Facturador ARCA | `D:\PROYECTOS CLAUDE\facturador-arca` | `FACTURADOR_DIR` |
+| Órdenes de Pago | `D:\RetencionesPro` | `RETENCIONESPRO_DIR` |
+| Cobranzas | `D:\PROYECTOS CLAUDE\cobranzas-osecac` | `COBRANZAS_DIR` |
+| Facturador Monotributistas | `D:\PROYECTOS CLAUDE\facturador-arca` | `FACTURADOR_DIR` |
 | Employee Pro | `D:\PROYECTOS CLAUDE\employee-pro` | `EMPLOYEE_PRO_DIR` |
 | Depósito Avalos | `D:\PROYECTOS CLAUDE\deposito-avalos` | `DEPOSITO_AVALOS_DIR` |
 | Control de Juicios | `D:\control-juicios` | `JUICIOS_DIR` |
