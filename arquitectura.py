@@ -112,7 +112,7 @@ PROYECTOS = {
         ],
     },
     "reten": {
-        "nombre": "RetencionesPro", "emoji": "🧾", "color": "#1E8E4E",
+        "nombre": "Órdenes de Pago", "emoji": "🧾", "color": "#1E8E4E",
         "proposito": "Liquida los pagos a proveedores con sus retenciones "
                      "(Ganancias, IVA, IIBB), genera las Órdenes de Pago con PDF y "
                      "certificados, arma los archivos fiscales (SICORE, ARBA, AGIP) "
@@ -180,7 +180,7 @@ PROYECTOS = {
         "rel_datos": SUPA_COMPARTIDA,
     },
     "cobranzas": {
-        "nombre": "Cobranzas OSECAC", "emoji": "💰", "color": "#D68910",
+        "nombre": "Cobranzas", "emoji": "💰", "color": "#D68910",
         "proposito": "Descarga las órdenes de pago y retenciones del portal de "
                      "prestadores de OSECAC, parsea los PDF, arma Excel y asientos "
                      "contables, factura en ARCA y cruza facturas contra cobranzas. "
@@ -210,7 +210,7 @@ PROYECTOS = {
         "rel_datos": SUPA_COBRANZAS,
     },
     "facturador": {
-        "nombre": "Facturador ARCA", "emoji": "📄", "color": "#16A085",
+        "nombre": "Facturador Monotributistas", "emoji": "📄", "color": "#16A085",
         "proposito": "Emite facturas electrónicas reales contra los Web Services de "
                      "ARCA (WSFEV1), el mismo backend de Comprobantes en Línea. "
                      "Factura por varios monotributistas y RI a un grupo fijo de "

@@ -31,16 +31,16 @@ BASES = [
         "nombre": "ORDENES DE PAGO – BELGRANO", "ref": "zpwcc…", "emoji": "⭐",
         "tablas": "retenciones, órdenes de pago, facturas, DDJJ/IVA/CM03, contabilidad, juicios, padrones, VEP",
         "apps": [
-            ("RetencionesPro", "directo"), ("Impuestos (IIBB + IVA)", "directo"),
+            ("Órdenes de Pago", "directo"), ("Impuestos (IIBB + IVA)", "directo"),
             ("Contabilidad", "directo"), ("VEP Autónomos", "directo"),
-            ("Facturador ARCA", "login"), ("suite-backups", "directo"),
+            ("Facturador Monotributistas", "login"), ("suite-backups", "directo"),
             ("comprobantes-cel (web)", "edge"),
         ],
     },
     {
         "nombre": "COBRANZAS OSECAC", "ref": "rrarma…", "emoji": "💰",
         "tablas": "cobranzas, retenciones, facturas, usuarios, asientos",
-        "apps": [("Cobranzas OSECAC", "login"), ("Impuestos (lectura)", "login")],
+        "apps": [("Cobranzas", "login"), ("Impuestos (lectura)", "login")],
     },
     {
         "nombre": "EMPLOYEE-PRO", "ref": "ffczb…", "emoji": "👥",
