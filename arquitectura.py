@@ -79,7 +79,7 @@ SUPA_COMPARTIDA = "Supabase «ORDENES DE PAGO» (zpwccecovhjmeibxafkg)"
 SUPA_COBRANZAS = "Supabase Cobranzas (rrarmatjyvmrpohsvfzg)"
 SUPA_EMPLOYEE = "Supabase Employee (ffczbimnuodzcbgsdxbx)"
 SUPA_DEPOSITO = "Supabase Depósito (ioycuhefaalpqivhhryb)"
-SUPA_CONCILIADOR = "Supabase Conciliador (qaaxestmwmqmylthnwts)"
+SUPA_CONCILIADOR = SUPA_COMPARTIDA + " · schema conciliador"
 
 PROYECTOS = {
     "erp": {
@@ -525,11 +525,10 @@ EXTERNOS = {
 }
 BASES = {
     "compartida": ("🗄️", "Supabase COMPARTIDA", "zpwccecovhjmeibxafkg",
-                    ["reten", "impuestos", "facturador", "juicios", "contabilidad", "veps"]),
+                    ["reten", "impuestos", "facturador", "juicios", "contabilidad", "veps", "conciliador"]),
     "cobranzas": ("🗄️", "Supabase Cobranzas", "rrarmatjyvmrpohsvfzg", ["cobranzas"]),
     "employee": ("🗄️", "Supabase Employee", "ffczbimnuodzcbgsdxbx", ["employee", "ausencias"]),
     "deposito": ("🗄️", "Supabase Depósito", "ioycuhefaalpqivhhryb", ["deposito"]),
-    "conciliador": ("🗄️", "Supabase Conciliador", "qaaxestmwmqmylthnwts", ["conciliador"]),
 }
 APPS_ORDEN = ["reten", "impuestos", "cobranzas", "facturador",
               "employee", "juicios", "deposito", "contabilidad", "conciliador",

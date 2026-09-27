@@ -29,12 +29,12 @@ C_EDGE = "#5bb0ff"     # Edge Function (service_role del lado servidor)
 BASES = [
     {
         "nombre": "ORDENES DE PAGO – BELGRANO", "ref": "zpwcc…", "emoji": "⭐",
-        "tablas": "retenciones, órdenes de pago, facturas, DDJJ/IVA/CM03, contabilidad, juicios, padrones, VEP",
+        "tablas": "retenciones, órdenes de pago, facturas, DDJJ/IVA/CM03, contabilidad, juicios, padrones, VEP, conciliador.*",
         "apps": [
             ("Órdenes de Pago", "directo"), ("Impuestos (IIBB + IVA)", "directo"),
             ("Contabilidad", "directo"), ("VEP Autónomos", "directo"),
             ("Facturador Monotributistas", "login"), ("suite-backups", "directo"),
-            ("comprobantes-cel (web)", "edge"),
+            ("comprobantes-cel (web)", "edge"), ("Conciliador Bancario", "login"),
         ],
     },
     {
@@ -55,11 +55,6 @@ BASES = [
         "nombre": "DEPOSITO AVALOS", "ref": "ioycu…", "emoji": "📦",
         "tablas": "productos, stock, inventarios, movimientos",
         "apps": [("Depósito Avalos", "login")],
-    },
-    {
-        "nombre": "CONCILIADOR BANCARIO", "ref": "qaaxe…", "emoji": "🏦",
-        "tablas": "movimientos, conciliaciones, asientos",
-        "apps": [("Conciliador Bancario", "login")],
     },
 ]
 
