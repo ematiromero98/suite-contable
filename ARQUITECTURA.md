@@ -11,21 +11,22 @@ están separados, y cómo funcionan la **instalación** y la **actualización**.
 |---|---|---|---|---|
 | **Suite Contable** (este) | `suite-contable` | main | Launcher/ERP: abre, actualiza e instala las demás | — |
 | **Impuestos (IIBB + IVA)** | `impuestos` | main | Ingresos Brutos (CM03) + IVA de las 9 empresas | Selenium |
-| **RetencionesPro** | `RetencionesPro` | main | Retenciones, OP, conciliación de compras | — |
-| **Cobranzas OSECAC** | `cobranzas-osecac` | main | Cobranzas: retenciones, asientos, facturación | — |
-| **Facturador ARCA** | `facturador-arca` | master | Facturación electrónica (WSFEV1) | — |
+| **Órdenes de Pago** (ex RetencionesPro) | `ordenes-de-pago` | main | Retenciones, OP, conciliación de compras, asientos | — |
+| **Cobranzas** | `cobranzas` | main | Cobranzas: retenciones, asientos, facturación | — |
+| **Facturador Monotributistas** | `facturador-monotributistas` | master | Facturación electrónica (WSFEV1) | — |
 | **Employee Pro** | `employee-pro` | main | RR.HH.: legajos, ausencias, sueldos | — |
 | **Control de Juicios** | `control-juicios` | main | Juicios y contingencias laborales (KPIs) | — |
 | **Depósito Avalos** | `deposito-avalos` | main | Control de stock (artículos de limpieza) | **PySide6** |
+| **Depósito Uniformes** | `deposito-uniformes` | main | Stock de ropa/uniformes por talle, entregas a empleados | **PySide6** |
 | **Contabilidad** | `contabilidad` | main | Libro Diario/Mayor, estados, concilia Tango | — |
 | **Conciliador Bancario** | `conciliador-bancario` | main | Concilia el Mayor de Tango vs el extracto del banco (BBVA) | — |
 | **Calendario de Ausencias** | `calendario-ausencias` | main | Vacaciones y licencias del equipo | — |
 | **VEP Autónomos** | `arca-vep-autonomos` | main | Genera los VEP de Autónomos en tanda (ARCA) | Selenium |
 
-Son **11 apps** (todas **PyQt6 + Supabase**, salvo **Depósito Avalos**, que usa
-**PySide6**). La mayoría comparte la **misma base de Supabase** —salvo Cobranzas,
-Employee (con Calendario de Ausencias), Depósito y Conciliador Bancario, que
-tienen la suya— y ahí es donde la integración importa: la conciliación de
+Son **12 apps** (todas **PyQt6 + Supabase**, salvo los dos **Depósitos**, que usan
+**PySide6**). La mayoría comparte la **misma base de Supabase** (el Conciliador
+Bancario, en su propio schema) —salvo Cobranzas, Employee (con Calendario de
+Ausencias) y Depósito (Avalos + Uniformes), que tienen la suya— y ahí es donde la integración importa: la conciliación de
 compras cruza datos de Impuestos y RetencionesPro en la misma base, y
 Contabilidad devenga sobre ella.
 
@@ -36,11 +37,12 @@ Contabilidad devenga sobre ella.
 
 El propio ERP trae dos vistas del ecosistema:
 
-- **🗺️ Arquitectura** (`arquitectura.py`): un diagrama navegable —ERP → 11 apps →
+- **🗺️ Arquitectura** (`arquitectura.py`): un diagrama navegable —ERP → 12 apps →
   bases Supabase → sistemas externos (ARCA/OSECAC/Tango/Drive)— con el detalle
   por capas de cada app y su flujo principal animado.
 - **🏙️ Ecosistema 3D** (`assets/ecosistema-3d.html`): la ciudad isométrica de
-  los repos del universo (MR & Asociados, NTT DATA y Personal), con estado,
+  los 35 repos del universo (MR & Asociados, NTT DATA, Chermisqui y Personal,
+  más las webs companion), con estado,
   versión, métricas de código y flujos de datos animados por app.
 
 Son la fuente visual de esta misma doc; si cambia una app, se edita `DATOS` en

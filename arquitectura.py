@@ -3,7 +3,7 @@
 arquitectura.py — Módulo "🗺️ Arquitectura" del ERP.
 
 Muestra, DENTRO del launcher, un diagrama navegable y dinámico de:
-  • la Suite completa (el ERP + las 11 apps + las bases Supabase + los sistemas
+  • la Suite completa (el ERP + las 12 apps + las bases Supabase + los sistemas
     externos como ARCA, OSECAC y el Drive), y
   • cada proyecto por separado (capas UI / Lógica / Datos / Integraciones), con
     una explicación en lenguaje simple y el flujo del caso de uso principal
@@ -85,7 +85,7 @@ PROYECTOS = {
     "erp": {
         "nombre": "Suite Contable (ERP)", "emoji": "🖥️", "color": "#3ddc97",
         "proposito": "Es el «menú de inicio» del estudio: una sola ventana desde "
-                     "la que se abren, instalan y actualizan las 11 apps. No toca "
+                     "la que se abren, instalan y actualizan las 12 apps. No toca "
                      "datos; sólo lanza cada programa y lo mantiene al día y con "
                      "sus credenciales puestas.",
         "stack": "Python + PyQt6. Usa git y gh (GitHub CLI) y rclone (Google Drive) "
@@ -94,7 +94,7 @@ PROYECTOS = {
         "datos": "No usa base de datos. Reparte credenciales a las apps.",
         "capas": [
             ("Ventana (PyQt6)", ["main.py — launcher, tarjetas por app, KPIs"]),
-            ("Config", ["config.py — registro de las 11 apps (ruta, repo, versión)"]),
+            ("Config", ["config.py — registro de las 12 apps (ruta, repo, versión)"]),
             ("Servicios", ["credenciales.py — trae el .env, secretos y certs (suite-secretos / Drive)",
                             "release.py — publica versiones", "version.py"]),
             ("Core compartido", ["suite_theme.py — tema visual",
@@ -331,6 +331,38 @@ PROYECTOS = {
         ],
         "rel_datos": SUPA_DEPOSITO,
     },
+    "uniformes": {
+        "nombre": "Depósito Uniformes", "emoji": "👕", "color": "#B9770E",
+        "proposito": "Hermana de Depósito Avalos para la ropa y los uniformes del "
+                     "personal de seguridad: stock por modelo + talle, dotación por "
+                     "empresa, cuenta corriente de prendas por empleado, entregas con "
+                     "recibo y firma, devoluciones al egresar y faltantes.",
+        "stack": "Python + PySide6 (Qt). Mismo esqueleto que Depósito Avalos. "
+                 "Supabase por REST + RPC. openpyxl / reportlab.",
+        "entrypoint": "ejecutar.bat → python app.py",
+        "datos": SUPA_DEPOSITO + " · misma base que Avalos, tablas propias u_* "
+                 "(modelos, talles, empleados, entregas, devoluciones)",
+        "capas": [
+            ("UI (PySide6 · src/ui/)", ["main_window.py", "stock_screen.py (modelo + talle)",
+                                          "empleados_screen.py / empleado_form.py",
+                                          "entregas_screen.py + firma_widget.py",
+                                          "devoluciones_screen.py", "compras_screen.py",
+                                          "informes_screen.py"]),
+            ("Servicios", ["stock_service.py", "compras_service.py",
+                            "retpro.py (envío a pago → OP en Órdenes de Pago)"]),
+            ("Datos", ["src/repositories/*_repo.py", "db/ — Supabase REST + RPC"]),
+        ],
+        "integraciones": ["Órdenes de Pago (compra → OP)", "Suite Depósitos (.exe)",
+                           "GitHub Releases"],
+        "flujo": [
+            "Cada empresa define qué prendas componen su uniforme (dotación).",
+            "Las compras ingresan stock por modelo + talle y se envían a pago como OP.",
+            "Se entrega la ropa al empleado con recibo y firma (cuenta corriente).",
+            "Al egresar, se registra la devolución; el sistema marca faltantes.",
+            "Informes de stock, entregas y reposición por vida útil.",
+        ],
+        "rel_datos": SUPA_DEPOSITO,
+    },
     "contabilidad": {
         "nombre": "Contabilidad", "emoji": "📚", "color": "#117864",
         "proposito": "Contabilidad paralela del estudio: Libro Diario y Mayor, plan "
@@ -511,10 +543,80 @@ PROYECTOS = {
         ],
         "rel_datos": SUPA_COMPARTIDA,
     },
+    "ausencias_cel": {
+        "nombre": "Ausencias (Web)", "emoji": "🗓️", "color": "#2ee6a6",
+        "parent": "ausencias",
+        "proposito": "Formulario del celular para que cada persona del equipo cargue "
+                     "su ausencia (vacaciones, licencia). Queda pendiente y se aprueba "
+                     "en el Calendario de Ausencias.",
+        "stack": "Un index.html estático en GitHub Pages + Edge Function de Supabase.",
+        "entrypoint": "ematiromero98.github.io/calendario-ausencias-cel/",
+        "datos": SUPA_EMPLOYEE + " · Edge Function cal-ausencias · tabla cal_ausencias",
+        "capas": [
+            ("Front (GitHub Pages)", ["index.html — elegir persona, tipo y fechas"]),
+            ("Edge Function (Deno)", ["cal-ausencias — valida y guarda la solicitud"]),
+            ("Datos", ["cal_personas / cal_ausencias (estado pendiente)"]),
+        ],
+        "integraciones": ["Calendario de Ausencias (aprueba)", "Supabase Edge Functions",
+                           "GitHub Pages"],
+        "flujo": [
+            "La persona abre el link en el celular y elige su nombre.",
+            "Ve su saldo, elige tipo y fechas y envía.",
+            "La Edge Function guarda la ausencia como pendiente.",
+            "El Calendario de Ausencias la muestra para aprobar o rechazar.",
+        ],
+        "rel_datos": SUPA_EMPLOYEE,
+    },
+    "deposito_cel": {
+        "nombre": "Depósito (Web)", "emoji": "📷", "color": "#A04000",
+        "parent": "deposito",
+        "proposito": "Web del celular para subir los comprobantes del Depósito Avalos "
+                     "sin instalar nada.",
+        "stack": "Un index.html estático en GitHub Pages + Edge Function de Supabase.",
+        "entrypoint": "ematiromero98.github.io/deposito-comprobantes-web/",
+        "datos": SUPA_DEPOSITO + " · Edge Function comprobante-cel",
+        "capas": [
+            ("Front (GitHub Pages)", ["index.html — foto del comprobante"]),
+            ("Edge Function (Deno)", ["comprobante-cel — sube el archivo"]),
+            ("Datos", ["Storage + tablas del Depósito"]),
+        ],
+        "integraciones": ["Depósito Avalos", "Supabase Edge Functions", "GitHub Pages"],
+        "flujo": [
+            "Se abre la web en el celular.",
+            "Se elige el movimiento y se saca la foto del comprobante.",
+            "La Edge Function lo sube a la base del Depósito.",
+        ],
+        "rel_datos": SUPA_DEPOSITO,
+    },
+    "factura_mono": {
+        "nombre": "Factura Mono (Web)", "emoji": "🧾", "color": "#E67E22",
+        "parent": "facturador",
+        "proposito": "App web para que el estudio y cada monotributista emitan Factura C "
+                     "desde Chrome: el estudio ve todos los clientes y sus topes; cada "
+                     "dueño ve sólo lo suyo. Reusa el motor WSFEV1 del Facturador. (MVP)",
+        "stack": "FastAPI + JWT; HTML servido por la API. Firma WSAA y SOAP WSFEV1 "
+                 "del lado del servidor (arca_core). Deploy previsto en Render.",
+        "entrypoint": "run.bat → uvicorn app.main:app  (127.0.0.1:8010/login.html)",
+        "datos": SUPA_COMPARTIDA + " · tablas fm_* (o SQLite para demo)",
+        "capas": [
+            ("Front (HTML)", ["/estudio/ — panel, emitir, comprobantes, topes, clientes",
+                               "/m/ — vista del monotributista", "factura.html (imprimible)"]),
+            ("API (FastAPI · app/)", ["login JWT por rol", "emisión y topes"]),
+            ("Motor ARCA", ["arca_core — WSAA + WSFEV1 (del Facturador)"]),
+        ],
+        "integraciones": ["ARCA · WSFEV1", "Facturador Monotributistas (motor)", "Render"],
+        "flujo": [
+            "El usuario entra por /login.html; según su rol cae en su vista.",
+            "Carga la factura C (cliente, ítems, importe).",
+            "La API firma con WSAA y pide el CAE a WSFEV1.",
+            "Guarda el comprobante en fm_* y queda imprimible.",
+        ],
+        "rel_datos": SUPA_COMPARTIDA,
+    },
 }
 
 # Webs companion (front-ends en el celular) → app de escritorio que las usa.
-COMPANIONS_ORDEN = ["comprobantes", "juicios_carga"]
+COMPANIONS_ORDEN = ["comprobantes", "juicios_carga", "ausencias_cel", "deposito_cel", "factura_mono"]
 
 # Sistemas externos y bases, para la vista general.
 EXTERNOS = {
@@ -528,10 +630,10 @@ BASES = {
                     ["reten", "impuestos", "facturador", "juicios", "contabilidad", "veps", "conciliador"]),
     "cobranzas": ("🗄️", "Supabase Cobranzas", "rrarmatjyvmrpohsvfzg", ["cobranzas"]),
     "employee": ("🗄️", "Supabase Employee", "ffczbimnuodzcbgsdxbx", ["employee", "ausencias"]),
-    "deposito": ("🗄️", "Supabase Depósito", "ioycuhefaalpqivhhryb", ["deposito"]),
+    "deposito": ("🗄️", "Supabase Depósito", "ioycuhefaalpqivhhryb", ["deposito", "uniformes"]),
 }
 APPS_ORDEN = ["reten", "impuestos", "cobranzas", "facturador",
-              "employee", "juicios", "deposito", "contabilidad", "conciliador",
+              "employee", "juicios", "deposito", "uniformes", "contabilidad", "conciliador",
               "ausencias", "veps"]
 
 
@@ -774,7 +876,7 @@ class PaginaArquitectura(QWidget):
 
         _label_ico(sc, 40, 12, "🌐", "Suite Contable — MR & Asociados",
                    color=TXT, size=15, bold=True, epx=22)
-        _texto(sc, 40, 44, "Un ERP que abre 11 apps. Tocá cualquier app para ver su detalle.",
+        _texto(sc, 40, 44, "Un ERP que abre 12 apps. Tocá cualquier app para ver su detalle.",
                color=SUB, size=10)
 
         # ERP arriba, centrado
@@ -784,7 +886,7 @@ class PaginaArquitectura(QWidget):
                   "lanza / actualiza / instala")
         erp_bottom = (W / 2, 134)
 
-        # Apps: en filas de 4 (11 apps → 4 + 4 + 3). Lo de abajo se corre según
+        # Apps: en filas de 4 (12 apps → 4 + 4 + 4). Lo de abajo se corre según
         # cuántas filas haya (dy), así agregar una app nunca pisa las bases.
         aw, ah, gx, gy = 214, 64, 18, 16          # 214: entra «Calendario de Ausencias»
         cols = 4
@@ -806,12 +908,12 @@ class PaginaArquitectura(QWidget):
         # Fila de bases (datos)
         by = 352 + dy
         base_w = {"compartida": 290, "cobranzas": 200, "employee": 200,
-                  "deposito": 210, "conciliador": 210}
+                  "deposito": 210}
         gapb = 22
         total_b = sum(base_w.values()) + gapb * (len(base_w) - 1)
         bx0 = (W - total_b) / 2
         base_pos, cx = {}, bx0
-        for bk in ("compartida", "cobranzas", "employee", "deposito", "conciliador"):
+        for bk in ("compartida", "cobranzas", "employee", "deposito"):
             base_pos[bk] = (cx, by, base_w[bk])
             cx += base_w[bk] + gapb
         for bk, (emoji, nombre, ref, apps) in BASES.items():
@@ -845,7 +947,7 @@ class PaginaArquitectura(QWidget):
         # Webs companion (celular) — fila clickeable, atadas a su app de escritorio.
         wy = 520 + dy
         _texto(sc, 40, wy - 4, "Webs del estudio (celular):", color=SUB, size=9, bold=True)
-        cw, gapc = 250, 24
+        cw, gapc = 214, 14
         total_c = len(COMPANIONS_ORDEN) * cw + gapc * (len(COMPANIONS_ORDEN) - 1)
         wx = (W - total_c) / 2
         for ck in COMPANIONS_ORDEN:
@@ -876,24 +978,27 @@ class PaginaArquitectura(QWidget):
         <div style='color:{TXT}'>
         <h2 style='color:{MENTA};margin:0 0 6px'>El ERP de un vistazo</h2>
         <p style='color:{SUB};font-size:12px;margin:0 0 12px'>
-        La <b>Suite Contable</b> es el programa que abre y mantiene al día las 11 apps
+        La <b>Suite Contable</b> es el programa que abre y mantiene al día las 12 apps
         del estudio. Cada app guarda sus datos en Supabase (la «nube») y se conecta
         con sistemas externos como ARCA u OSECAC.</p>
         <h3 style='color:{TXT};margin:10px 0 4px'>Las bases de datos</h3>
         <ul style='color:{SUB};font-size:12px;margin:0 0 10px;padding-left:18px'>
         <li><b style='color:#bfe9d5'>Compartida</b>: la usan Órdenes de Pago, Impuestos,
-        Facturador, Juicios, Contabilidad y VEP (por eso se cruzan datos entre ellas).</li>
+        Facturador, Juicios, Contabilidad, VEP y el Conciliador Bancario (en su propio
+        schema) — por eso se cruzan datos entre ellas.</li>
         <li><b style='color:#bfe9d5'>Cobranzas</b>, <b style='color:#bfe9d5'>Employee</b>
-        (con Calendario de Ausencias), <b style='color:#bfe9d5'>Depósito</b> y
-        <b style='color:#bfe9d5'>Conciliador</b> tienen su propia base, separada.</li></ul>
+        (con Calendario de Ausencias) y <b style='color:#bfe9d5'>Depósito</b> (Avalos +
+        Uniformes) tienen su propia base, separada.</li></ul>
         <h3 style='color:{TXT};margin:10px 0 4px'>Las apps</h3>
         <table style='font-size:12px'>{filas}</table>
         <h3 style='color:{TXT};margin:12px 0 4px'>Webs del celular</h3>
         <p style='color:{SUB};font-size:12px;margin:0 0 8px'>
-        Dos front-ends que corren en el <b>celular</b> (GitHub Pages + una Edge
-        Function de Supabase): <b style='color:#27AE9A'>Comprobantes (QR)</b> sube la
-        foto del pago para Órdenes de Pago, y <b style='color:#5DADE2'>Carga de Juicios</b>
-        deja que los abogados carguen un juicio para Control de Juicios.</p>
+        Front-ends que corren en el <b>navegador o el celular</b>:
+        <b style='color:#27AE9A'>Comprobantes (QR)</b> sube la foto del pago para Órdenes
+        de Pago, <b style='color:#5DADE2'>Carga de Juicios</b> deja que los abogados
+        carguen un juicio, <b style='color:#2ee6a6'>Ausencias</b> recibe las solicitudes
+        del equipo, <b style='color:#A04000'>Depósito</b> sube comprobantes del depósito y
+        <b style='color:#E67E22'>Factura Mono</b> (MVP) emite Factura C desde Chrome.</p>
         <p style='color:{SUB};font-size:11px;margin-top:12px'>
         Tocá una app o web (acá o en el diagrama) para ver cómo está hecha por dentro.</p>
         </div>""")
