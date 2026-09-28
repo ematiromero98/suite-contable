@@ -24,35 +24,24 @@ $TOKEN = "PEGA_TU_TOKEN_ACA"          # <-- token fino de GitHub, SÓLO LECTURA
 $Drive = if (Test-Path "D:\") { "D:" } else { "C:" }
 $SUITE = "$Drive\suite-contable"
 
-# Carpetas de las apps: por defecto en D:\ (oficina). Si esta PC usa otro disco
-# (p. ej. una de casa sin D:), las redirigimos a ese disco — persistente con setx
-# (para cuando se abra el ERP) y en esta sesión (para el setup_pc.py de abajo).
-$AppDirs = [ordered]@{
-    "SUITE_CONTABLE_DIR" = "\suite-contable"
-    "DDJJ_IMPUESTOS_DIR" = "\ddjj-impuestos"
-    "RETENCIONESPRO_DIR" = "\RetencionesPro"
-    "COBRANZAS_DIR"      = "\PROYECTOS CLAUDE\cobranzas-osecac"
-    "FACTURADOR_DIR"     = "\PROYECTOS CLAUDE\facturador-arca"
-    "EMPLOYEE_PRO_DIR"   = "\PROYECTOS CLAUDE\employee-pro"
-    "JUICIOS_DIR"        = "\control-juicios"
-    "CONTABILIDAD_DIR"   = "\contabilidad"
-    "DEPOSITO_AVALOS_DIR" = "\PROYECTOS CLAUDE\deposito-avalos"
-    "CONCILIADOR_DIR"    = "\PROYECTOS CLAUDE\conciliador-bancario"
-    "CALENDARIO_AUSENCIAS_DIR" = "\PROYECTOS CLAUDE\calendario-ausencias"
-    "VEP_AUTONOMOS_DIR"  = "\arca-vep-autonomos"
-}
-if ($Drive -ne "D:") {
-    Write-Host "Esta PC no tiene disco D:, uso $Drive y redirijo las carpetas." -ForegroundColor Yellow
-    foreach ($k in $AppDirs.Keys) {
-        $val = "$Drive$($AppDirs[$k])"
-        setx $k "$val" | Out-Null                 # persistente (futuras sesiones)
-        Set-Item -Path "Env:$k" -Value $val       # esta sesión (setup_pc.py)
-    }
-}
-
 # ----------------------------------------------------------------------------
 $ErrorActionPreference = "Stop"
 function Existe($c) { [bool](Get-Command $c -ErrorAction SilentlyContinue) }
+# Python REAL (el "python" de la Microsoft Store es un stub que no corre nada).
+function Python-Real {
+    $cands = @("$env:LOCALAPPDATA\Programs\Python\Python312\python.exe",
+               "$env:ProgramFiles\Python312\python.exe")
+    foreach ($c in $cands) { if (Test-Path $c) { return $c } }
+    foreach ($c in @("py", "python")) {
+        if (Existe $c) {
+            try {
+                $exe = & $c -c "import sys; print(sys.executable)" 2>$null
+                if ($LASTEXITCODE -eq 0 -and $exe -and (Test-Path $exe.Trim())) { return $exe.Trim() }
+            } catch {}
+        }
+    }
+    return $null
+}
 function Refrescar-Path {
     $env:Path = [Environment]::GetEnvironmentVariable("Path", "Machine") + ";" +
                 [Environment]::GetEnvironmentVariable("Path", "User")
@@ -70,22 +59,25 @@ if ([string]::IsNullOrWhiteSpace($TOKEN) -or $TOKEN -eq "PEGA_TU_TOKEN_ACA") {
 #    OJO: NO tocamos `gh auth`. El token va a un archivo aparte (paso 2), así el
 #    login personal de quien administre queda intacto y cualquier PC puede ser
 #    administradora sin conflicto.
-$reqs = @(
-    @{ cmd = "git";    id = "Git.Git" },
-    @{ cmd = "python"; id = "Python.Python.3.12" }
-)
-foreach ($r in $reqs) {
-    if (-not (Existe $r.cmd)) {
-        Write-Host "Instalando $($r.cmd)..." -ForegroundColor Yellow
-        winget install --id $r.id -e --source winget --silent --accept-package-agreements --accept-source-agreements
-        Refrescar-Path
-    }
+if (-not (Existe "git")) {
+    Write-Host "Instalando git..." -ForegroundColor Yellow
+    winget install --id Git.Git -e --source winget --silent --accept-package-agreements --accept-source-agreements
+    Refrescar-Path
+    if (-not (Existe "git") -and (Test-Path "$env:ProgramFiles\Git\cmd")) { $env:Path += ";$env:ProgramFiles\Git\cmd" }
 }
-if (-not (Existe "git") -or -not (Existe "python")) {
+$PY = Python-Real
+if (-not $PY) {
+    Write-Host "Instalando Python 3.12..." -ForegroundColor Yellow
+    winget install --id Python.Python.3.12 -e --source winget --silent --accept-package-agreements --accept-source-agreements
+    Refrescar-Path
+    $PY = Python-Real
+}
+if (-not (Existe "git") -or -not $PY) {
     Write-Host "No pude instalar git/python automaticamente." -ForegroundColor Red
     Write-Host "Instalalos a mano (winget install Git.Git Python.Python.3.12) y volve a correr." -ForegroundColor Red
     Read-Host "Enter para salir"; exit 1
 }
+Write-Host "Python: $PY" -ForegroundColor DarkGray
 
 # 2) Guardar el token del runtime en un archivo (NO en el gh personal).
 $SuiteData = "$env:LOCALAPPDATA\Suite Contable"
@@ -109,9 +101,35 @@ if (Test-Path "$SUITE\.git") {
     if (Test-Path "$SUITE\.git") { git -C $SUITE remote set-url origin $CleanUrl }
 }
 
-# 4) Dejar la PC lista: apps + dependencias + credenciales + acceso directo.
+# 4) Si esta PC no tiene D:, redirigir las carpetas de TODAS las apps al disco
+#    elegido. La lista sale de config.APPS del ERP recién bajado (así nunca queda
+#    desfasada cuando se suma o renombra una app). Persistente con setx (para el
+#    ERP) y en esta sesión (para el setup_pc.py de abajo).
+if ($Drive -ne "D:") {
+    Write-Host "Esta PC no tiene disco D:, uso $Drive y redirijo las carpetas." -ForegroundColor Yellow
+    $pares = @("SUITE_CONTABLE_DIR=D:\suite-contable")
+    $pares += & $PY -c "import sys; sys.path.insert(0, sys.argv[1]); import config; [print(a['env_dir'] + '=' + a['dir']) for a in config.APPS if a.get('env_dir')]" $SUITE
+    foreach ($p in $pares) {
+        $k, $v = $p -split "=", 2
+        if (-not $k -or -not $v) { continue }
+        $v = $v.Trim() -replace '^[Dd]:', $Drive
+        setx $k "$v" | Out-Null
+        Set-Item -Path "Env:$k" -Value $v
+    }
+}
+
+# 5) Dependencias del propio ERP (PyQt6) en ese Python, y dejar anotado qué
+#    pythonw usar: el acceso directo lo lee, así no depende de que Python haya
+#    quedado en el PATH (winget no siempre lo agrega).
+Write-Host "Instalando dependencias del ERP (PyQt6)..." -ForegroundColor Yellow
+& $PY -m pip install -q --upgrade pip
+& $PY -m pip install -q -r "$SUITE\requirements.txt"
+$PYW = Join-Path (Split-Path $PY) "pythonw.exe"
+if (Test-Path $PYW) { Set-Content -Path "$SuiteData\pythonw.txt" -Value $PYW -NoNewline -Encoding ascii }
+
+# 6) Dejar la PC lista: apps + dependencias + credenciales + acceso directo.
 Write-Host "Preparando apps y credenciales (puede tardar unos minutos)..." -ForegroundColor Yellow
-python "$SUITE\setup_pc.py"
+& $PY "$SUITE\setup_pc.py"
 
 Write-Host ""
 Write-Host "==  LISTO. Abri 'Suite Contable' desde el Escritorio.  ==" -ForegroundColor Green
