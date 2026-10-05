@@ -29,7 +29,7 @@ versión, estado, Abrir/Instalar/Actualizar), 🔄 Actualizaciones, 🗺 Arquite
 3D, 🗄 Conexiones DB, 💾 Registro de Backups · SISTEMA → ⚙ Ajustes. Topbar: «⟳ Actualizar todo
 (N)» y «🔑 Traer credenciales». Marca del sidebar: logo **SC** azul (`assets/suite.png`).
 
-**Apps registradas hoy (`config.APPS`, 11)** — key · monograma/color · carpeta · repo:
+**Apps registradas hoy (`config.APPS`, 13)** — key · monograma/color · carpeta · repo:
 
 | key | App | Logo | Carpeta por defecto | Repo | Versión en |
 |---|---|---|---|---|---|
@@ -39,11 +39,13 @@ versión, estado, Abrir/Instalar/Actualizar), 🔄 Actualizaciones, 🗺 Arquite
 | facturador | Facturador ARCA | FAC teal | `D:\PROYECTOS CLAUDE\facturador-arca` | `facturador-arca` (master) | VERSION |
 | employee | Employee Pro | EP violeta | `D:\PROYECTOS CLAUDE\employee-pro` | `employee-pro` | version.py |
 | deposito | Depósito Avalos (PySide6) | DA naranja | `D:\PROYECTOS CLAUDE\deposito-avalos` | `deposito-avalos` | version.py |
+| uniformes | Depósito Uniformes | DU gris azulado | `D:\PROYECTOS CLAUDE\deposito-uniformes` | `deposito-uniformes` | version.py |
 | juicios | Control de Juicios | CJ navy | `D:\control-juicios` | `control-juicios` | VERSION |
 | contabilidad | Contabilidad | CTB verde oscuro | `D:\contabilidad` | `contabilidad` | VERSION |
 | conciliador | Conciliador Bancario | CB verde | `D:\PROYECTOS CLAUDE\conciliador-bancario` | `conciliador-bancario` | VERSION |
 | ausencias | Calendario de Ausencias | CA menta | `D:\PROYECTOS CLAUDE\calendario-ausencias` | `calendario-ausencias` | version.py |
 | veps | VEP Autónomos | VEP púrpura | `D:\arca-vep-autonomos` | `arca-vep-autonomos` | VERSION |
+| backups | Backups | BK gris pizarra | `D:\PROYECTOS CLAUDE\suite-backups` | `suite-backups` (privado, **nuevo 05-10**, v1.1.0) | `suitebackups\__init__.py` |
 
 **Retiradas del launcher el 11-09-2026** (commit `d0c8f54`): **DDJJ Impuestos** (`ddjj-impuestos`,
 master) y **CM03 Convenio Multilateral** (`cm03-convenio-multilateral`); las reemplaza la app
