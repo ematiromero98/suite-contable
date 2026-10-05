@@ -110,11 +110,18 @@ siguen existiendo por si vuelven.
 - **Registro de Backups** (`_page_backups`, `_BackupsLoader`): lee `suite_backup_runs` de la
   base compartida (lo escribe `suite-backups`, domingos 22:00) y muestra alerta arriba si el
   último falló o tiene más de 8 días.
+- **App «Backups»** (`key: backups`, repo privado `ematiromero98/suite-backups`, desde
+  v1.32.0): tarjeta en el menú; «Abrir» corre `BACKUP-AHORA.bat` (backup manual completo,
+  **pide confirmar S/N** porque tarda 1-2 h). Versión en `suitebackups\__init__.py`. Sin
+  updater propio → la Suite lo actualiza con git pull; el token del runtime tiene que cubrir
+  ese repo (no lee el `.env` compartido: sus secretos van en `secretos_backup.json` local).
+  Necesita su `.venv` y PostgreSQL 17 instalados (ver su INSTALL.md); la tarea programada se
+  registra aparte con `PROGRAMAR-AUTOMATICO.bat`.
 - **Arquitectura / Ecosistema 3D / Conexiones DB:** `arquitectura.py` (diagrama con `DATOS`),
   `assets/ecosistema-3d.html` (ciudad isométrica, arrays `NODES`/`EDGES`),
   `conexiones_db.py` (`BASES`: las 5 bases y cómo se conecta cada app: login / directo /
   edge). **Son datos escritos a mano: al cambiar una app hay que editarlos** (al día con
-  las 11 apps desde el 11-09-2026; la vista general se acomoda sola en filas de 4).
+  las 13 apps del menú desde el 05-10-2026; la vista general se acomoda sola en filas de 4).
 - **Bootstrap desde las apps:** cada app trae `bootstrap_suite.py` que clona la Suite si falta
   (`D:\suite-contable`) y crea el acceso directo. Best-effort.
 - **Instaladores:** `instalar_suite.ps1` («cero logins»: pegar el token de solo lectura, instala

@@ -477,6 +477,35 @@ PROYECTOS = {
         ],
         "rel_datos": SUPA_COMPARTIDA,
     },
+    "backups": {
+        "nombre": "Backups", "emoji": "💾", "color": "#5D6D7E",
+        "proposito": "Backup semanal, automático, cifrado y off-site de las bases "
+                     "Supabase de la suite (base + archivos de Storage). Corre solo "
+                     "los domingos 22:00; desde el ERP se lanza uno manual.",
+        "stack": "Python CLI (sin UI). pg_dump/pg_restore 17 + REST de Storage con "
+                 "reintentos; ZIP AES-256 (pyzipper). Tarea programada de Windows.",
+        "entrypoint": "BACKUP-AHORA.bat → python backup.py (pide confirmar)",
+        "datos": "Lee TODAS las bases (pg_dump por session pooler) · registra cada "
+                 "corrida en suite_backup_runs de " + SUPA_COMPARTIDA,
+        "capas": [
+            ("CLI", ["backup.py → suitebackups/cli.py", "configurar.py (asistente)"]),
+            ("Respaldo", ["db_dump.py (pg_dump -Fc + verificación pg_restore -l)",
+                          "storage_dump.py (Storage REST, reintentos por archivo)"]),
+            ("Empaque", ["packaging.py (ZIP AES-256 + MANIFEST sha256)",
+                         "offsite.py (copia a OneDrive)", "rotation.py (8 semanas)"]),
+            ("Registro", ["registro.py → suite_backup_runs (lo muestra el ERP)"]),
+        ],
+        "integraciones": ["Supabase (todas las bases)", "OneDrive (off-site)",
+                           "Programador de tareas de Windows", "GitHub"],
+        "flujo": [
+            "Por cada base: pg_dump + verificación, y descarga de su Storage.",
+            "Arma el zip cifrado, lo copia a OneDrive y rota los de más de 8 semanas.",
+            "Registra la corrida; el ERP la muestra en «Registro de Backups» y "
+            "avisa arriba si falló (rojo) o está atrasado (naranja).",
+            "Restaurar: RESTORE.md (pg_restore + tools/restore_storage.py).",
+        ],
+        "rel_datos": SUPA_COMPARTIDA,
+    },
     "comprobantes": {
         "nombre": "Comprobantes (Web QR)", "emoji": "📲", "color": "#27AE9A",
         "parent": "reten",
@@ -634,7 +663,7 @@ BASES = {
 }
 APPS_ORDEN = ["reten", "impuestos", "cobranzas", "facturador",
               "employee", "juicios", "deposito", "uniformes", "contabilidad", "conciliador",
-              "ausencias", "veps"]
+              "ausencias", "veps", "backups"]
 
 
 # ============================================================ VISTA (Qt)

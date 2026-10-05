@@ -164,4 +164,17 @@ APPS = [
         "version_file": "VERSION",
         "repo": "ematiromero98/arca-vep-autonomos",
     },
+    {
+        "key": "backups",
+        "nombre": "Backups",
+        "emoji": "💾",
+        "mono": 'BK',
+        "desc": "Backup semanal cifrado y off-site de las bases Supabase (domingos 22:00). Abrir = backup manual, pide confirmar.",
+        "color": "#5D6D7E",
+        "env_dir": "SUITE_BACKUPS_DIR",
+        "dir": os.environ.get("SUITE_BACKUPS_DIR", r"D:\PROYECTOS CLAUDE\suite-backups"),
+        "entradas": ["BACKUP-AHORA.bat"],
+        "version_file": r"suitebackups\__init__.py",
+        "repo": "ematiromero98/suite-backups",
+    },
 ]
