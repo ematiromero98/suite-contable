@@ -168,15 +168,17 @@ siguen existiendo por si vuelven.
 
 | Base (Supabase) | Ref | Quién escribe | Cómo |
 |---|---|---|---|
-| ORDENES DE PAGO – BELGRANO (compartida) | `zpwccecovhjmeibxafkg` | public: RetencionesPro, Impuestos, Contabilidad, Juicios, VEP, Facturador, Factura Mono, comprobantes-cel, suite-backups · schema `conciliador`: Conciliador Bancario · schema `rrhh`: Employee Pro + Calendario de Ausencias · schema `chermisqui`: qb-dashboard (+ /taxes), chermisqui-control-dias | secret key / DB_URL (directo), login, Edge Function |
+| ORDENES DE PAGO – BELGRANO (compartida) | `zpwccecovhjmeibxafkg` | public: RetencionesPro, Impuestos, Contabilidad, Juicios, VEP, Facturador, Factura Mono, comprobantes-cel, suite-backups · schema `conciliador`: Conciliador Bancario · schema `rrhh`: Employee Pro + Calendario de Ausencias · schema `chermisqui`: qb-dashboard (+ /taxes), chermisqui-control-dias · schema `deposito`: Depósito Avalos + Depósito Uniformes (u_*), web del celular (Edge Fn `deposito-comprobante-cel`), bucket `deposito-comprobantes`; bucket público `releases` = canal de update de los .exe del Depósito | secret key / DB_URL (directo), login, Edge Function |
 | COBRANZAS OSECAC | `rrarmatjyvmrpohsvfzg` | Cobranzas OSECAC (Impuestos y Contabilidad leen) | login con cuenta compartida (RLS) |
-| DEPOSITO-AVALOS | `ioycuhefaalpqivhhryb` | Depósito Avalos + Depósito Uniformes (u_*), web de comprobantes | login / Edge Function |
 | AME-PAYROLL (us-west-1) | `vswtxuvknxsjfodgviiq` | ame-payroll (public), payroll-platform (schema `app`) — fuera de la Suite | login / directo |
 | casamiento-matilara | `nlnzryrwvbqigqzqkqqf` | Portal Clientes (pc_*), app del casamiento — fuera de la Suite | login / Edge Function |
 
-Son **5 proyectos** (org Pro: US$25 + ~US$10/mes de cómputo c/u − US$10 de crédito ≈
-**US$65/mes**). EMPLOYEE-PRO (`ffcz…`) se dio de baja en oct-2026 (mudado al schema `rrhh`);
-el Conciliador ya vivía en el schema `conciliador`. RLS activo con la cuenta compartida
+Son **4 proyectos** activos (org Pro: US$25 + ~US$10/mes de cómputo c/u − US$10 de crédito ≈
+**US$55/mes**). EMPLOYEE-PRO (`ffcz…`) se dio de baja en oct-2026 (mudado al schema `rrhh`);
+el Conciliador ya vivía en el schema `conciliador`. El 12-oct-2026 el Depósito se mudó al
+schema `deposito` de la base central: DEPOSITO-AVALOS (`ioycuhefaalpqivhhryb`) quedó
+**congelado** (sin permisos, sólo canal de update para .exe viejos) y se borra tras ~2 semanas
+de gracia; hasta entonces son 5 (≈ US$65/mes). RLS activo con la cuenta compartida
 `estudio@mrasoc.com`; signups cerrados. Backup semanal cifrado + Storage: repo
 `suite-backups` (`RESTORE.md` para restaurar). Detalle visual: módulo Arquitectura → pestaña
 «Bases de datos».

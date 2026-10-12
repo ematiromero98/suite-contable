@@ -14,7 +14,7 @@ tocar un proyecto, la explicación pasa a describir ese proyecto.
 Mismo QGraphicsView nativo que el resto de la Suite (helpers de arquitectura.py):
 sin dependencias nuevas, porque el ERP se auto-actualiza sin pip.
 
-Estado relevado: oct-2026 (EMPLOYEE-PRO dado de baja y mudado al schema rrhh de la
+Estado relevado: 12-oct-2026 (DEPOSITO-AVALOS mudado al schema deposito; EMPLOYEE-PRO dado de baja y mudado al schema rrhh de la
 base compartida; Chermisqui en el schema chermisqui). Si cambia algo, se edita
 PROYECTOS_SUPA acá abajo.
 """
@@ -43,7 +43,7 @@ PROYECTOS_SUPA = [
         "key": "compartida", "emoji": "⭐", "color": MENTA,
         "nombre": "ORDENES DE PAGO – BELGRANO", "apodo": "la base compartida",
         "ref": "zpwccecovhjmeibxafkg", "region": "sa-east-1 (São Paulo)",
-        "tam": "~608 MB", "backup": "semanal · prioridad alta",
+        "tam": "~625 MB", "backup": "semanal · prioridad alta",
         "schemas": [
             ("public", 89,
              "Órdenes de Pago (pagos, facturas, ret_*, op_pagos, padrones) · Impuestos "
@@ -63,18 +63,29 @@ PROYECTOS_SUPA = [
              "Webs de Chermisqui & Associates: QB Dashboard (qb_*), Taxes por "
              "trimestre (tx_*) y Control de días (chcal_*)",
              ["QB Dashboard (web)", "Taxes (web)", "Control de días (web)"]),
+            ("deposito", 44,
+             "Depósito Avalos (productos, stock, ingresos, egresos, inventarios, "
+             "objetivos) + tablas u_* de Depósito Uniformes · 5 vistas, 23 RPC de "
+             "stock atómicas, realtime en 38 tablas",
+             ["Depósito Avalos", "Depósito Uniformes",
+              "Suite Depósitos (launcher, sólo canal de update)", "Depósito (web celular)"]),
         ],
         "edge": ["comprobantes-cel", "juicio-abogado", "cal-ausencias", "qb-api",
-                 "tx-api", "chcal-api"],
+                 "tx-api", "chcal-api", "deposito-comprobante-cel"],
         "buckets": ["pdfs", "facturador", "contabilidad-adjuntos", "comprobantes",
-                    "legajos", "cm03-ddjj", "cm03-insumos", "ddjj-salidas"],
+                    "legajos", "cm03-ddjj", "cm03-insumos", "ddjj-salidas",
+                    "deposito-comprobantes", "releases"],
         "texto": "Es el corazón del estudio. Acá viven casi todas las apps de la Suite "
                  "en el schema <i>public</i>, y por eso pueden cruzar datos entre ellas "
                  "(Impuestos concilia compras contra Órdenes de Pago, Contabilidad "
                  "devenga sobre lo mismo, el Facturador crea OP con una RPC). Desde "
                  "oct-2026 también aloja, en schemas propios, al Conciliador Bancario, "
                  "a RR.HH. (Employee Pro + Calendario de Ausencias, antes en el "
-                 "proyecto EMPLOYEE-PRO, ya dado de baja) y a las webs de Chermisqui.",
+                 "proyecto EMPLOYEE-PRO, ya dado de baja), a las webs de Chermisqui y, "
+                 "desde el 12-oct-2026, a los dos depósitos (schema <i>deposito</i>, "
+                 "antes en el proyecto DEPOSITO-AVALOS). El bucket público "
+                 "<i>releases</i> es el canal de auto-actualización de los .exe de "
+                 "Depósito Avalos, Depósito Uniformes y Suite Depósitos.",
     },
     {
         "key": "cobranzas", "emoji": "💰", "color": "#D68910",
@@ -92,24 +103,6 @@ PROYECTOS_SUPA = [
                  "retenciones de IVA sufridas y Contabilidad importa las cobranzas, "
                  "pero sólo leen. Sigue separada de la compartida (la mudanza quedó "
                  "postergada).",
-    },
-    {
-        "key": "deposito", "emoji": "📦", "color": "#A04000",
-        "nombre": "DEPOSITO-AVALOS", "apodo": "la base del Depósito",
-        "ref": "ioycuhefaalpqivhhryb", "region": "sa-east-1 (São Paulo)",
-        "tam": "~17 MB", "backup": "semanal · prioridad media",
-        "schemas": [
-            ("public", 44,
-             "Depósito Avalos (productos, stock, ingresos, egresos, inventarios, "
-             "objetivos) + tablas u_* de Depósito Uniformes",
-             ["Depósito Avalos", "Depósito Uniformes", "Depósito (web)"]),
-        ],
-        "edge": ["comprobante-cel"],
-        "buckets": ["releases", "comprobantes"],
-        "texto": "Base de los dos depósitos: Avalos (artículos de limpieza) y Uniformes "
-                 "(tablas u_*). El stock se mueve sólo con RPC atómicas para que nunca "
-                 "quede negativo. El bucket <i>releases</i> guarda los instaladores .exe "
-                 "que usa el auto-update de Suite Depósitos.",
     },
     {
         "key": "payroll", "emoji": "🌎", "color": "#5bb0ff",
@@ -146,6 +139,14 @@ PROYECTOS_SUPA = [
                  "del casamiento.",
     },
 ]
+
+# Proyecto viejo que quedó congelado tras la mudanza (no cuenta como activo, pero
+# se sigue pagando hasta que se borre).
+CONGELADO = {
+    "nombre": "DEPOSITO-AVALOS", "ref": "ioycuhefaalpqivhhryb",
+    "nota": "sin permisos desde el 12-oct-2026; sólo sirve de canal de update para .exe "
+            "viejos. Se borra tras ~2 semanas de gracia.",
+}
 
 # Geometría del diagrama
 _W = 1000               # ancho de la escena
@@ -251,11 +252,18 @@ class PaginaBasesDatos(QWidget):
                f"proyecto − US${CREDITO} de crédito incluido  →  {n} proyectos ≈ "
                f"US${costo_total(n)}/mes", color="#bfe9d5", size=11, bold=True)
         _texto(sc, _M + 16, cy + 33,
-               f"Antes eran 6 (≈ US${costo_total(6)}/mes) y en sep-2026 eran 8 "
-               f"(≈ US${costo_total(8)}/mes). Cada proyecto que se une a otro ahorra "
-               f"~US${COMPUTO_PROY}/mes.", color=SUB, size=9)
+               f"Hasta borrar {CONGELADO['nombre']} son {n + 1} (≈ US${costo_total(n + 1)}"
+               f"/mes). En sep-2026 eran 8 (≈ US${costo_total(8)}/mes). Cada proyecto que "
+               f"se une a otro ahorra ~US${COMPUTO_PROY}/mes.", color=SUB, size=9)
 
-        y = cy + 56 + 22
+        # Aviso del proyecto congelado (sigue existiendo sólo por la gracia).
+        ny = cy + 56 + 10
+        _caja(sc, _M, ny, _W - 2 * _M, 34, "#8a5a1e", radio=10, relleno="#241d10")
+        _texto(sc, _M + 16, ny + 8,
+               f"Congelado: {CONGELADO['nombre']} ({CONGELADO['ref']}) — "
+               f"{CONGELADO['nota']}", color="#f6c66b", size=9)
+
+        y = ny + 34 + 22
         ancho_bloque = _W - 2 * _M
         for p in PROYECTOS_SUPA:
             y = self._dibujar_proyecto(sc, p, _M, y, ancho_bloque) + 20
@@ -441,7 +449,7 @@ class PaginaBasesDatos(QWidget):
         <h3 style='color:{TXT};margin:12px 0 4px'>¿Qué es un schema?</h3>
         <p style='color:{SUB};font-size:12px;margin:0'>
         Es una «carpeta» de tablas dentro de la misma base. Cada app grande tiene el
-        suyo (<i>conciliador</i>, <i>rrhh</i>, <i>chermisqui</i>, <i>app</i>) para que
+        suyo (<i>conciliador</i>, <i>rrhh</i>, <i>chermisqui</i>, <i>deposito</i>, <i>app</i>) para que
         no choquen nombres de tabla (dos apps pueden tener una tabla
         «empleados» sin pisarse) y para que quede ordenado qué es de quién. Así
         varias apps comparten un proyecto —y su costo— sin mezclarse.</p>
@@ -472,8 +480,15 @@ class PaginaBasesDatos(QWidget):
         <p style='color:{SUB};font-size:12px;margin:0'>
         Plan Pro US${PLAN_PRO}/mes + ~US${COMPUTO_PROY}/mes de cómputo por proyecto,
         con US${CREDITO} de crédito incluido: <b style='color:{TXT}'>{n} proyectos ≈
-        US${costo_total(n)}/mes</b>. Antes eran 6 (≈ US${costo_total(6)}) y en
-        sep-2026 eran 8 (≈ US${costo_total(8)}). Por eso se unen proyectos en schemas.</p>
+        US${costo_total(n)}/mes</b>. Mientras siga vivo {CONGELADO['nombre']}
+        (congelado) son {n + 1} (≈ US${costo_total(n + 1)}). En sep-2026 eran 8
+        (≈ US${costo_total(8)}). Por eso se unen proyectos en schemas.</p>
+
+        <h3 style='color:#f6c66b;margin:12px 0 4px'>Proyecto congelado</h3>
+        <p style='color:{SUB};font-size:12px;margin:0'>
+        <b style='color:{TXT}'>{CONGELADO['nombre']}</b> ({CONGELADO['ref']}): el
+        Depósito se mudó al schema <i>deposito</i> de la base central. El proyecto
+        viejo quedó {CONGELADO['nota']}</p>
 
         <p style='color:{SUB};font-size:11px;margin-top:12px'>
         Tocá un proyecto del diagrama para ver su detalle.</p>

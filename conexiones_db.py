@@ -27,21 +27,25 @@ C_REST = "#c39bff"     # REST con una API key, sin login de usuario
 
 # ── Datos del organigrama (bases + apps + tipo de conexión) ─────────────────
 #   tipo: "login" | "directo" | "edge" | "rest"
-#   Estado oct-2026: EMPLOYEE-PRO se dio de baja; RR.HH. y Chermisqui viven en la
-#   base compartida, cada uno en su schema (rrhh / chermisqui).
+#   Estado 12-oct-2026: EMPLOYEE-PRO se dio de baja y DEPOSITO-AVALOS quedó
+#   congelado; RR.HH., Chermisqui y el Depósito viven en la base compartida, cada
+#   uno en su schema (rrhh / chermisqui / deposito).
 BASES = [
     {
         "nombre": "ORDENES DE PAGO – BELGRANO", "ref": "zpwcc…", "emoji": "⭐",
         "tablas": "public: OP, retenciones, DDJJ/IVA/CM03, contabilidad, juicios, VEP, facturador · "
-                  "schemas conciliador, rrhh y chermisqui",
+                  "schemas conciliador, rrhh, chermisqui y deposito (Avalos + u_* de Uniformes)",
         "apps": [
             ("Órdenes de Pago", "directo"), ("Impuestos (IIBB + IVA)", "directo"),
             ("Contabilidad", "directo"), ("VEP Autónomos", "directo"),
             ("Facturador Monotributistas", "login"), ("Conciliador Bancario", "login"),
             ("Employee Pro (schema rrhh)", "login"),
             ("Calendario Ausencias (schema rrhh)", "login"),
+            ("Depósito Avalos (schema deposito)", "login"),
+            ("Depósito Uniformes (schema deposito)", "login"),
             ("comprobantes-cel (web)", "edge"), ("juicios-carga (web)", "edge"),
             ("calendario-cel (web)", "edge"),
+            ("deposito-comprobantes (web)", "edge"),
             ("qb-dashboard + /taxes (web)", "edge"),
             ("chermisqui-control-dias (web)", "edge"),
             ("suite-backups (pg_dump)", "directo"),
@@ -52,13 +56,6 @@ BASES = [
         "tablas": "cobranzas, retenciones, facturas, usuarios, asientos",
         "apps": [("Cobranzas", "login"), ("Impuestos (lectura)", "login"),
                  ("Contabilidad (lectura)", "rest"), ("suite-backups (pg_dump)", "directo")],
-    },
-    {
-        "nombre": "DEPOSITO AVALOS", "ref": "ioycu…", "emoji": "📦",
-        "tablas": "productos, stock, inventarios, movimientos · u_* de Uniformes",
-        "apps": [("Depósito Avalos", "login"), ("Depósito Uniformes", "login"),
-                 ("deposito-comprobantes (web)", "edge"),
-                 ("suite-backups (pg_dump)", "directo")],
     },
     {
         "nombre": "AME-PAYROLL (US)", "ref": "vswtx…", "emoji": "🌎",
@@ -109,9 +106,10 @@ class PaginaConexionesDB(QWidget):
         tit = QLabel("🗄️  Conexiones a base de datos")
         tit.setStyleSheet(f"color:{TXT}; font-size:20px; font-weight:700;")
         lay.addWidget(tit)
-        sub = QLabel("5 bases Supabase (Postgres; 4 en sa-east-1 y Payroll US en us-west-1). "
-                     "Cada app se conecta a la suya. Todas con RLS activado y "
-                     "auto-registro deshabilitado.")
+        sub = QLabel(f"{len(BASES)} bases Supabase (Postgres; {len(BASES) - 1} en sa-east-1 y "
+                     "Payroll US en us-west-1). Cada app se conecta a la suya. Todas con RLS "
+                     "activado y auto-registro deshabilitado. (DEPOSITO-AVALOS, ioycu…, quedó "
+                     "congelado tras mudarse al schema deposito y se borra tras la gracia.)")
         sub.setWordWrap(True)
         sub.setStyleSheet(f"color:{SUB}; font-size:11px;")
         lay.addWidget(sub)

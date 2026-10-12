@@ -85,11 +85,14 @@ def _emoji_icon(emoji, px=18):
 # dibujar su diagrama de capas y explicarlo.
 SUPA_COMPARTIDA = "Supabase «ORDENES DE PAGO» (zpwccecovhjmeibxafkg)"
 SUPA_COBRANZAS = "Supabase Cobranzas (rrarmatjyvmrpohsvfzg)"
-SUPA_DEPOSITO = "Supabase Depósito (ioycuhefaalpqivhhryb)"
 SUPA_CONCILIADOR = SUPA_COMPARTIDA + " · schema conciliador"
 # RR.HH. (Employee Pro + Calendario de Ausencias) vive desde oct-2026 en la base
 # compartida, en su propio schema (antes tenía un proyecto Supabase aparte).
 SUPA_RRHH = SUPA_COMPARTIDA + " · schema rrhh"
+# Depósito Avalos + Depósito Uniformes viven desde el 12-oct-2026 en la base
+# compartida, en el schema deposito (antes tenían el proyecto propio DEPOSITO-AVALOS,
+# ioycuh…, que quedó congelado y se borra tras la gracia).
+SUPA_DEPOSITO = SUPA_COMPARTIDA + " · schema deposito"
 
 PROYECTOS = {
     "erp": {
@@ -314,11 +317,12 @@ PROYECTOS = {
                      "productos, proveedores, ingresos, egresos y devoluciones, con "
                      "objetivos por producto y 15 informes (cobertura, rotación ABC, "
                      "kardex). La integridad del stock se garantiza con RPC atómicas.",
-        "stack": "Python + PySide6 (Qt). Supabase propio (sin RLS) por REST + RPC. "
+        "stack": "Python + PySide6 (Qt). Supabase (schema deposito de la base central) "
+                 "por REST + RPC, con login. "
                  "openpyxl / reportlab (export Excel y PDF).",
         "entrypoint": "ejecutar.bat → python app.py",
         "datos": SUPA_DEPOSITO + " · productos, proveedores, ingresos, egresos, "
-                 "inventarios, objetivos · migraciones 0001-0007",
+                 "inventarios, objetivos · bucket deposito-comprobantes",
         "capas": [
             ("UI (PySide6 · src/ui/)", ["main_window.py — 11 secciones",
                                           "dashboard_screen.py (KPIs + gráficos)",
@@ -350,7 +354,7 @@ PROYECTOS = {
         "stack": "Python + PySide6 (Qt). Mismo esqueleto que Depósito Avalos. "
                  "Supabase por REST + RPC. openpyxl / reportlab.",
         "entrypoint": "ejecutar.bat → python app.py",
-        "datos": SUPA_DEPOSITO + " · misma base que Avalos, tablas propias u_* "
+        "datos": SUPA_DEPOSITO + " · mismo schema que Avalos, tablas propias u_* "
                  "(modelos, talles, empleados, entregas, devoluciones)",
         "capas": [
             ("UI (PySide6 · src/ui/)", ["main_window.py", "stock_screen.py (modelo + talle)",
@@ -613,17 +617,17 @@ PROYECTOS = {
                      "sin instalar nada.",
         "stack": "Un index.html estático en GitHub Pages + Edge Function de Supabase.",
         "entrypoint": "ematiromero98.github.io/deposito-comprobantes-web/",
-        "datos": SUPA_DEPOSITO + " · Edge Function comprobante-cel",
+        "datos": SUPA_DEPOSITO + " · Edge Function deposito-comprobante-cel",
         "capas": [
             ("Front (GitHub Pages)", ["index.html — foto del comprobante"]),
-            ("Edge Function (Deno)", ["comprobante-cel — sube el archivo"]),
-            ("Datos", ["Storage + tablas del Depósito"]),
+            ("Edge Function (Deno)", ["deposito-comprobante-cel — sube el archivo"]),
+            ("Datos", ["bucket deposito-comprobantes + schema deposito"]),
         ],
         "integraciones": ["Depósito Avalos", "Supabase Edge Functions", "GitHub Pages"],
         "flujo": [
             "Se abre la web en el celular.",
             "Se elige el movimiento y se saca la foto del comprobante.",
-            "La Edge Function lo sube a la base del Depósito.",
+            "La Edge Function lo sube al schema deposito de la base central.",
         ],
         "rel_datos": SUPA_DEPOSITO,
     },
@@ -665,12 +669,13 @@ EXTERNOS = {
     "tango": ("📚", "Tango", "Asientos contables"),
 }
 BASES = {
-    "compartida": ("🗄️", "Supabase COMPARTIDA", "zpwccecovhjmeibxafkg",
+    "compartida": ("🗄️", "Supabase COMPARTIDA", "zpwccecovhjmeibxafkg · public + 4 schemas",
                     ["reten", "impuestos", "facturador", "juicios", "contabilidad", "veps",
-                     "conciliador", "employee", "ausencias"]),
+                     "conciliador", "employee", "ausencias", "deposito", "uniformes"]),
     "cobranzas": ("🗄️", "Supabase Cobranzas", "rrarmatjyvmrpohsvfzg", ["cobranzas"]),
-    "deposito": ("🗄️", "Supabase Depósito", "ioycuhefaalpqivhhryb", ["deposito", "uniformes"]),
 }
+# Ancho de cada caja de base en la vista general (la compartida es la más grande).
+BASES_ANCHO = {"compartida": 440, "cobranzas": 280}
 APPS_ORDEN = ["reten", "impuestos", "cobranzas", "facturador",
               "employee", "juicios", "deposito", "uniformes", "contabilidad", "conciliador",
               "ausencias", "veps", "backups"]
@@ -963,12 +968,12 @@ class PaginaArquitectura(QWidget):
 
         # Fila de bases (datos)
         by = 352 + dy
-        base_w = {"compartida": 330, "cobranzas": 230, "deposito": 230}
-        gapb = 22
+        base_w = {bk: BASES_ANCHO.get(bk, 260) for bk in BASES}
+        gapb = 60
         total_b = sum(base_w.values()) + gapb * (len(base_w) - 1)
         bx0 = (W - total_b) / 2
         base_pos, cx = {}, bx0
-        for bk in ("compartida", "cobranzas", "deposito"):
+        for bk in BASES:
             base_pos[bk] = (cx, by, base_w[bk])
             cx += base_w[bk] + gapb
         for bk, (emoji, nombre, ref, apps) in BASES.items():
@@ -1042,10 +1047,11 @@ class PaginaArquitectura(QWidget):
         Facturador, Juicios, Contabilidad y VEP (schema <i>public</i>) — por eso se
         cruzan datos entre ellas. En la misma base, cada uno en su propio
         <b>schema</b>: el Conciliador Bancario (<i>conciliador</i>), RR.HH. — Employee
-        Pro + Calendario de Ausencias — (<i>rrhh</i>) y las webs de Chermisqui
+        Pro + Calendario de Ausencias — (<i>rrhh</i>), el Depósito — Avalos +
+        Uniformes — (<i>deposito</i>, desde oct-2026) y las webs de Chermisqui
         (<i>chermisqui</i>).</li>
-        <li><b style='color:#bfe9d5'>Cobranzas</b> y <b style='color:#bfe9d5'>Depósito</b>
-        (Avalos + Uniformes) siguen con su propia base, separada.</li>
+        <li><b style='color:#bfe9d5'>Cobranzas</b> (OSECAC) sigue con su propia base,
+        separada.</li>
         <li>Fuera de las 13 apps: <b style='color:#bfe9d5'>Payroll US</b> (AME + Datatech) y
         <b style='color:#bfe9d5'>Portal Clientes / casamiento</b> son proyectos aparte.
         Detalle en la pestaña «Bases de datos».</li></ul>

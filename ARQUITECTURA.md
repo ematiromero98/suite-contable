@@ -25,9 +25,9 @@ están separados, y cómo funcionan la **instalación** y la **actualización**.
 
 Son **12 apps** (todas **PyQt6 + Supabase**, salvo los dos **Depósitos**, que usan
 **PySide6**). La mayoría comparte la **misma base de Supabase** (el Conciliador
-Bancario, RR.HH. —Employee Pro + Calendario de Ausencias— y las webs de Chermisqui,
-cada uno en su propio schema) —salvo Cobranzas y Depósito (Avalos + Uniformes), que
-tienen la suya— y ahí es donde la integración importa: la conciliación de
+Bancario, RR.HH. —Employee Pro + Calendario de Ausencias—, el Depósito —Avalos +
+Uniformes, en el schema `deposito` de la base central desde el 12-oct-2026— y las webs
+de Chermisqui, cada uno en su propio schema) —salvo Cobranzas, que tiene la suya— y ahí es donde la integración importa: la conciliación de
 compras cruza datos de Impuestos y RetencionesPro en la misma base, y
 Contabilidad devenga sobre ella.
 
