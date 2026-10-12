@@ -1299,7 +1299,8 @@ class PaginaDocumentacion(QWidget):
         # Estilo oscuro del markdown renderizado (links menta, código legible).
         self.visor.document().setDefaultStyleSheet(
             f"a{{color:{MENTA};}} h1,h2,h3{{color:{MENTA};}} "
-            f"code{{color:#bfe9d5;}} pre{{color:#bfe9d5;}} "
+            f"code{{color:#bfe9d5; font-family:Consolas,'Cascadia Mono',monospace;}} "
+            f"pre{{color:#bfe9d5; font-family:Consolas,'Cascadia Mono',monospace;}} "
             f"th{{color:{TXT};}} td,th{{padding:3px 6px;}}")
         lay.addWidget(self.visor, stretch=1)
         if self.lista.count():
