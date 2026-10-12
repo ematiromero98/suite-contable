@@ -22,8 +22,10 @@ Documentación). No toca datos: cada app vive en su repo.
   credenciales) → **nunca** un secreto en este repo. Rama `main`.
 - **Versión:** `version.py` (`VERSION = "1.29.0"`). Tags `vX.Y.Z` para las versiones grandes;
   **el ERP se auto-actualiza con `git pull` de `main` al abrir** (no necesita release).
-- **Sin tests automatizados** en este repo (se verifica a mano: construir `Launcher()` en
-  pantalla y capturar, ver §6).
+- **Tests** (desde la rama `ui/progreso-en-icono`): `python -m pytest -q` en `tests/`
+  (avance por etapas sin GUI + `IconoProgreso` offscreen, que se saltea si no hay PyQt6).
+  No hay CI en GitHub: correr a mano `pytest` + `pyflakes main.py ui tests`. El resto de
+  la UI se sigue verificando a mano (construir `Launcher()` y capturar, ver §6).
 
 **Páginas del sidebar** (`main.py`, `Launcher`): GENERAL → 🗂 Panel (tarjetas de apps: logo,
 versión, estado, Abrir/Instalar/Actualizar), 🔄 Actualizaciones, 🗺 Arquitectura (con
@@ -99,8 +101,21 @@ siguen existiendo por si vuelven.
   `backup-local-<ts>` + stash + `reset --hard`. Después `pip install -r requirements.txt` en el
   `.venv` de la app con el **Python real** (`_python_base`, nunca el stub de la Microsoft
   Store). Devuelve ok / aviso / saltada / error con detalle.
+- **Actualización en el ícono** (#082 de Lucian UX/UI Prompt, MIT): el logo de cada tarjeta
+  del Panel es un `ui/icono_progreso.IconoProgreso` (QPainter): mientras la app se instala o
+  actualiza, un velo oscuro se retira en sentido horario (`drawPie`) con el % encima; al
+  terminar, ✓ menta con rebote (`QPropertyAnimation` OutBack) y la leyenda pasa a
+  «actualizada»; ámbar «!» si quedó con aviso; borde/indicador rojo + tooltip con el motivo
+  si falló. **El % es DERIVADO POR ETAPAS** (`ui/avance.py`, sin Qt): git/pip no dan un %
+  real, así que `_actualizar_app_core` / `_pip_update` / `_instalar_app` reciben un
+  `avisar(etapa)` opcional (sólo informa, no cambia la lógica) y cada etapa ocupa un tramo:
+  cola 0 · fetch 2-40 · merge 40-50 · venv 50-60 · pip 60-97 · clonar 3-90 · listo 100.
+  Dentro del tramo avanza con 1−e^(−t/τ) (nunca llega al techo hasta que la etapa siguiente
+  lo confirma) y es monótono. «Actualizar todo» sigue yendo **de a una** (`_UpdateAllWorker`):
+  las demás muestran «en cola» con el velo completo. «⬇ Instalar» sigue siendo bloqueante:
+  el ícono queda en «descargando…» durante el clone y muestra el resultado al final.
 - **Instalar** (`_instalar_app`): `gh repo clone` (o con token) en `app["dir"]`, crea venv y
-  deps. **Abrir** (`_abrir`): primer archivo de `entradas` que exista (`run.bat`, `main.py`…).
+  deps; devuelve `(estado, detalle)` para el ícono. **Abrir** (`_abrir`): primer archivo de `entradas` que exista (`run.bat`, `main.py`…).
 - **Credenciales** (`credenciales.py`): `traer()` → primero `traer_github()` (clona/actualiza
   `suite-secretos` con `gh`/token, copia `.env` a `env_central()` =
   `%LOCALAPPDATA%\Suite Contable\.env`, lo **distribuye** a las apps que lo leen
@@ -187,8 +202,10 @@ el Conciliador ya vivía en el schema `conciliador`. RLS activo con la cuenta co
    `ARQUITECTURA.md` §1 (9 apps). Este HANDOFF es la referencia; actualizarlas cuando se
    toquen.
 2. `assets/apps/ddjj.png` y `cm03.png` quedan sin uso mientras esas apps no estén en el menú.
-3. Sin tests: si crece `main.py`, extraer lo puro (`_es_mayor`, `_parse_version_txt`,
-   `_mayor_disponible`, `_actualizar_app_core` sin red) a un módulo testeable.
+3. Tests mínimos (sólo avance en el ícono): si crece `main.py`, extraer lo puro
+   (`_es_mayor`, `_parse_version_txt`, `_mayor_disponible`) a un módulo testeable.
+4. El avance en el ícono está sólo en las tarjetas del Panel; la página Actualizaciones
+   sigue con el logo fijo (podría usar el mismo `IconoProgreso`).
 
 ---
 
@@ -198,7 +215,11 @@ el Conciliador ya vivía en el schema `conciliador`. RLS activo con la cuenta co
   grandes, además bump `version.py` y tag `vX.Y.Z` (el pill de versión del pie lo muestra).
 - **Verificar la UI:** `python -c` con `QApplication` + `Launcher()`; en pantalla
   (`w.show()`, `processEvents` unos segundos para que corran los chequeos, `w.grab().save()`)
-  se ve con fuentes; `QT_QPA_PLATFORM=offscreen` sirve para lógica pero dibuja cuadraditos.
+  se ve con fuentes; `QT_QPA_PLATFORM=offscreen` sirve para lógica y, con
+  `QT_QPA_FONTDIR=C:/Windows/Fonts`, también dibuja bien las fuentes. Antes de construir
+  `Launcher()` en una prueba, anular `Launcher._auto_update_suite` (hace fetch + `reset
+  --hard` del propio repo), `credenciales`, `_Chequeador.correr` y `_BackupsLoader.correr`;
+  el avance de los íconos se simula llamando `_on_etapa(key, etapa)` / `_on_una_lista(...)`.
   `w._nav_panel.click()` / `w._nav_upd.click()` cambian de página.
 - **Agregar una app:** entrada en `config.APPS` (`key`, `nombre`, `emoji`, `mono`, `desc`,
   `color`, `env_dir`, `dir`, `entradas`, `version_file`, `repo`) → `python
