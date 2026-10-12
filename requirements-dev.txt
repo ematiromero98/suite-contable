@@ -1,3 +1,6 @@
 # Dependencias sólo de desarrollo (no las necesita el launcher en runtime).
 # Pillow: la usa `generar_icono.py` para regenerar assets/suite.ico.
 Pillow
+# pytest + pyflakes: tests/ (python -m pytest -q) y chequeo estático.
+pytest
+pyflakes
