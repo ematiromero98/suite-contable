@@ -414,8 +414,8 @@ PROYECTOS = {
                      "(BBVA, Excel o PDF): cruza los movimientos, propone el asiento "
                      "de gastos bancarios y arma el cuadro de conciliación saldo-a-saldo "
                      "estilo Reconcile de QuickBooks.",
-        "stack": "Python + PyQt6. Supabase propio (sin RLS) por REST con anon key "
-                 "embebida. pandas / pdfplumber (lee Tango y BBVA) · openpyxl / reportlab "
+        "stack": "Python + PyQt6. Base compartida (schema conciliador) por REST, con "
+                 "login de la cuenta del estudio y RLS. pandas / pdfplumber (lee Tango y BBVA) · openpyxl / reportlab "
                  "(export Excel y PDF).",
         "entrypoint": "run.bat → python main.py",
         "datos": SUPA_CONCILIADOR + " · conciliacion, movimiento, asiento, asiento_linea",
