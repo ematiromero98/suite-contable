@@ -500,14 +500,25 @@ def _abrir(app, parent):
                              f"No pude abrir {app['nombre']}:\n{e}")
 
 
-def _instalar_app(app, parent, avisar=None):
+def _instalar_app_core(app, avisar=None):
     """Clona una app que falta usando el token del runtime (sin depender de `gh`).
-    Bloquea un momento. Devuelve (estado, detalle) para el ícono de la tarjeta:
-    'instalada' / 'error' / 'nada' (no hizo nada: ya estaba o no hay repo)."""
+    SIN interfaz: corre en segundo plano (`_InstallWorker`) y la ventana muestra
+    el resultado con `_mensaje_instalacion`. Mismos pasos de siempre.
+
+    Devuelve (motivo, detalle):
+      'instalada'        — clonó bien
+      'ya_estaba'        — la carpeta ya es un clon del repo oficial
+      'carpeta_ajena'    — la carpeta existe con otra cosa adentro
+      'sin_credenciales' — no hay token del runtime ni `gh`
+      'clone_fallo'      — git/gh clone devolvió error (detalle = stderr)
+      'excepcion'        — algo explotó (detalle = mensaje)
+      'sin_repo'         — la app no tiene repo configurado
+
+    `avisar(etapa)` (opcional) recibe 'clonar' antes del clone: sólo informa."""
     import shutil
     repo, dest = app.get("repo"), app["dir"]
     if not repo:
-        return "nada", ""
+        return "sin_repo", ""
     # Idempotencia: si la carpeta destino ya existe y NO está vacía, `git clone`
     # aborta con "destination path already exists and is not an empty directory".
     # Pasa cuando la app YA se instaló (el card queda viejo hasta reabrir la Suite
@@ -515,20 +526,9 @@ def _instalar_app(app, parent, avisar=None):
     # mostrar ese error críptico, resolvemos con sentido:
     if os.path.isdir(dest) and os.listdir(dest):
         if _remote_oficial(dest, repo):
-            QMessageBox.information(
-                parent, "Ya está instalada",
-                f"{app['nombre']} ya está en:\n{dest}\n\n"
-                "Cerrá y volvé a abrir la Suite para que aparezca «Abrir».")
-            return "nada", ""
-        else:
-            QMessageBox.warning(
-                parent, "La carpeta ya existe",
-                f"La carpeta destino ya existe y tiene archivos que no son un clon "
-                f"de {repo}:\n{dest}\n\n"
-                "Movela o borrala y volvé a tocar «Instalar».")
-        return "error", f"la carpeta destino ya existe y no es un clon de {repo}"
+            return "ya_estaba", dest
+        return "carpeta_ajena", dest
     tok = _token_runtime()
-    parent.setCursor(Qt.CursorShape.WaitCursor)
     _avisar_etapa(avisar, "clonar")
     try:
         os.makedirs(os.path.dirname(dest) or ".", exist_ok=True)
@@ -546,26 +546,83 @@ def _instalar_app(app, parent, avisar=None):
                                capture_output=True, text=True, timeout=300,
                                creationflags=_NO_WINDOW)
         else:
-            parent.unsetCursor()
-            QMessageBox.warning(
-                parent, "Instalar",
-                f"No hay credenciales para bajar {app['nombre']}.\n"
-                "Corré el instalador del estudio (instalar_suite.ps1) en esta PC.")
-            return "error", "no hay credenciales para bajarla (instalar_suite.ps1)"
+            return "sin_credenciales", ""
     except Exception as e:                              # noqa: BLE001
-        parent.unsetCursor()
-        QMessageBox.critical(parent, "Error",
-                             f"No pude instalar {app['nombre']}:\n{e}")
-        return "error", str(e)[:300]
-    parent.unsetCursor()
+        return "excepcion", _sin_token(str(e), tok)[:300]
     if r.returncode != 0:
+        return "clone_fallo", _sin_token(r.stderr or "", tok)[:400]
+    return "instalada", dest
+
+
+def _sin_token(texto, tok):
+    """Nunca mostrar el token (tooltip/mensajes) aunque git lo repita."""
+    return texto.replace(tok, "***") if tok else texto
+
+
+def _resultado_instalacion(app, motivo, detalle):
+    """(estado, detalle) para el ícono a partir del motivo de
+    `_instalar_app_core`. 'nada' = no hubo instalación (el ícono vuelve a
+    reposo)."""
+    if motivo == "instalada":
+        return "instalada", f"instalada en {app['dir']}"
+    if motivo in ("ya_estaba", "sin_repo"):
+        return "nada", ""
+    if motivo == "carpeta_ajena":
+        return "error", ("la carpeta destino ya existe y no es un clon de "
+                         f"{app.get('repo')}")
+    if motivo == "sin_credenciales":
+        return "error", "no hay credenciales para bajarla (instalar_suite.ps1)"
+    return "error", (detalle or "").strip()[:300]
+
+
+def _mensaje_instalacion(parent, app, motivo, detalle):
+    """Los mismos avisos de siempre al terminar «Instalar» (sólo muestra)."""
+    repo, dest = app.get("repo"), app["dir"]
+    if motivo == "ya_estaba":
+        QMessageBox.information(
+            parent, "Ya está instalada",
+            f"{app['nombre']} ya está en:\n{dest}\n\n"
+            "Cerrá y volvé a abrir la Suite para que aparezca «Abrir».")
+    elif motivo == "carpeta_ajena":
+        QMessageBox.warning(
+            parent, "La carpeta ya existe",
+            f"La carpeta destino ya existe y tiene archivos que no son un clon "
+            f"de {repo}:\n{dest}\n\n"
+            "Movela o borrala y volvé a tocar «Instalar».")
+    elif motivo == "sin_credenciales":
+        QMessageBox.warning(
+            parent, "Instalar",
+            f"No hay credenciales para bajar {app['nombre']}.\n"
+            "Corré el instalador del estudio (instalar_suite.ps1) en esta PC.")
+    elif motivo == "excepcion":
         QMessageBox.critical(parent, "Error",
-                             f"No pude clonar {app['nombre']}:\n{(r.stderr or '')[:400]}")
-        return "error", (r.stderr or "").strip()[:300]
-    QMessageBox.information(
-        parent, "Instalado",
-        f"{app['nombre']} se instaló en:\n{dest}\n\nReabrí la Suite para usarla.")
-    return "instalada", f"instalada en {dest}"
+                             f"No pude instalar {app['nombre']}:\n{detalle}")
+    elif motivo == "clone_fallo":
+        QMessageBox.critical(parent, "Error",
+                             f"No pude clonar {app['nombre']}:\n{detalle}")
+    elif motivo == "instalada":
+        QMessageBox.information(
+            parent, "Instalado",
+            f"{app['nombre']} se instaló en:\n{dest}\n\nReabrí la Suite para usarla.")
+
+
+class _InstallWorker(QObject):
+    """Instala UNA app en segundo plano (el clone bloquea; antes congelaba la
+    ventana). Mismo mecanismo de hilos que `_UpdateAllWorker`."""
+    etapa = pyqtSignal(str, str)        # (key, etapa) para el ícono
+    listo = pyqtSignal(str, str, str)   # (key, motivo, detalle)
+
+    def start(self, app):
+        key = app["key"]
+
+        def _run():
+            try:
+                motivo, detalle = _instalar_app_core(
+                    app, lambda e: self.etapa.emit(key, e))
+            except Exception as e:                      # noqa: BLE001
+                motivo, detalle = "excepcion", str(e)[:300]
+            self.listo.emit(key, motivo, detalle)
+        threading.Thread(target=_run, daemon=True).start()
 
 
 def _leer_token_env(dir_):
@@ -871,6 +928,9 @@ class Launcher(QWidget):
         self._tick_iconos = QTimer(self)
         self._tick_iconos.setInterval(60)
         self._tick_iconos.timeout.connect(self._refrescar_iconos)
+        self._iconos_upd = {}     # key -> IconoProgreso de la fila en Actualizaciones
+        self._finales = {}        # key -> (estado, detalle) del último resultado
+        self._inst_workers = {}   # key -> _InstallWorker en curso
         ico = os.path.join(_BASE, "assets", "suite.ico")
         if os.path.isfile(ico):
             self.setWindowIcon(QIcon(ico))
@@ -1197,6 +1257,7 @@ class Launcher(QWidget):
         btn.setEnabled(not falta)
         r2.addWidget(btn, stretch=1)
 
+        btn_inst = None
         if falta:
             btn_inst = QPushButton("⬇  Instalar")
             btn_inst.setObjectName("ghost")
@@ -1215,7 +1276,7 @@ class Launcher(QWidget):
 
         self._cards[app["key"]] = {"lbl": lbl_update, "nombre": nombre,
                                    "btn": btn_upd, "app": app, "pill": pill,
-                                   "icono": tile}
+                                   "icono": tile, "btn_inst": btn_inst}
         return card
 
     # ---------------------------------------------------------------- pág. updates
@@ -1248,6 +1309,7 @@ class Launcher(QWidget):
 
     def _rebuild_updates_page(self):
         self._clear_layout(self._upd_layout)
+        self._iconos_upd = {}
         pend = [a for a in config.APPS if a["key"] in self._pendientes]
         if not pend:
             msg = QLabel("✓  Todo al día. No hay actualizaciones pendientes.")
@@ -1285,7 +1347,10 @@ class Launcher(QWidget):
             rh = QHBoxLayout(row)
             rh.setContentsMargins(14, 12, 14, 12)
             rh.setSpacing(13)
-            tile = _tile_app(app, 40, 11, 22)
+            tile = _icono_app(app, 40, 11)
+            if hasattr(tile, "avanzar"):
+                self._iconos_upd[app["key"]] = tile
+                self._aplicar_estado(tile, app["key"], animar=False)
             rh.addWidget(tile)
             col = QVBoxLayout()
             col.setSpacing(2)
@@ -1778,21 +1843,39 @@ class Launcher(QWidget):
             self._iniciar_update([app])
 
     # ------------------------------------------------- avance en el ícono (#082)
-    def _icono(self, key):
-        """IconoProgreso de la tarjeta de `key` (None si es el tile fijo)."""
+    def _iconos(self, key):
+        """IconoProgreso de `key`: el de su tarjeta del Panel y, si está a la
+        vista, el de su fila en «Actualizaciones» (los tiles fijos se omiten)."""
         c = self._cards.get(key)
-        ic = c.get("icono") if c else None
-        return ic if (ic is not None and hasattr(ic, "avanzar")) else None
+        cand = [c.get("icono") if c else None, self._iconos_upd.get(key)]
+        return [ic for ic in cand if ic is not None and hasattr(ic, "avanzar")]
 
-    def _on_etapa(self, key, etapa):
-        """El worker avisa que `key` entró en una etapa (cola/fetch/merge/…)."""
-        self._seguidor.etapa(key, etapa)
-        ic = self._icono(key)
-        if ic is not None:
+    def _aplicar_estado(self, ic, key, animar=True):
+        """Lleva un ícono al estado actual de `key` (sirve para las filas de
+        «Actualizaciones», que se reconstruyen en cualquier momento)."""
+        etapa = self._seguidor.etapa_de(key)
+        if etapa not in (None, "listo"):
             if etapa == "cola":
                 ic.en_cola()
             else:
-                ic.avanzar(self._seguidor.avance(key), _leyenda_etapa(etapa))
+                ic.avanzar(self._seguidor.avance(key), _leyenda_etapa(etapa),
+                           animar=animar)
+        elif key in self._finales:
+            estado, detalle = self._finales[key]
+            tipo, texto = _final(estado)
+            if tipo == "error":
+                ic.fallar(detalle, texto)
+            else:
+                ic.terminar(texto, aviso=(tipo == "aviso"), detalle=detalle)
+        else:
+            ic.reposo()
+
+    def _on_etapa(self, key, etapa):
+        """Un worker avisa que `key` entró en una etapa (cola/fetch/merge/…)."""
+        self._seguidor.etapa(key, etapa)
+        self._finales.pop(key, None)
+        for ic in self._iconos(key):
+            self._aplicar_estado(ic, key)
         if not self._tick_iconos.isActive():
             self._tick_iconos.start()
 
@@ -1802,48 +1885,48 @@ class Launcher(QWidget):
         for key in activas:
             if self._seguidor.etapa_de(key) == "cola":
                 continue
-            ic = self._icono(key)
-            if ic is not None:
+            for ic in self._iconos(key):
                 ic.avanzar(self._seguidor.avance(key), animar=False)
         if not activas:
             self._tick_iconos.stop()
 
     def _on_una_lista(self, key, estado, detalle):
-        """Terminó UNA app (ok/aviso/error/saltada): ✓ con rebote o rojo."""
-        self._seguidor.terminar(key)
-        ic = self._icono(key)
-        if ic is None:
-            return
-        tipo, texto = _final(estado)
-        if tipo == "error":
-            ic.fallar(detalle, texto)
-        else:
-            ic.terminar(texto, aviso=(tipo == "aviso"), detalle=detalle)
-
-    def _instalar_desde_tarjeta(self, app):
-        """«⬇ Instalar» de la tarjeta. `_instalar_app` bloquea (como siempre):
-        el ícono muestra «descargando…» mientras clona y el resultado al final."""
-        key = app["key"]
-        estado, detalle = _instalar_app(
-            app, self, avisar=lambda e: self._on_etapa_bloqueante(key, e))
-        self._tick_iconos.stop()
+        """Terminó UNA app (ok/aviso/error/saltada/instalada): ✓ con rebote o
+        rojo. 'nada' = no pasó nada, el ícono vuelve a reposo."""
         if estado == "nada":
             self._seguidor.olvidar(key)
-            ic = self._icono(key)
-            if ic is not None:
-                ic.reposo()
-            return
-        self._on_una_lista(key, estado, detalle)
+            self._finales.pop(key, None)
+        else:
+            self._seguidor.terminar(key)
+            self._finales[key] = (estado, detalle)
+        for ic in self._iconos(key):
+            self._aplicar_estado(ic, key)
 
-    def _on_etapa_bloqueante(self, key, etapa):
-        """Como `_on_etapa`, pero pinta YA (el clone que sigue bloquea el hilo
-        de la interfaz)."""
-        self._on_etapa(key, etapa)
-        ic = self._icono(key)
-        if ic is not None:
-            ic.avanzar(max(self._seguidor.avance(key), 0.05), animar=False)
-            ic.repaint()
-        QApplication.processEvents()
+    def _instalar_desde_tarjeta(self, app):
+        """«⬇ Instalar» de la tarjeta: clona en segundo plano (la ventana no se
+        congela) y el ícono avanza por etapas; al final, los avisos de siempre."""
+        key = app["key"]
+        if key in self._inst_workers:
+            return                                  # ya se está instalando
+        card = self._cards.get(key) or {}
+        if card.get("btn_inst") is not None:
+            card["btn_inst"].setEnabled(False)
+        w = _InstallWorker()
+        w.etapa.connect(self._on_etapa)
+        w.listo.connect(self._on_instalada)
+        self._inst_workers[key] = w
+        self._on_etapa(key, "cola")                 # velo completo hasta clonar
+        w.start(app)
+
+    def _on_instalada(self, key, motivo, detalle):
+        self._inst_workers.pop(key, None)
+        card = self._cards.get(key) or {}
+        if card.get("btn_inst") is not None:
+            card["btn_inst"].setEnabled(True)
+        app = card.get("app") or next(a for a in config.APPS if a["key"] == key)
+        estado, det = _resultado_instalacion(app, motivo, detalle)
+        self._on_una_lista(key, estado, det)
+        _mensaje_instalacion(self, app, motivo, detalle)
 
     def _iniciar_update(self, apps):
         self._btn_upd_all.setEnabled(False)

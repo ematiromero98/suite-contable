@@ -23,6 +23,12 @@ from PyQt6.QtGui import (QPainter, QPainterPath, QColor, QFont, QPen,
                          QFontMetrics, QPixmap)
 from PyQt6.QtWidgets import QWidget
 
+from ui.avance import ETAPAS, FINALES
+
+# Todas las leyendas posibles: el ancho del widget se calcula con la más larga,
+# así ninguna queda cortada ni justa.
+LEYENDAS = tuple({e[2] for e in ETAPAS.values()} | {f[1] for f in FINALES.values()})
+
 # Paleta del launcher (Panel Oscuro + menta).
 _BG = "#0f1218"
 _PANEL = "#171c26"
@@ -48,7 +54,7 @@ class IconoProgreso(QWidget):
     leyenda  si True, reserva una línea de texto debajo del ícono."""
 
     def __init__(self, pixmap=None, lado=44, radio=13, color=_MENTA, mono="",
-                 leyenda=True, parent=None):
+                 leyenda=True, leyendas=LEYENDAS, parent=None):
         super().__init__(parent)
         self._pm = pixmap if (pixmap is not None and not pixmap.isNull()) else None
         self._lado = int(lado)
@@ -69,9 +75,16 @@ class IconoProgreso(QWidget):
         self._anim_check.setDuration(460)
         self._anim_check.setEasingCurve(QEasingCurve.Type.OutBack)
 
-        ancho = max(self._lado + 12, 72) if self._con_leyenda else self._lado + 12
-        alto = self._lado + 8 + (18 if self._con_leyenda else 0)
-        self.setFixedSize(ancho, alto)
+        # Ancho = el del ícono o el de la leyenda más larga (en negrita, la
+        # variante más ancha) + aire a los costados, lo que sea mayor.
+        fm_ley = QFontMetrics(self._fuente_leyenda(negrita=True))
+        ancho = self._lado + 12
+        alto = self._lado + 8
+        if self._con_leyenda:
+            ancho = max(ancho, max((fm_ley.horizontalAdvance(t) for t in leyendas),
+                                   default=0) + 24)
+            alto += fm_ley.height() + 6
+        self.setFixedSize(int(ancho), int(alto))
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
     # ------------------------------------------------------------ propiedades
@@ -169,6 +182,29 @@ class IconoProgreso(QWidget):
         self._anim_check.start()
         self.update()
 
+    # ------------------------------------------------------------------ fuentes
+    def _fuente_pct(self):
+        f = QFont("Segoe UI")
+        f.setPixelSize(max(9, min(12, int(self._lado * 0.23))))
+        f.setWeight(QFont.Weight.DemiBold)
+        return f
+
+    @staticmethod
+    def _fuente_leyenda(negrita=False):
+        f = QFont("Segoe UI")
+        f.setPixelSize(10)
+        f.setWeight(QFont.Weight.DemiBold if negrita else QFont.Weight.Normal)
+        return f
+
+    def rect_pastilla(self):
+        """Rectángulo de la pastilla del %: ancho fijo (el de «100%») para que
+        no salte al cambiar de cifra; nunca más ancho que el ícono."""
+        fm = QFontMetrics(self._fuente_pct())
+        r = self._rect_icono()
+        pw = min(fm.horizontalAdvance("100%") + 12, r.width() - 4)
+        ph = fm.height() + 4
+        return QRectF(r.center().x() - pw / 2, r.center().y() - ph / 2, pw, ph)
+
     # --------------------------------------------------------------- geometría
     def _rect_icono(self):
         x = (self.width() - self._lado) / 2.0
@@ -215,22 +251,17 @@ class IconoProgreso(QWidget):
 
         # 3) % encima del ícono.
         if self._estado == PROGRESO:
-            f = QFont("Segoe UI")
-            f.setPixelSize(max(9, int(self._lado * 0.25)))
-            f.setWeight(QFont.Weight.DemiBold)
-            p.setFont(f)
+            p.setFont(self._fuente_pct())
             txt = f"{int(round(self._avance * 100))}%"
             # Pastilla oscura detrás del %: el logo trae su monograma y sin
             # esto los dos textos se pisan en la parte ya revelada.
-            fm = QFontMetrics(f)
-            pw, ph = fm.horizontalAdvance(txt) + 8, fm.height() + 2
-            pastilla = QRectF(r.center().x() - pw / 2, r.center().y() - ph / 2,
-                              pw, ph)
+            pastilla = self.rect_pastilla()
+            ph = pastilla.height()
             p.setPen(Qt.PenStyle.NoPen)
-            p.setBrush(QColor(15, 18, 24, 210))
+            p.setBrush(QColor(15, 18, 24, 215))
             p.drawRoundedRect(pastilla, ph / 2, ph / 2)
             p.setPen(QColor(_TEXT))
-            p.drawText(r, Qt.AlignmentFlag.AlignCenter, txt)
+            p.drawText(pastilla, Qt.AlignmentFlag.AlignCenter, txt)
 
         # 4) Borde rojo si falló.
         if self._estado == ERROR:
@@ -248,13 +279,11 @@ class IconoProgreso(QWidget):
         # 6) Leyenda debajo.
         if self._con_leyenda and self._texto:
             colores = {OK: _MENTA, AVISO: _WARN, ERROR: _BAD}
-            f = QFont("Segoe UI")
-            f.setPixelSize(9)
-            f.setWeight(QFont.Weight.DemiBold if self._estado in colores
-                        else QFont.Weight.Normal)
+            f = self._fuente_leyenda(negrita=self._estado in colores)
             p.setFont(f)
             p.setPen(QColor(colores.get(self._estado, _MUTED)))
-            caja = QRectF(0, r.bottom() + 4, self.width(), 14)
+            caja = QRectF(0, r.bottom() + 5, self.width(),
+                          QFontMetrics(f).height() + 2)
             txt = QFontMetrics(f).elidedText(self._texto,
                                              Qt.TextElideMode.ElideRight,
                                              self.width())

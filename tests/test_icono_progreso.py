@@ -143,3 +143,115 @@ def test_icono_app_usa_widget_de_progreso(qapp):
     app = dict(main.config.APPS[0])
     w = main._icono_app(app, 44, 13)
     assert hasattr(w, "avanzar")
+
+
+# ------------------------------------------------ tamaños (nada cortado/justo)
+def test_leyendas_y_pastilla_entran_con_aire(qapp):
+    from PyQt6.QtGui import QFontMetrics
+    from ui.icono_progreso import IconoProgreso, LEYENDAS
+    assert "dependencias…" in LEYENDAS and "actualizada" in LEYENDAS
+    for lado in (40, 44):
+        w = IconoProgreso(_logo(lado), lado=lado, radio=12)
+        fm = QFontMetrics(w._fuente_leyenda(negrita=True))
+        for t in LEYENDAS:
+            assert fm.horizontalAdvance(t) + 12 <= w.width(), (lado, t)
+        past = w.rect_pastilla()
+        fp = QFontMetrics(w._fuente_pct())
+        assert fp.horizontalAdvance("100%") + 8 <= past.width()
+        assert w._rect_icono().contains(past)
+
+
+# --------------------------------------------- instalar (git/gh SIMULADOS)
+def _app_tmp(tmp_path):
+    return {"key": "demo", "nombre": "Demo", "repo": "x/demo",
+            "dir": str(tmp_path / "demo")}
+
+
+def test_instalar_core_ok_avisa_clonar_y_limpia_token(qapp, tmp_path, monkeypatch):
+    import main
+    llamadas = []
+    monkeypatch.setattr(main, "_token_runtime", lambda: "TOKEN-FALSO")
+    monkeypatch.setattr(main, "_git", lambda d, a, timeout=0: llamadas.append(a)
+                        or types.SimpleNamespace(returncode=0, stdout="", stderr=""))
+    monkeypatch.setattr(main.subprocess, "run", lambda cmd, **k: (
+        llamadas.append(cmd[:2]),
+        types.SimpleNamespace(returncode=0, stdout="", stderr=""))[1])
+    etapas = []
+    motivo, det = main._instalar_app_core(_app_tmp(tmp_path), etapas.append)
+    assert (motivo, etapas) == ("instalada", ["clonar"])
+    assert ["git", "clone"] in llamadas
+    assert any(a[:2] == ["remote", "set-url"] for a in llamadas if len(a) > 1)
+    assert main._resultado_instalacion(_app_tmp(tmp_path), motivo, det)[0] == "instalada"
+
+
+def test_instalar_core_error_no_filtra_token(qapp, tmp_path, monkeypatch):
+    import main
+    monkeypatch.setattr(main, "_token_runtime", lambda: "TOKEN-FALSO")
+    monkeypatch.setattr(main.subprocess, "run", lambda cmd, **k: types.SimpleNamespace(
+        returncode=128, stdout="", stderr="fatal: https://TOKEN-FALSO@github.com/x no"))
+    motivo, det = main._instalar_app_core(_app_tmp(tmp_path))
+    assert motivo == "clone_fallo" and "TOKEN-FALSO" not in det and "***" in det
+    est, d2 = main._resultado_instalacion(_app_tmp(tmp_path), motivo, det)
+    assert est == "error" and "TOKEN-FALSO" not in d2
+
+
+def test_instalar_core_sin_credenciales_y_carpeta_ocupada(qapp, tmp_path, monkeypatch):
+    import main
+    monkeypatch.setattr(main, "_token_runtime", lambda: None)
+    monkeypatch.setattr("shutil.which", lambda _n: None)
+    assert main._instalar_app_core(_app_tmp(tmp_path))[0] == "sin_credenciales"
+    dest = tmp_path / "demo"
+    dest.mkdir()
+    (dest / "algo.txt").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(main, "_remote_oficial", lambda d, r: False)
+    assert main._instalar_app_core(_app_tmp(tmp_path))[0] == "carpeta_ajena"
+    monkeypatch.setattr(main, "_remote_oficial", lambda d, r: True)
+    assert main._instalar_app_core(_app_tmp(tmp_path))[0] == "ya_estaba"
+    assert main._resultado_instalacion(_app_tmp(tmp_path), "ya_estaba", "")[0] == "nada"
+
+
+def test_install_worker_corre_en_otro_hilo_y_emite(qapp, monkeypatch):
+    import threading as th
+    import main
+    hilos = []
+
+    def core(app, avisar):
+        hilos.append(th.current_thread() is th.main_thread())
+        avisar("clonar")
+        return "instalada", app["dir"]
+
+    monkeypatch.setattr(main, "_instalar_app_core", core)
+    w = main._InstallWorker()
+    etapas, fin = [], []
+    w.etapa.connect(lambda k, e: etapas.append((k, e)))
+    w.listo.connect(lambda k, m, d: fin.append((k, m)))
+    w.start({"key": "demo", "dir": "X"})
+    for _ in range(50):
+        if fin:
+            break
+        _esperar(20)
+    assert hilos == [False]                       # no corrió en el hilo de la UI
+    assert etapas == [("demo", "clonar")] and fin == [("demo", "instalada")]
+
+
+# ------------------------------- Launcher: tarjeta + fila de Actualizaciones
+def test_launcher_tarjeta_y_fila_de_actualizaciones(qapp, monkeypatch):
+    import main
+    monkeypatch.setattr(main.Launcher, "_auto_update_suite", staticmethod(lambda: None))
+    monkeypatch.setattr(main, "credenciales", None)
+    monkeypatch.setattr(main._Chequeador, "correr", lambda self, apps: None)
+    monkeypatch.setattr(main._BackupsLoader, "correr", lambda self, limit=200: None)
+    w = main.Launcher()
+    key = main.config.APPS[0]["key"]
+    w._pendientes[key] = "9.9.9"
+    w._rebuild_updates_page()
+    assert len(w._iconos(key)) == 2               # tarjeta + fila
+    w._on_etapa(key, "fetch")
+    assert all(ic.estado == "progreso" for ic in w._iconos(key))
+    w._rebuild_updates_page()                     # la fila nueva retoma el estado
+    assert all(ic.estado == "progreso" for ic in w._iconos(key))
+    w._on_una_lista(key, "error", "fatal: sin red")
+    assert all(ic.estado == "error" for ic in w._iconos(key))
+    w._on_una_lista(key, "nada", "")
+    assert all(ic.estado == "reposo" for ic in w._iconos(key))
+    w.close()

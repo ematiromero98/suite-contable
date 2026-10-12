@@ -101,8 +101,8 @@ siguen existiendo por si vuelven.
   `backup-local-<ts>` + stash + `reset --hard`. Después `pip install -r requirements.txt` en el
   `.venv` de la app con el **Python real** (`_python_base`, nunca el stub de la Microsoft
   Store). Devuelve ok / aviso / saltada / error con detalle.
-- **Actualización en el ícono** (#082 de Lucian UX/UI Prompt, MIT): el logo de cada tarjeta
-  del Panel es un `ui/icono_progreso.IconoProgreso` (QPainter): mientras la app se instala o
+- **Actualización en el ícono** (v1.34.0, #082 de Lucian UX/UI Prompt, MIT): el logo de
+  cada tarjeta del Panel y de cada fila de «Actualizaciones» es un `ui/icono_progreso.IconoProgreso` (QPainter): mientras la app se instala o
   actualiza, un velo oscuro se retira en sentido horario (`drawPie`) con el % encima; al
   terminar, ✓ menta con rebote (`QPropertyAnimation` OutBack) y la leyenda pasa a
   «actualizada»; ámbar «!» si quedó con aviso; borde/indicador rojo + tooltip con el motivo
@@ -112,10 +112,18 @@ siguen existiendo por si vuelven.
   cola 0 · fetch 2-40 · merge 40-50 · venv 50-60 · pip 60-97 · clonar 3-90 · listo 100.
   Dentro del tramo avanza con 1−e^(−t/τ) (nunca llega al techo hasta que la etapa siguiente
   lo confirma) y es monótono. «Actualizar todo» sigue yendo **de a una** (`_UpdateAllWorker`):
-  las demás muestran «en cola» con el velo completo. «⬇ Instalar» sigue siendo bloqueante:
-  el ícono queda en «descargando…» durante el clone y muestra el resultado al final.
-- **Instalar** (`_instalar_app`): `gh repo clone` (o con token) en `app["dir"]`, crea venv y
-  deps; devuelve `(estado, detalle)` para el ícono. **Abrir** (`_abrir`): primer archivo de `entradas` que exista (`run.bat`, `main.py`…).
+  las demás muestran «en cola» con el velo completo. El ancho del ícono sale de la leyenda
+  más larga (`LEYENDAS`), así nada queda cortado. Las filas de «Actualizaciones» se
+  reconstruyen seguido: `_aplicar_estado` las pone al día con `SeguidorAvance` +
+  `_finales`.
+- **Instalar** (desde v1.34.0 en segundo plano, la ventana no se congela):
+  `_InstallWorker` (mismo esquema de hilo + señales que `_UpdateAllWorker`) corre
+  `_instalar_app_core` = clone con token del runtime (o `gh repo clone`) en `app["dir"]` y
+  deja el origin sin token. No crea venv ni deps (eso pasa en la primera actualización).
+  Devuelve un motivo (`instalada`/`ya_estaba`/`carpeta_ajena`/`sin_credenciales`/
+  `clone_fallo`/`excepcion`); `_resultado_instalacion` lo pasa al ícono y
+  `_mensaje_instalacion` muestra los mismos avisos de siempre. El token se tapa (`***`) en
+  cualquier mensaje. **Abrir** (`_abrir`): primer archivo de `entradas` que exista (`run.bat`, `main.py`…).
 - **Credenciales** (`credenciales.py`): `traer()` → primero `traer_github()` (clona/actualiza
   `suite-secretos` con `gh`/token, copia `.env` a `env_central()` =
   `%LOCALAPPDATA%\Suite Contable\.env`, lo **distribuye** a las apps que lo leen
@@ -204,8 +212,6 @@ el Conciliador ya vivía en el schema `conciliador`. RLS activo con la cuenta co
 2. `assets/apps/ddjj.png` y `cm03.png` quedan sin uso mientras esas apps no estén en el menú.
 3. Tests mínimos (sólo avance en el ícono): si crece `main.py`, extraer lo puro
    (`_es_mayor`, `_parse_version_txt`, `_mayor_disponible`) a un módulo testeable.
-4. El avance en el ícono está sólo en las tarjetas del Panel; la página Actualizaciones
-   sigue con el logo fijo (podría usar el mismo `IconoProgreso`).
 
 ---
 
