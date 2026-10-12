@@ -25,8 +25,9 @@ diseño/porqué de la separación en repos, ver [ARQUITECTURA.md](ARQUITECTURA.m
 > **Impuestos** reemplaza a **DDJJ Impuestos** (`ddjj-impuestos`) y a **CM03**
 > (`cm03-convenio-multilateral`) en el menú (sep-2026). Esos repos siguen vivos.
 
-La mayoría comparte la **misma base Supabase**; Cobranzas, Employee (con
-Calendario de Ausencias), Depósito y Conciliador Bancario tienen la suya. El ERP
+La mayoría comparte la **misma base Supabase** (el Conciliador Bancario, RR.HH.
+—Employee + Calendario de Ausencias— y Chermisqui, cada uno en su schema);
+Cobranzas y Depósito tienen la suya. El ERP
 es público **a propósito**:
 así se instala sin credenciales. Por eso las claves **nunca** van en el código
 del ERP.

@@ -25,8 +25,9 @@ están separados, y cómo funcionan la **instalación** y la **actualización**.
 
 Son **12 apps** (todas **PyQt6 + Supabase**, salvo los dos **Depósitos**, que usan
 **PySide6**). La mayoría comparte la **misma base de Supabase** (el Conciliador
-Bancario, en su propio schema) —salvo Cobranzas, Employee (con Calendario de
-Ausencias) y Depósito (Avalos + Uniformes), que tienen la suya— y ahí es donde la integración importa: la conciliación de
+Bancario, RR.HH. —Employee Pro + Calendario de Ausencias— y las webs de Chermisqui,
+cada uno en su propio schema) —salvo Cobranzas y Depósito (Avalos + Uniformes), que
+tienen la suya— y ahí es donde la integración importa: la conciliación de
 compras cruza datos de Impuestos y RetencionesPro en la misma base, y
 Contabilidad devenga sobre ella.
 
@@ -35,9 +36,12 @@ Contabilidad devenga sobre ella.
 
 ### Diagrama en vivo
 
-El propio ERP trae dos vistas del ecosistema:
+El propio ERP trae el módulo **🗺️ Arquitectura**, con pestañas: Apps y proyectos,
+Bases de datos (`bases_datos.py`: proyecto Supabase → schemas → apps, con Edge
+Functions, buckets, backup y costo), Conexiones (`conexiones_db.py`), Ecosistema 3D y
+Documentación (estos .md). Las dos vistas principales:
 
-- **🗺️ Arquitectura** (`arquitectura.py`): un diagrama navegable —ERP → 12 apps →
+- **🗺️ Apps y proyectos** (`arquitectura.py`): un diagrama navegable —ERP → 13 apps →
   bases Supabase → sistemas externos (ARCA/OSECAC/Tango/Drive)— con el detalle
   por capas de cada app y su flujo principal animado.
 - **🏙️ Ecosistema 3D** (`assets/ecosistema-3d.html`): la ciudad isométrica de

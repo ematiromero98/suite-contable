@@ -12,8 +12,9 @@
 
 **Suite Contable** es el **launcher/ERP** de MR & Asociados: una ventana PyQt6 (tema «Panel
 Oscuro», sidebar + topbar) que **abre, instala y actualiza** las apps del estudio, trae las
-**credenciales**, muestra el **registro de backups**, y dibuja el ecosistema (Arquitectura,
-Ecosistema 3D, Conexiones DB). No toca datos: cada app vive en su repo.
+**credenciales**, muestra el **registro de backups**, y explica el ecosistema en el módulo
+**🗺 Arquitectura** (pestañas: Apps y proyectos · Bases de datos · Conexiones · Ecosistema 3D ·
+Documentación). No toca datos: cada app vive en su repo.
 
 - **Local:** `D:\suite-contable` (checkout de desarrollo y también la instalación de esta PC).
   Configurable con `SUITE_CONTABLE_DIR`.
@@ -25,8 +26,9 @@ Ecosistema 3D, Conexiones DB). No toca datos: cada app vive en su repo.
   pantalla y capturar, ver §6).
 
 **Páginas del sidebar** (`main.py`, `Launcher`): GENERAL → 🗂 Panel (tarjetas de apps: logo,
-versión, estado, Abrir/Instalar/Actualizar), 🔄 Actualizaciones, 🗺 Arquitectura, 🌐 Ecosistema
-3D, 🗄 Conexiones DB, 💾 Registro de Backups · SISTEMA → ⚙ Ajustes. Topbar: «⟳ Actualizar todo
+versión, estado, Abrir/Instalar/Actualizar), 🔄 Actualizaciones, 🗺 Arquitectura (con
+pestañas internas), 💾 Registro de Backups · SISTEMA → ⚙ Ajustes. Índices del QStackedWidget:
+Panel=0, Actualizaciones=1, Ajustes=2, Arquitectura=3, Backups=4. Topbar: «⟳ Actualizar todo
 (N)» y «🔑 Traer credenciales». Marca del sidebar: logo **SC** azul (`assets/suite.png`).
 
 **Apps registradas hoy (`config.APPS`, 13)** — key · monograma/color · carpeta · repo:
@@ -119,11 +121,16 @@ siguen existiendo por si vuelven.
   ese repo (no lee el `.env` compartido: sus secretos van en `secretos_backup.json` local).
   Necesita su `.venv` y PostgreSQL 17 instalados (ver su INSTALL.md); la tarea programada se
   registra aparte con `PROGRAMAR-AUTOMATICO.bat`.
-- **Arquitectura / Ecosistema 3D / Conexiones DB:** `arquitectura.py` (diagrama con `DATOS`),
-  `assets/ecosistema-3d.html` (ciudad isométrica, arrays `NODES`/`EDGES`),
-  `conexiones_db.py` (`BASES`: las 5 bases y cómo se conecta cada app: login / directo /
-  edge). **Son datos escritos a mano: al cambiar una app hay que editarlos** (al día con
-  las 13 apps del menú desde el 05-10-2026; la vista general se acomoda sola en filas de 4).
+- **Módulo Arquitectura** (`arquitectura.py` → `ModuloArquitectura`, desde oct-2026 junta lo
+  que antes eran 3 entradas del sidebar). Pestañas: **Apps y proyectos** (`PaginaArquitectura`,
+  datos en `PROYECTOS`/`BASES`), **Bases de datos** (`bases_datos.py`, `PROYECTOS_SUPA`:
+  proyecto → schemas → apps, Edge Functions, buckets, backup y costo), **Conexiones**
+  (`conexiones_db.py`, `BASES`: las 5 bases y cómo se conecta cada app: login / SQL directo /
+  Edge Fn / REST key), **Ecosistema 3D** (tarjeta de `main.py` que abre
+  `assets/ecosistema-3d.html`, arrays `NODES`/`EDGES`) y **Documentación** (los .md del repo
+  con `QTextBrowser.setMarkdown`). **Son datos escritos a mano: al cambiar una app o una base
+  hay que editarlos** (al día con las 13 apps del menú y las 5 bases de oct-2026; la vista
+  general se acomoda sola en filas de 4).
 - **Bootstrap desde las apps:** cada app trae `bootstrap_suite.py` que clona la Suite si falta
   (`D:\suite-contable`) y crea el acceso directo. Best-effort.
 - **Instaladores:** `instalar_suite.ps1` («cero logins»: pegar el token de solo lectura, instala
@@ -138,14 +145,18 @@ siguen existiendo por si vuelven.
 
 | Base (Supabase) | Ref | Quién escribe | Cómo |
 |---|---|---|---|
-| ORDENES DE PAGO – BELGRANO (compartida) | `zpwccecovhjmeibxafkg` | RetencionesPro, Impuestos/DDJJ, CM03, Contabilidad, VEP, Facturador, comprobantes-cel, suite-backups | secret key / DB_URL (directo), login, Edge Function |
-| COBRANZAS OSECAC | `rrarmatjyvmrpohsvfzg` | Cobranzas OSECAC (CM03/Impuestos leen) | login con cuenta compartida (RLS) |
-| EMPLOYEE-PRO | `ffczbimnuodzcbgsdxbx` | Employee Pro, Calendario de Ausencias, webs (qb-dashboard, calendario-cel, chermisqui) | login / Edge Function |
-| DEPOSITO AVALOS | `ioycuhefaalpqivhhryb` | Depósito Avalos | login |
-| CONCILIADOR BANCARIO | `qaaxestmwmqmylthnwts` | Conciliador Bancario | login |
+| ORDENES DE PAGO – BELGRANO (compartida) | `zpwccecovhjmeibxafkg` | public: RetencionesPro, Impuestos, Contabilidad, Juicios, VEP, Facturador, Factura Mono, comprobantes-cel, suite-backups · schema `conciliador`: Conciliador Bancario · schema `rrhh`: Employee Pro + Calendario de Ausencias · schema `chermisqui`: qb-dashboard (+ /taxes), chermisqui-control-dias | secret key / DB_URL (directo), login, Edge Function |
+| COBRANZAS OSECAC | `rrarmatjyvmrpohsvfzg` | Cobranzas OSECAC (Impuestos y Contabilidad leen) | login con cuenta compartida (RLS) |
+| DEPOSITO-AVALOS | `ioycuhefaalpqivhhryb` | Depósito Avalos + Depósito Uniformes (u_*), web de comprobantes | login / Edge Function |
+| AME-PAYROLL (us-west-1) | `vswtxuvknxsjfodgviiq` | ame-payroll (public), payroll-platform (schema `app`) — fuera de la Suite | login / directo |
+| casamiento-matilara | `nlnzryrwvbqigqzqkqqf` | Portal Clientes (pc_*), app del casamiento — fuera de la Suite | login / Edge Function |
 
-RLS activo en las 5 con la cuenta compartida `estudio@mrasoc.com`; signups cerrados. Backup
-semanal cifrado de las 5 + Storage: repo `suite-backups` (`RESTORE.md` para restaurar).
+Son **5 proyectos** (org Pro: US$25 + ~US$10/mes de cómputo c/u − US$10 de crédito ≈
+**US$65/mes**). EMPLOYEE-PRO (`ffcz…`) se dio de baja en oct-2026 (mudado al schema `rrhh`);
+el Conciliador ya vivía en el schema `conciliador`. RLS activo con la cuenta compartida
+`estudio@mrasoc.com`; signups cerrados. Backup semanal cifrado + Storage: repo
+`suite-backups` (`RESTORE.md` para restaurar). Detalle visual: módulo Arquitectura → pestaña
+«Bases de datos».
 
 ---
 

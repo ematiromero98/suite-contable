@@ -3,26 +3,34 @@
 arquitectura.py — Módulo "🗺️ Arquitectura" del ERP.
 
 Muestra, DENTRO del launcher, un diagrama navegable y dinámico de:
-  • la Suite completa (el ERP + las 12 apps + las bases Supabase + los sistemas
+  • la Suite completa (el ERP + las 13 apps + las bases Supabase + los sistemas
     externos como ARCA, OSECAC y el Drive), y
   • cada proyecto por separado (capas UI / Lógica / Datos / Integraciones), con
     una explicación en lenguaje simple y el flujo del caso de uso principal
     reproducible paso a paso.
 
+Desde oct-2026 es un módulo con pestañas (ModuloArquitectura, al final): Apps y
+proyectos (esta vista) · Bases de datos (bases_datos.py) · Conexiones
+(conexiones_db.py) · Ecosistema 3D · Documentación (los .md del repo).
+
 Todo se dibuja con QGraphicsView NATIVO (sin dependencias nuevas: el ERP se
 auto-actualiza sin pip). Los datos viven en DATOS, abajo — una sola fuente de
 verdad para el diagrama y el texto. Si cambia una app, se edita acá.
 """
-from PyQt6.QtCore import Qt, QRectF, QTimer, QPointF
+import os
+import sys
+import webbrowser
+
+from PyQt6.QtCore import Qt, QRectF, QTimer
 from PyQt6.QtGui import (
     QColor, QPainter, QPen, QBrush, QFont, QPainterPath, QPixmap, QIcon,
 )
 from PyQt6.QtWidgets import (
     QWidget, QHBoxLayout, QVBoxLayout, QGraphicsView, QGraphicsScene,
-    QGraphicsRectItem, QGraphicsSimpleTextItem, QGraphicsPathItem,
+    QGraphicsSimpleTextItem, QGraphicsTextItem, QGraphicsPathItem,
     QGraphicsPixmapItem,
     QListWidget, QListWidgetItem, QTextBrowser, QPushButton, QLabel, QFrame,
-    QLineEdit,
+    QLineEdit, QStackedWidget, QButtonGroup, QMessageBox,
 )
 
 # ----------------------------------------------------------------- paleta
@@ -77,15 +85,17 @@ def _emoji_icon(emoji, px=18):
 # dibujar su diagrama de capas y explicarlo.
 SUPA_COMPARTIDA = "Supabase «ORDENES DE PAGO» (zpwccecovhjmeibxafkg)"
 SUPA_COBRANZAS = "Supabase Cobranzas (rrarmatjyvmrpohsvfzg)"
-SUPA_EMPLOYEE = "Supabase Employee (ffczbimnuodzcbgsdxbx)"
 SUPA_DEPOSITO = "Supabase Depósito (ioycuhefaalpqivhhryb)"
 SUPA_CONCILIADOR = SUPA_COMPARTIDA + " · schema conciliador"
+# RR.HH. (Employee Pro + Calendario de Ausencias) vive desde oct-2026 en la base
+# compartida, en su propio schema (antes tenía un proyecto Supabase aparte).
+SUPA_RRHH = SUPA_COMPARTIDA + " · schema rrhh"
 
 PROYECTOS = {
     "erp": {
         "nombre": "Suite Contable (ERP)", "emoji": "🖥️", "color": "#3ddc97",
         "proposito": "Es el «menú de inicio» del estudio: una sola ventana desde "
-                     "la que se abren, instalan y actualizan las 12 apps. No toca "
+                     "la que se abren, instalan y actualizan las 13 apps. No toca "
                      "datos; sólo lanza cada programa y lo mantiene al día y con "
                      "sus credenciales puestas.",
         "stack": "Python + PyQt6. Usa git y gh (GitHub CLI) y rclone (Google Drive) "
@@ -94,12 +104,12 @@ PROYECTOS = {
         "datos": "No usa base de datos. Reparte credenciales a las apps.",
         "capas": [
             ("Ventana (PyQt6)", ["main.py — launcher, tarjetas por app, KPIs"]),
-            ("Config", ["config.py — registro de las 12 apps (ruta, repo, versión)"]),
+            ("Config", ["config.py — registro de las 13 apps (ruta, repo, versión)"]),
             ("Servicios", ["credenciales.py — trae el .env, secretos y certs (suite-secretos / Drive)",
                             "release.py — publica versiones", "version.py"]),
             ("Core compartido", ["suite_theme.py — tema visual",
                                    "suite_charts.py — gráficos", "formatos.py — $ y CUIT",
-                                   "arquitectura.py — este módulo"]),
+                                   "arquitectura.py + bases_datos.py + conexiones_db.py — módulo Arquitectura"]),
         ],
         "integraciones": ["git / gh (auto-update y clone)", "GitHub Releases",
                            "suite-secretos (GitHub) o Google Drive vía rclone (credenciales)"],
@@ -248,7 +258,7 @@ PROYECTOS = {
         "stack": "Python + PyQt6. Supabase (SDK oficial) + Storage. reportlab, "
                  "openpyxl, qrcode (captura de fotos por QR).",
         "entrypoint": "python main.py",
-        "datos": SUPA_EMPLOYEE + " · tablas empleados, documentos, vacaciones… · bucket legajos",
+        "datos": SUPA_RRHH + " · tablas empleados, documentos, vacaciones… · bucket legajos",
         "capas": [
             ("UI (PyQt6 · ui/)", ["login.py", "main_window.py", "empleado_form.py",
                                     "documento_form.py", "ficha_dialog.py (Ficha 360)",
@@ -268,7 +278,7 @@ PROYECTOS = {
             "Se registran novedades, vacaciones, EPP y capacitaciones.",
             "Se exporta el legajo completo a PDF / Excel.",
         ],
-        "rel_datos": SUPA_EMPLOYEE,
+        "rel_datos": SUPA_RRHH,
     },
     "juicios": {
         "nombre": "Control de Juicios", "emoji": "⚖️", "color": "#1F4E79",
@@ -437,7 +447,7 @@ PROYECTOS = {
         "stack": "Python + PyQt6. REST PostgREST (requests). Excel (openpyxl) y PDF "
                  "(reportlab). Form móvil en GitHub Pages + Edge Function.",
         "entrypoint": "run.bat → python main.py",
-        "datos": SUPA_EMPLOYEE + " · tablas cal_personas, cal_ausencias, cal_config",
+        "datos": SUPA_RRHH + " · tablas cal_personas, cal_ausencias, cal_config",
         "capas": [
             ("UI (PyQt6)", ["main.py", "ui/timeline.py (wall chart)", "ui/analisis.py"]),
             ("Lógica", ["logic/calendario.py — días hábiles, feriados, solapamientos"]),
@@ -451,7 +461,7 @@ PROYECTOS = {
             "El calendario anual avisa solapamientos dentro de la misma área.",
             "Se exporta el detalle y el resumen por persona a Excel/PDF.",
         ],
-        "rel_datos": SUPA_EMPLOYEE,
+        "rel_datos": SUPA_RRHH,
     },
     "veps": {
         "nombre": "VEP Autónomos", "emoji": "🏛️", "color": "#7D3C98",
@@ -580,7 +590,7 @@ PROYECTOS = {
                      "en el Calendario de Ausencias.",
         "stack": "Un index.html estático en GitHub Pages + Edge Function de Supabase.",
         "entrypoint": "ematiromero98.github.io/calendario-ausencias-cel/",
-        "datos": SUPA_EMPLOYEE + " · Edge Function cal-ausencias · tabla cal_ausencias",
+        "datos": SUPA_RRHH + " · Edge Function cal-ausencias · tabla cal_ausencias",
         "capas": [
             ("Front (GitHub Pages)", ["index.html — elegir persona, tipo y fechas"]),
             ("Edge Function (Deno)", ["cal-ausencias — valida y guarda la solicitud"]),
@@ -594,7 +604,7 @@ PROYECTOS = {
             "La Edge Function guarda la ausencia como pendiente.",
             "El Calendario de Ausencias la muestra para aprobar o rechazar.",
         ],
-        "rel_datos": SUPA_EMPLOYEE,
+        "rel_datos": SUPA_RRHH,
     },
     "deposito_cel": {
         "nombre": "Depósito (Web)", "emoji": "📷", "color": "#A04000",
@@ -656,9 +666,9 @@ EXTERNOS = {
 }
 BASES = {
     "compartida": ("🗄️", "Supabase COMPARTIDA", "zpwccecovhjmeibxafkg",
-                    ["reten", "impuestos", "facturador", "juicios", "contabilidad", "veps", "conciliador"]),
+                    ["reten", "impuestos", "facturador", "juicios", "contabilidad", "veps",
+                     "conciliador", "employee", "ausencias"]),
     "cobranzas": ("🗄️", "Supabase Cobranzas", "rrarmatjyvmrpohsvfzg", ["cobranzas"]),
-    "employee": ("🗄️", "Supabase Employee", "ffczbimnuodzcbgsdxbx", ["employee", "ausencias"]),
     "deposito": ("🗄️", "Supabase Depósito", "ioycuhefaalpqivhhryb", ["deposito", "uniformes"]),
 }
 APPS_ORDEN = ["reten", "impuestos", "cobranzas", "facturador",
@@ -706,6 +716,23 @@ def _texto(scene, x, y, s, color=TXT, size=10, bold=False, w=None):
     f.setBold(bold)
     t.setFont(f)
     t.setBrush(QColor(color))
+    t.setPos(x, y)
+    scene.addItem(t)
+    return t
+
+
+def _parrafo(scene, x, y, s, ancho, color=SUB, size=9, bold=False):
+    """Texto que SÍ hace salto de línea dentro de `ancho` px (QGraphicsTextItem;
+    QGraphicsSimpleTextItem no corta). Devuelve el item; su alto real sale de
+    item.boundingRect().height()."""
+    t = QGraphicsTextItem()
+    f = QFont("Segoe UI", size)
+    f.setBold(bold)
+    t.setFont(f)
+    t.setDefaultTextColor(QColor(color))
+    t.setPlainText(s)
+    t.document().setDocumentMargin(2)
+    t.setTextWidth(ancho)
     t.setPos(x, y)
     scene.addItem(t)
     return t
@@ -905,7 +932,7 @@ class PaginaArquitectura(QWidget):
 
         _label_ico(sc, 40, 12, "🌐", "Suite Contable — MR & Asociados",
                    color=TXT, size=15, bold=True, epx=22)
-        _texto(sc, 40, 44, "Un ERP que abre 12 apps. Tocá cualquier app para ver su detalle.",
+        _texto(sc, 40, 44, "Un ERP que abre 13 apps. Tocá cualquier app para ver su detalle.",
                color=SUB, size=10)
 
         # ERP arriba, centrado
@@ -915,7 +942,7 @@ class PaginaArquitectura(QWidget):
                   "lanza / actualiza / instala")
         erp_bottom = (W / 2, 134)
 
-        # Apps: en filas de 4 (12 apps → 4 + 4 + 4). Lo de abajo se corre según
+        # Apps: en filas de 4 (13 apps → 4 + 4 + 4 + 1). Lo de abajo se corre según
         # cuántas filas haya (dy), así agregar una app nunca pisa las bases.
         aw, ah, gx, gy = 214, 64, 18, 16          # 214: entra «Calendario de Ausencias»
         cols = 4
@@ -936,13 +963,12 @@ class PaginaArquitectura(QWidget):
 
         # Fila de bases (datos)
         by = 352 + dy
-        base_w = {"compartida": 290, "cobranzas": 200, "employee": 200,
-                  "deposito": 210}
+        base_w = {"compartida": 330, "cobranzas": 230, "deposito": 230}
         gapb = 22
         total_b = sum(base_w.values()) + gapb * (len(base_w) - 1)
         bx0 = (W - total_b) / 2
         base_pos, cx = {}, bx0
-        for bk in ("compartida", "cobranzas", "employee", "deposito"):
+        for bk in ("compartida", "cobranzas", "deposito"):
             base_pos[bk] = (cx, by, base_w[bk])
             cx += base_w[bk] + gapb
         for bk, (emoji, nombre, ref, apps) in BASES.items():
@@ -1007,17 +1033,22 @@ class PaginaArquitectura(QWidget):
         <div style='color:{TXT}'>
         <h2 style='color:{MENTA};margin:0 0 6px'>El ERP de un vistazo</h2>
         <p style='color:{SUB};font-size:12px;margin:0 0 12px'>
-        La <b>Suite Contable</b> es el programa que abre y mantiene al día las 12 apps
+        La <b>Suite Contable</b> es el programa que abre y mantiene al día las 13 apps
         del estudio. Cada app guarda sus datos en Supabase (la «nube») y se conecta
         con sistemas externos como ARCA u OSECAC.</p>
         <h3 style='color:{TXT};margin:10px 0 4px'>Las bases de datos</h3>
         <ul style='color:{SUB};font-size:12px;margin:0 0 10px;padding-left:18px'>
         <li><b style='color:#bfe9d5'>Compartida</b>: la usan Órdenes de Pago, Impuestos,
-        Facturador, Juicios, Contabilidad, VEP y el Conciliador Bancario (en su propio
-        schema) — por eso se cruzan datos entre ellas.</li>
-        <li><b style='color:#bfe9d5'>Cobranzas</b>, <b style='color:#bfe9d5'>Employee</b>
-        (con Calendario de Ausencias) y <b style='color:#bfe9d5'>Depósito</b> (Avalos +
-        Uniformes) tienen su propia base, separada.</li></ul>
+        Facturador, Juicios, Contabilidad y VEP (schema <i>public</i>) — por eso se
+        cruzan datos entre ellas. En la misma base, cada uno en su propio
+        <b>schema</b>: el Conciliador Bancario (<i>conciliador</i>), RR.HH. — Employee
+        Pro + Calendario de Ausencias — (<i>rrhh</i>) y las webs de Chermisqui
+        (<i>chermisqui</i>).</li>
+        <li><b style='color:#bfe9d5'>Cobranzas</b> y <b style='color:#bfe9d5'>Depósito</b>
+        (Avalos + Uniformes) siguen con su propia base, separada.</li>
+        <li>Fuera de las 13 apps: <b style='color:#bfe9d5'>Payroll US</b> (AME + Datatech) y
+        <b style='color:#bfe9d5'>Portal Clientes / casamiento</b> son proyectos aparte.
+        Detalle en la pestaña «Bases de datos».</li></ul>
         <h3 style='color:{TXT};margin:10px 0 4px'>Las apps</h3>
         <table style='font-size:12px'>{filas}</table>
         <h3 style='color:{TXT};margin:12px 0 4px'>Webs del celular</h3>
@@ -1139,3 +1170,237 @@ class PaginaArquitectura(QWidget):
         if self._flujo_key:
             self._explicacion_proyecto(self._flujo_key, self._flujo_i)
         self._flujo_i += 1
+
+
+# ======================================================= MÓDULO CON PESTAÑAS
+# El módulo «🗺 Arquitectura» del ERP junta en un solo lugar todo lo que explica
+# cómo está organizada la Suite: apps y proyectos, bases de datos, conexiones,
+# el ecosistema 3D y la documentación (.md del repo). Antes eran 3 entradas
+# separadas en el sidebar (Arquitectura, Ecosistema 3D y Conexiones DB).
+
+_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Documentos del repo que explican la Suite (se listan los que existan).
+DOCS = [
+    ("GUIA.md", "Guía de uso"),
+    ("ARQUITECTURA.md", "Arquitectura del ecosistema"),
+    ("CORE-COMPARTIDO.md", "Core compartido"),
+    ("HANDOFF.md", "Handoff técnico"),
+    ("README.md", "README"),
+]
+
+
+def _placeholder(msg):
+    """Pestaña de reemplazo si un sub-módulo no pudo cargarse."""
+    w = QWidget()
+    w.setStyleSheet(f"background:{BG};")
+    v = QVBoxLayout(w)
+    v.setContentsMargins(24, 22, 24, 18)
+    lbl = QLabel(msg)
+    lbl.setWordWrap(True)
+    lbl.setStyleSheet(f"color:{SUB}; font-size:13px;")
+    v.addWidget(lbl)
+    v.addStretch()
+    return w
+
+
+def abrir_ecosistema(parent=None):
+    """Abre el HTML de la ciudad 3D con el navegador por defecto."""
+    ruta = os.path.join(_DIR, "assets", "ecosistema-3d.html")
+    if not os.path.isfile(ruta):
+        QMessageBox.warning(
+            parent, "Ecosistema 3D",
+            "No encontré el archivo de la visualización:\n" + ruta +
+            "\n\nProbá «⟳ Actualizar todo» para bajarlo con la última "
+            "versión de la Suite.")
+        return
+    try:
+        if sys.platform == "win32":
+            os.startfile(ruta)                         # noqa: S606 (Windows)
+        else:
+            webbrowser.open("file://" + ruta)
+    except Exception as e:                             # noqa: BLE001
+        QMessageBox.critical(parent, "Error", "No pude abrir la visualización:\n" + str(e))
+
+
+def _pagina_ecosistema_simple():
+    """Tarjeta «Ecosistema 3D» autónoma (por si el ERP no pasa la suya)."""
+    w = QWidget()
+    w.setStyleSheet(f"background:{BG};")
+    v = QVBoxLayout(w)
+    v.setContentsMargins(24, 22, 24, 18)
+    card = QFrame()
+    card.setStyleSheet(f"QFrame{{background:{CARD}; border:1px solid {BORDE}; border-radius:12px;}}")
+    cv = QVBoxLayout(card)
+    cv.setContentsMargins(22, 22, 22, 22)
+    t = QLabel("Ciudad 3D de los proyectos")
+    t.setStyleSheet(f"color:{TXT}; font-size:15px; font-weight:700; border:none;")
+    cv.addWidget(t)
+    d = QLabel("Visualización isométrica interactiva de todo el ecosistema. Se abre "
+               "en el navegador.")
+    d.setWordWrap(True)
+    d.setStyleSheet(f"color:{SUB}; font-size:12px; border:none;")
+    cv.addWidget(d)
+    b = QPushButton("🌐  Abrir en el navegador")
+    b.setCursor(Qt.CursorShape.PointingHandCursor)
+    b.setStyleSheet(f"QPushButton{{background:{MENTA}; color:#0b0f14; border:none;"
+                    f"border-radius:9px; padding:9px 16px; font-weight:700;}}")
+    b.clicked.connect(lambda: abrir_ecosistema(w))
+    cv.addWidget(b, 0, Qt.AlignmentFlag.AlignLeft)
+    v.addWidget(card)
+    v.addStretch()
+    return w
+
+
+class PaginaDocumentacion(QWidget):
+    """Selector de los .md del repo + visor (QTextBrowser.setMarkdown)."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet(f"background:{BG};")
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+
+        izq = QVBoxLayout()
+        izq.setContentsMargins(14, 14, 8, 14)
+        izq.setSpacing(8)
+        tit = QLabel("📖  Documentación")
+        tit.setStyleSheet(f"color:{TXT}; font-size:15px; font-weight:800;")
+        izq.addWidget(tit)
+        sub = QLabel("Los documentos del repo que explican la Suite")
+        sub.setWordWrap(True)
+        sub.setStyleSheet(f"color:{SUB}; font-size:11px;")
+        izq.addWidget(sub)
+        self.lista = QListWidget()
+        self.lista.setStyleSheet(
+            f"QListWidget{{background:{CARD2}; border:1px solid {BORDE};"
+            f"border-radius:10px; color:{TXT}; font-size:12px; padding:6px;}}"
+            f"QListWidget::item{{padding:9px 8px; border-radius:7px;}}"
+            f"QListWidget::item:selected{{background:{MENTA}; color:#0b0f14;}}"
+            f"QListWidget::item:hover{{background:#232c39;}}")
+        for archivo, titulo in DOCS:
+            ruta = os.path.join(_DIR, archivo)
+            if os.path.isfile(ruta):
+                it = QListWidgetItem(f"{titulo}\n{archivo}", self.lista)
+                it.setData(32, ruta)
+        self.lista.currentItemChanged.connect(self._on_doc)
+        izq.addWidget(self.lista, stretch=1)
+        cont = QWidget()
+        cont.setLayout(izq)
+        cont.setFixedWidth(250)
+        lay.addWidget(cont)
+
+        self.visor = QTextBrowser()
+        self.visor.setOpenExternalLinks(True)
+        self.visor.setStyleSheet(
+            f"QTextBrowser{{background:{CARD2}; border:none; border-left:1px solid {BORDE};"
+            f"color:{TXT}; font-size:13px; padding:18px 26px;}}")
+        # Estilo oscuro del markdown renderizado (links menta, código legible).
+        self.visor.document().setDefaultStyleSheet(
+            f"a{{color:{MENTA};}} h1,h2,h3{{color:{MENTA};}} "
+            f"code{{color:#bfe9d5;}} pre{{color:#bfe9d5;}} "
+            f"th{{color:{TXT};}} td,th{{padding:3px 6px;}}")
+        lay.addWidget(self.visor, stretch=1)
+        if self.lista.count():
+            self.lista.setCurrentRow(0)
+
+    def _on_doc(self, cur, _prev):
+        if cur is None:
+            return
+        ruta = cur.data(32)
+        try:
+            with open(ruta, encoding="utf-8") as f:
+                self.visor.setMarkdown(f.read())
+        except Exception as e:                         # noqa: BLE001
+            self.visor.setPlainText(f"No pude leer {ruta}:\n{e}")
+
+
+class ModuloArquitectura(QWidget):
+    """Módulo 🗺 Arquitectura del ERP: pestañas internas (botones segmentados).
+
+    `pagina_ecosistema`: el ERP le pasa su tarjeta «Ecosistema 3D» (con el
+    estilo del launcher); si no viene, se arma una versión autónoma."""
+
+    PESTANAS = ["Apps y proyectos", "Bases de datos", "Conexiones",
+                "Ecosistema 3D", "Documentación"]
+
+    def __init__(self, parent=None, pagina_ecosistema=None):
+        super().__init__(parent)
+        # Fondo con selector por objectName: un «background:» suelto se hereda a
+        # TODOS los hijos y pisaría el QSS del launcher (p. ej. el botón «Abrir»
+        # de la tarjeta Ecosistema 3D quedaba sin fondo).
+        self.setObjectName("modArq")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setStyleSheet(f"QWidget#modArq{{background:{BG};}}")
+        v = QVBoxLayout(self)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(0)
+
+        barra = QFrame()
+        barra.setObjectName("arqTabs")
+        barra.setStyleSheet(f"QFrame#arqTabs{{background:{BG}; border:none;"
+                            f"border-bottom:1px solid {BORDE};}}")
+        h = QHBoxLayout(barra)
+        h.setContentsMargins(14, 10, 14, 10)
+        h.setSpacing(0)
+        self.grupo = QButtonGroup(self)
+        self.grupo.setExclusive(True)
+        self.botones = []
+        n = len(self.PESTANAS)
+        for i, nombre in enumerate(self.PESTANAS):
+            b = QPushButton(nombre)
+            b.setCheckable(True)
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            # Segmentado: sólo los extremos van redondeados.
+            r_izq = 9 if i == 0 else 0
+            r_der = 9 if i == n - 1 else 0
+            borde_der = "" if i == n - 1 else "border-right:none;"
+            b.setStyleSheet(
+                f"QPushButton{{background:{CARD2}; color:{SUB}; border:1px solid {BORDE};"
+                f"{borde_der}"
+                f"border-top-left-radius:{r_izq}px; border-bottom-left-radius:{r_izq}px;"
+                f"border-top-right-radius:{r_der}px; border-bottom-right-radius:{r_der}px;"
+                f"padding:7px 18px; font-size:12px; font-weight:600;}}"
+                f"QPushButton:hover{{color:{TXT}; background:#1d2533;}}"
+                f"QPushButton:checked{{background:{MENTA}; color:#0b0f14;}}")
+            self.grupo.addButton(b, i)
+            self.botones.append(b)
+            h.addWidget(b)
+        h.addStretch()
+        v.addWidget(barra)
+
+        self.stack = QStackedWidget()
+        fabricas = [
+            PaginaArquitectura,
+            self._crear_bases,
+            self._crear_conexiones,
+            (lambda: pagina_ecosistema) if pagina_ecosistema is not None
+            else _pagina_ecosistema_simple,
+            PaginaDocumentacion,
+        ]
+        for fab in fabricas:
+            try:
+                w = fab()
+            except Exception as e:                     # noqa: BLE001
+                w = _placeholder(f"Esta pestaña no está disponible en esta versión ({e}).")
+            self.stack.addWidget(w)
+        v.addWidget(self.stack, stretch=1)
+
+        self.grupo.idClicked.connect(self.ir_a)
+        self.ir_a(0)
+
+    @staticmethod
+    def _crear_bases():
+        from bases_datos import PaginaBasesDatos   # perezoso: evita import circular
+        return PaginaBasesDatos()
+
+    @staticmethod
+    def _crear_conexiones():
+        from conexiones_db import PaginaConexionesDB
+        return PaginaConexionesDB()
+
+    def ir_a(self, i):
+        """Muestra la pestaña i (0 = Apps y proyectos … 4 = Documentación)."""
+        self.botones[i].setChecked(True)
+        self.stack.setCurrentIndex(i)

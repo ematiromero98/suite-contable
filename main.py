@@ -41,18 +41,13 @@ try:
 except Exception:                                          # noqa: BLE001
     credenciales = None
 
-# Módulo "Arquitectura" (diagramas del ERP). Import defensivo: si fallara, el
-# ERP abre igual y sólo se omite esa página.
+# Módulo "Arquitectura" (apps y proyectos, bases de datos, conexiones, ecosistema
+# 3D y documentación, en pestañas). Import defensivo: si fallara, el ERP abre
+# igual y sólo se omite esa página.
 try:
-    from arquitectura import PaginaArquitectura
+    from arquitectura import ModuloArquitectura as PaginaArquitectura
 except Exception:                                          # noqa: BLE001
     PaginaArquitectura = None
-
-# Módulo "Conexiones a base de datos" (organigrama de las bases Supabase).
-try:
-    from conexiones_db import PaginaConexionesDB
-except Exception:                                          # noqa: BLE001
-    PaginaConexionesDB = None
 
 _BASE = os.path.dirname(os.path.abspath(__file__))
 # Evitar que se abran consolas negras al llamar a gh/.bat en Windows.
@@ -878,10 +873,8 @@ class Launcher(QWidget):
         self._stack.addWidget(self._page_panel())      # 0
         self._stack.addWidget(self._page_updates())    # 1
         self._stack.addWidget(self._page_settings())   # 2
-        self._stack.addWidget(self._page_arquitectura())  # 3
-        self._stack.addWidget(self._page_ecosistema())    # 4
-        self._stack.addWidget(self._page_backups())        # 5
-        self._stack.addWidget(self._page_conexiones())     # 6
+        self._stack.addWidget(self._page_arquitectura())  # 3 (con pestañas internas)
+        self._stack.addWidget(self._page_backups())        # 4
         self._stack.currentChanged.connect(self._on_page_change)
         rv.addWidget(self._stack, stretch=1)
         root.addWidget(right, stretch=1)
@@ -945,11 +938,7 @@ class Launcher(QWidget):
         v.addWidget(self._nav_upd)
         self._nav_arq = self._nav_item("🗺   Arquitectura", 3)
         v.addWidget(self._nav_arq)
-        self._nav_eco = self._nav_item("🌐   Ecosistema 3D", 4)
-        v.addWidget(self._nav_eco)
-        self._nav_cx = self._nav_item("🗄   Conexiones DB", 6)
-        v.addWidget(self._nav_cx)
-        self._nav_bk = self._nav_item("💾   Registro de Backups", 5)
+        self._nav_bk = self._nav_item("💾   Registro de Backups", 4)
         v.addWidget(self._nav_bk)
         v.addSpacing(8)
         lbl_s = QLabel("SISTEMA")
@@ -1263,12 +1252,13 @@ class Launcher(QWidget):
     def _on_page_change(self, idx):
         if idx == 1:
             self._rebuild_updates_page()
-        elif idx == 5:
+        elif idx == 4:
             self._load_backups()
 
     # ------------------------------------------------------------ pág. arquitectura
     def _page_arquitectura(self):
-        """Página con el diagrama de arquitectura del ERP y de cada app."""
+        """Módulo Arquitectura: pestañas Apps y proyectos · Bases de datos ·
+        Conexiones · Ecosistema 3D · Documentación."""
         if PaginaArquitectura is None:
             ph = QWidget()
             v = QVBoxLayout(ph)
@@ -1278,25 +1268,13 @@ class Launcher(QWidget):
             v.addWidget(lbl)
             v.addStretch()
             return ph
-        return PaginaArquitectura(self)
+        # La tarjeta «Ecosistema 3D» (estilo del launcher) va como pestaña interna.
+        return PaginaArquitectura(self, pagina_ecosistema=self._page_ecosistema())
 
-    # ------------------------------------------------------------ pág. conexiones DB
-    def _page_conexiones(self):
-        """Organigrama de las bases Supabase y cómo se conecta cada app."""
-        if PaginaConexionesDB is None:
-            ph = QWidget()
-            v = QVBoxLayout(ph)
-            v.setContentsMargins(24, 22, 24, 18)
-            lbl = QLabel("El módulo de conexiones no está disponible en esta versión.")
-            lbl.setStyleSheet("color:#8a94a6; font-size:13px;")
-            v.addWidget(lbl)
-            v.addStretch()
-            return ph
-        return PaginaConexionesDB(self)
-
-    # ------------------------------------------------------------ pág. ecosistema
+    # ------------------------------------------------------------ pestaña ecosistema
     def _page_ecosistema(self):
-        """Página que abre la visualización 3D del ecosistema en el navegador.
+        """Tarjeta que abre la visualización 3D del ecosistema en el navegador
+        (vive como pestaña del módulo Arquitectura).
 
         La Suite está hecha a propósito SIN QtWebEngine (dark/menta por QSS
         nativo, se auto-actualiza por git pull sin pip). Por eso la ciudad 3D
@@ -1494,7 +1472,7 @@ class Launcher(QWidget):
         """Clic en el cartel -> ir a la página Registro de Backups."""
         if hasattr(self, "_nav_bk"):
             self._nav_bk.setChecked(True)
-        self._stack.setCurrentIndex(5)
+        self._stack.setCurrentIndex(4)
 
     def _on_backup_health(self, filas, error):
         """Muestra la nota roja/naranja arriba si el último backup falló o se atrasó."""
