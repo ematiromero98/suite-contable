@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
     QPushButton, QFrame, QMessageBox, QScrollArea, QStackedWidget, QButtonGroup,
     QTableWidget, QTableWidgetItem, QAbstractItemView,
 )
-from PyQt6.QtCore import Qt, QObject, pyqtSignal, QTimer, QRectF
+from PyQt6.QtCore import Qt, QObject, pyqtSignal, QTimer, QRectF, QEvent
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QFont, QColor, QPalette
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -975,6 +975,86 @@ class _BackupsLoader(QObject):
         return None, None
 
 
+class GrillaTarjetas(QWidget):
+    """Grilla de tarjetas que se adapta al ancho visible (Panel).
+
+    Antes era un QGridLayout fijo de 2 columnas dentro de un QScrollArea con
+    `widgetResizable`: si las 2 tarjetas no entraban (ventana a ~1000 px; desde
+    v1.34 la leyenda bajo el ícono las hace ~40 px más anchas) el contenido
+    quedaba más ancho que el viewport y, sin scroll horizontal, la 2.ª columna
+    se cortaba. Ahora cuenta cuántas columnas entran con el ancho MÍNIMO de las
+    tarjetas en el ancho del viewport (hasta `max_columnas`) y reacomoda.
+    Escucha el resize del viewport y los cambios de tamaño de las tarjetas
+    (p. ej. «Nueva versión disponible» o la versión en el título)."""
+
+    def __init__(self, scroll, max_columnas=2, espacio=14, margen_der=8):
+        super().__init__()
+        self._scroll = scroll
+        self._max = max(1, int(max_columnas))
+        self._tarjetas = []
+        self._cols = 0
+        self._grid = QGridLayout(self)
+        self._grid.setContentsMargins(0, 0, margen_der, 0)
+        self._grid.setHorizontalSpacing(espacio)
+        self._grid.setVerticalSpacing(espacio)
+        scroll.viewport().installEventFilter(self)
+
+    # ---------------------------------------------------------------- API
+    def agregar(self, tarjeta):
+        self._tarjetas.append(tarjeta)
+        self._cols = 0            # forzar reacomodo con la tarjeta nueva
+        self.reacomodar()
+
+    def columnas(self):
+        return self._cols
+
+    def ancho_minimo_tarjeta(self):
+        return max((max(t.minimumSizeHint().width(), t.minimumWidth())
+                    for t in self._tarjetas), default=0)
+
+    def columnas_para(self, ancho):
+        """Cuántas columnas entran en `ancho` px (mínimo 1, tope `max_columnas`)."""
+        m = self._grid.contentsMargins()
+        util = ancho - m.left() - m.right()
+        esp = self._grid.horizontalSpacing()
+        minimo = self.ancho_minimo_tarjeta()
+        n = self._max
+        while n > 1 and n * minimo + (n - 1) * esp > util:
+            n -= 1
+        return n
+
+    def reacomodar(self, ancho=None):
+        if ancho is None:
+            ancho = self._scroll.viewport().width()
+        cols = self.columnas_para(ancho)
+        if cols == self._cols:
+            return
+        self._cols = cols
+        g = self._grid
+        while g.count():
+            g.takeAt(0)
+        for c in range(self._max):
+            g.setColumnStretch(c, 1 if c < cols else 0)
+        filas = (len(self._tarjetas) + cols - 1) // cols
+        for r in range(filas + 2):
+            g.setRowStretch(r, 0)
+        for i, t in enumerate(self._tarjetas):
+            g.addWidget(t, i // cols, i % cols)
+        g.setRowStretch(filas, 1)
+
+    # ---------------------------------------------------------------- eventos
+    def eventFilter(self, obj, ev):
+        if obj is self._scroll.viewport() and ev.type() == QEvent.Type.Resize:
+            self.reacomodar(ev.size().width())
+        return super().eventFilter(obj, ev)
+
+    def event(self, ev):
+        r = super().event(ev)
+        if ev.type() == QEvent.Type.LayoutRequest and self._tarjetas:
+            self.reacomodar()
+        return r
+
+
 class Launcher(QWidget):
     def __init__(self):
         super().__init__()
@@ -1237,21 +1317,17 @@ class Launcher(QWidget):
         sh.addWidget(sc)
         v.addLayout(sh)
 
-        # Grilla de tarjetas (2 columnas) con scroll
+        # Grilla de tarjetas con scroll: 2 columnas si entran con su ancho
+        # mínimo en el viewport, si no 1 (GrillaTarjetas). Nunca scroll horizontal.
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        cont = QWidget()
+        cont = GrillaTarjetas(scroll, max_columnas=2, espacio=14, margen_der=8)
         cont.setObjectName("scrollbody")
-        grid = QGridLayout(cont)
-        grid.setContentsMargins(0, 0, 8, 0)
-        grid.setHorizontalSpacing(14)
-        grid.setVerticalSpacing(14)
-        grid.setColumnStretch(0, 1)
-        grid.setColumnStretch(1, 1)
-        for i, app in enumerate(config.APPS):
-            grid.addWidget(self._tarjeta(app), i // 2, i % 2)
-        grid.setRowStretch((len(config.APPS) + 1) // 2, 1)
+        for app in config.APPS:
+            cont.agregar(self._tarjeta(app))
+        self._grilla_panel = cont
+        self._scroll_panel = scroll
         scroll.setWidget(cont)
         v.addWidget(scroll, stretch=1)
         return page

@@ -108,9 +108,20 @@ siguen existiendo por si vuelven.
   `github_pat_…`. `IconoProgreso.terminar/fallar` además tapan el tooltip
   (`ui.avance.tapar_credenciales`). Tests: `tests/test_sin_token.py`. `ui.avance` se importa
   protegido: si faltara, la Suite abre sin avance por etapas (`SeguidorAvance` mudo).
-  Nota: con `QT_QPA_PLATFORM=offscreen` en Windows falla
-  `test_leyendas_y_pastilla_entran_con_aire` (métricas de fuente del plugin offscreen, ya
-  pasaba en v1.35.0); con `QT_QPA_PLATFORM=windows` pasan todos.
+  Nota: con `QT_QPA_PLATFORM=offscreen` en Windows fallaba
+  `test_leyendas_y_pastilla_entran_con_aire` (el plugin offscreen no hallaba las fuentes);
+  desde v1.35.2 `tests/conftest.py` fija `QT_QPA_FONTDIR=C:\Windows\Fonts` y pasan todos.
+- **Panel con ventana angosta** (v1.35.2): la grilla de tarjetas del Panel es
+  `GrillaTarjetas` (`main.py`), ya no un `QGridLayout` fijo de 2 columnas. Escucha el resize
+  del viewport del `QScrollArea` (y los `LayoutRequest` de las tarjetas) y pone **2 columnas
+  si entran con el ancho mínimo de la tarjeta más ancha, si no 1** — nunca scroll
+  horizontal ni tarjetas cortadas (antes, a ~1000 px la 2.ª columna quedaba cortada; desde
+  v1.34 la leyenda bajo el ícono las hizo ~40 px más anchas). Con las fuentes de Windows el
+  corte a 2 columnas cae en ~1186 px de ventana (tarjeta mínima ~438 px: «Facturador
+  Monotributistas vX»). «Actualizaciones» es una lista vertical y no tenía el problema.
+  Mínimo de ventana: se deja en **900×600** (el Panel a 1 columna necesita ~750 px;
+  Arquitectura a 900 se ve apretada pero sin cortes). Tests: `tests/test_grilla_panel.py`
+  (ventana a 1000 px: ninguna tarjeta fuera del viewport; 900/1180/1400/1800; 1↔2 columnas).
 - **Actualización en el ícono** (v1.34.0, #082 de Lucian UX/UI Prompt, MIT): el logo de
   cada tarjeta del Panel y de cada fila de «Actualizaciones» es un `ui/icono_progreso.IconoProgreso` (QPainter): mientras la app se instala o
   actualiza, un velo oscuro se retira en sentido horario (`drawPie`) con el % encima; al
