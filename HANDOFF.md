@@ -20,7 +20,7 @@ Documentación). No toca datos: cada app vive en su repo.
   Configurable con `SUITE_CONTABLE_DIR`.
 - **GitHub:** `ematiromero98/suite-contable`, **público a propósito** (se instala sin
   credenciales) → **nunca** un secreto en este repo. Rama `main`.
-- **Versión:** `version.py` (`VERSION = "1.29.0"`). Tags `vX.Y.Z` para las versiones grandes;
+- **Versión:** `version.py` (`VERSION = "1.35.3"`). Tags `vX.Y.Z` para las versiones grandes;
   **el ERP se auto-actualiza con `git pull` de `main` al abrir** (no necesita release).
 - **Tests** (desde la rama `ui/progreso-en-icono`): `python -m pytest -q` en `tests/`
   (avance por etapas sin GUI + `IconoProgreso` offscreen, que se saltea si no hay PyQt6).
@@ -97,8 +97,21 @@ siguen existiendo por si vuelven.
 - **Actualizar una app** (`_actualizar_app_core`): 1) `git fetch` (credenciales de `gh` si las
   hay) → 2) si falla, fetch con **token del runtime** (`_token_runtime`: archivo del instalador
   `%LOCALAPPDATA%\Suite Contable\gh_token.txt` → `gh auth token`) → 3) último recurso, el
-  `GITHUB_TOKEN` del `.env` de la app. Luego `merge --ff-only @{u}`; si divergió, rama
-  `backup-local-<ts>` + stash + `reset --hard`. Después `pip install -r requirements.txt` en el
+  `GITHUB_TOKEN` del `.env` de la app. Luego `merge --ff-only origin/<rama>`; si divergió,
+  rama `backup-local-<ts>` + stash + `reset --hard origin/<rama>`.
+  **Rama principal (v1.35.3):** siempre se actualiza contra `origin/<rama>` (`_rama_principal`:
+  clave `rama` de `config.APPS`, «master» sólo en el Facturador; si falta, «main»), por los dos
+  caminos: el normal (`git fetch`) y el del token (fetch con refspec
+  `+refs/heads/<rama>:refs/remotes/origin/<rama>`). Antes el normal usaba `@{u}` (la rama que
+  siguiera la copia: p. ej. `origin/fix/...` de otra sesión) y el del token `FETCH_HEAD`.
+  Antes de tocar nada, `_problema_copia_local`: si la copia está en otra rama / HEAD suelto o
+  tiene cambios sin commitear en archivos versionados, NO se toca → estado **`retenida`**
+  (ámbar, leyenda «pendiente», aviso «la copia local está en la rama X… no se actualizó») y la
+  app sigue pendiente. Al terminar, `_UpdateAllWorker` vuelve a leer la versión instalada
+  (`_revisar_version_tras_actualizar`): si sigue por debajo de la publicada → «aviso … sigue
+  pendiente»; `_update_all_done` sólo la saca de pendientes si `_sigue_pendiente` da False.
+  `_auto_update_suite` (el propio ERP) también va contra `origin/main` y se omite si la copia
+  no está en main. Tests: `tests/test_actualizar_rama.py` (git falso + uno con git real). Después `pip install -r requirements.txt` en el
   `.venv` de la app con el **Python real** (`_python_base`, nunca el stub de la Microsoft
   Store). Devuelve ok / aviso / saltada / error con detalle.
   **Token tapado (v1.35.1):** `_actualizar_app_core` es un envoltorio que llama a

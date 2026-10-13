@@ -207,7 +207,6 @@ def dark_palette():
     """QPalette oscura para que las partes nativas (y los QMessageBox) queden
     en tema oscuro además del stylesheet."""
     from PyQt6.QtGui import QPalette, QColor
-    from PyQt6.QtCore import Qt
     p = QPalette()
     c = QColor
     p.setColor(QPalette.ColorRole.Window, c(BG))

@@ -44,6 +44,8 @@ FINALES = {
     "ok":        ("ok", "actualizada"),
     "instalada": ("ok", "instalada"),
     "aviso":     ("aviso", "con aviso"),
+    # Copia en otra rama o con cambios locales: no se tocó, sigue pendiente.
+    "retenida":  ("aviso", "pendiente"),
     "saltada":   ("error", "no instalada"),
     "error":     ("error", "error"),
 }

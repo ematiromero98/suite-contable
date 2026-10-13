@@ -395,7 +395,7 @@ def _ultima_release(repo):
 
 def _version_en_rama(repo, version_file):
     """Versión declarada en el `version_file` en la PUNTA de la rama por defecto
-    del repo (la que el botón «Actualizar» baja con `git pull @{u}`). Necesaria
+    del repo (la que el botón «Actualizar» baja: `origin/<rama principal>`). Necesaria
     para las apps que se distribuyen pusheando a la rama y NO cortan release (ej.
     Cobranzas OSECAC): ahí `releases/latest` queda viejo y el aviso de
     actualización nunca aparecía. Se omite el `?ref=` a propósito: la API de
@@ -474,7 +474,7 @@ class _Chequeador(QObject):
         def _run():
             for a in apps:
                 # La actualización de la Suite baja de la rama por defecto
-                # (`git pull @{u}`), así que el aviso también la mira —y no sólo
+                # (`origin/<rama principal>`), así que el aviso también la mira —y no sólo
                 # releases/latest, que en las apps sin tag (Cobranzas) queda
                 # viejo—. Tomamos la mayor de ambas fuentes para cubrir los dos
                 # esquemas.
@@ -798,6 +798,67 @@ def _pip_update(dir_, avisar=None):
         return False, _sin_token(str(e))[:200]
 
 
+def _rama_principal(app):
+    """Rama de la que se distribuye la app: `rama` en config.APPS (p. ej.
+    "master" en el Facturador) o "main" por defecto."""
+    return (app.get("rama") or "main").strip()
+
+
+def _problema_copia_local(dir_, rama):
+    """None si la copia local está parada en `rama` y sin cambios sin commitear
+    en archivos versionados. Si no, el aviso para el usuario (por qué NO se
+    actualizó). Los archivos sin versionar (.env, .venv, salidas) no cuentan:
+    el avance en línea recta no los toca."""
+    r = _git(dir_, ["rev-parse", "--abbrev-ref", "HEAD"], timeout=30)
+    actual = (r.stdout or "").strip() if r.returncode == 0 else ""
+    if not actual:
+        return ("no pude ver en qué rama está la copia local; no se actualizó. "
+                "Sigue pendiente.")
+    if actual != rama:
+        donde = ("sin rama (HEAD suelto)" if actual == "HEAD"
+                 else f"en la rama «{actual}»")
+        return (f"la copia local está {donde}, con trabajo de otra sesión, y no "
+                f"en «{rama}»; no se actualizó para no pisarlo. Sigue pendiente: "
+                f"cuando esa rama se cierre y la copia vuelva a «{rama}», "
+                "actualizá de nuevo.")
+    s = _git(dir_, ["status", "--porcelain", "--untracked-files=no"], timeout=60)
+    if s.returncode != 0:
+        return ("no pude leer el estado de la copia local (git status); no se "
+                "actualizó. Sigue pendiente.")
+    cambios = [ln for ln in (s.stdout or "").splitlines() if ln.strip()]
+    if cambios:
+        return (f"la copia local tiene cambios sin guardar en {len(cambios)} "
+                "archivo(s) (trabajo de otra sesión); no se actualizó para no "
+                "pisarlos. Sigue pendiente.")
+    return None
+
+
+def _revisar_version_tras_actualizar(app, estado, detalle, esperada):
+    """Después de actualizar, vuelve a leer la versión INSTALADA: si todavía es
+    menor que la publicada (`esperada`), la app NO quedó al día aunque git no
+    haya fallado → 'aviso' con el motivo, y sigue pendiente. Así no sale de
+    pendientes diciendo «al día» para volver a aparecer en el próximo chequeo."""
+    if estado not in ("ok", "aviso") or not esperada:
+        return estado, detalle
+    inst = _leer_version(app)
+    if inst is not None and not _es_mayor(esperada, inst):
+        return estado, detalle
+    rama = _rama_principal(app)
+    msg = (f"se bajó «{rama}», pero la versión instalada es "
+           f"v{inst or '?'} y la publicada v{esperada}; sigue pendiente.")
+    if estado == "aviso" and detalle:
+        msg += "\n" + detalle
+    return "aviso", msg
+
+
+def _sigue_pendiente(esperada, instalada):
+    """True si, con la versión instalada que se lee ahora, la app todavía tiene
+    una versión publicada más nueva (`esperada`) por bajar."""
+    if not esperada:
+        return False
+    return instalada is None or _es_mayor(esperada, instalada)
+
+
 def _actualizar_app_core(app, avisar=None):
     """Actualiza una app (ver `_actualizar_app_core_impl`). Punto ÚNICO de
     saneamiento: el detalle que sale de acá (aviso, diálogo, tooltip del
@@ -821,6 +882,8 @@ def _actualizar_app_core_impl(app, avisar=None, toks=None):
       'ok'       — quedó al día
       'aviso'    — código al día pero deps con problemas
       'saltada'  — no está instalada (no hay repo git)
+      'retenida' — no se tocó: la copia está en otra rama o tiene cambios
+                   locales (detalle = aviso para el usuario); sigue pendiente
       'error'    — falló (detalle = motivo)
 
     `avisar(etapa)` (opcional) recibe 'fetch' / 'merge' / 'venv' / 'pip' al
@@ -830,21 +893,34 @@ def _actualizar_app_core_impl(app, avisar=None, toks=None):
         return "saltada", "no está instalada en esta PC"
     try:
         repo = app.get("repo")
+        rama = _rama_principal(app)
+        # 0) Nunca pisar trabajo ajeno: si la copia está en otra rama (otra
+        #    sesión trabajando ahí) o tiene cambios sin commitear, no se toca y
+        #    la app queda pendiente con el motivo a la vista.
+        problema = _problema_copia_local(dir_, rama)
+        if problema:
+            return "retenida", problema
+        # SIEMPRE contra la rama principal (`origin/<rama>`), sea cual sea el
+        # camino del fetch. Antes el camino normal usaba `@{u}` (la rama que
+        # siguiera la copia, p. ej. una rama de otra sesión) y el del token
+        # `FETCH_HEAD` (la rama por defecto): resultados distintos.
+        target = f"origin/{rama}"
+        refspec = f"+refs/heads/{rama}:refs/remotes/origin/{rama}"
         _avisar_etapa(avisar, "fetch")
         # 1) git normal: usa el credential helper si está configurado
         #    (`gh auth setup-git`). Sirve para todos los repos si está bien.
         f = _git(dir_, ["fetch"])
-        target = "@{u}"                                  # rama remota trackeada
         # 2) Si falla, usar el token del RUNTIME (archivo del instalador o gh).
-        #    Cubre los repos privados sin depender del `gh` personal.
+        #    Cubre los repos privados sin depender del `gh` personal. El refspec
+        #    deja la rama principal en `origin/<rama>`, igual que el camino 1.
         if f.returncode != 0 and repo:
             ght = _token_runtime()
             if ght:
                 if toks is not None:
                     toks.append(ght)
                 f = _git(dir_, ["fetch",
-                                f"https://x-access-token:{ght}@github.com/{repo}.git"])
-                target = "FETCH_HEAD"
+                                f"https://x-access-token:{ght}@github.com/{repo}.git",
+                                refspec])
         # 3) Último recurso: token del .env (rescata RetencionesPro, cuyo origin
         #    es de sólo lectura). Ese token sólo cubre RetencionesPro.
         if f.returncode != 0 and repo:
@@ -853,8 +929,8 @@ def _actualizar_app_core_impl(app, avisar=None, toks=None):
                 if toks is not None:
                     toks.append(envtok)
                 f = _git(dir_, ["fetch",
-                                f"https://{envtok}@github.com/{repo}.git"])
-                target = "FETCH_HEAD"
+                                f"https://{envtok}@github.com/{repo}.git",
+                                refspec])
         if f.returncode != 0:
             return "error", (f.stderr or "").strip()
 
@@ -887,7 +963,11 @@ class _UpdateAllWorker(QObject):
     una_lista = pyqtSignal(str, str, str)   # (key, estado, detalle) al terminar c/u
     listo = pyqtSignal(list)            # [(key, nombre, estado, detalle), ...]
 
-    def start(self, apps):
+    def start(self, apps, esperadas=None):
+        """`esperadas`: {key: versión publicada pendiente} para volver a leer la
+        versión instalada al terminar cada app."""
+        esperadas = dict(esperadas or {})
+
         def _run():
             resultados = []
             # De a UNA por vez (como siempre): las demás quedan «en cola».
@@ -897,6 +977,8 @@ class _UpdateAllWorker(QObject):
                 self.progreso.emit(a["nombre"])
                 estado, detalle = _actualizar_app_core(
                     a, lambda e, k=a["key"]: self.etapa.emit(k, e))
+                estado, detalle = _revisar_version_tras_actualizar(
+                    a, estado, detalle, esperadas.get(a["key"]))
                 resultados.append((a["key"], a["nombre"], estado, detalle))
                 self.una_lista.emit(a["key"], estado, detalle)
             self.listo.emit(resultados)
@@ -2078,7 +2160,7 @@ class Launcher(QWidget):
         self._upd_worker.etapa.connect(self._on_etapa)
         self._upd_worker.una_lista.connect(self._on_una_lista)
         self._upd_worker.listo.connect(self._update_all_done)
-        self._upd_worker.start(apps)
+        self._upd_worker.start(apps, dict(self._pendientes))
 
     def _update_all_progreso(self, nombre):
         self._btn_upd_all.setText(f"Actualizando {nombre}…")
@@ -2092,25 +2174,33 @@ class Launcher(QWidget):
             app = card["app"]
             ver = _leer_version(app)
             card["nombre"].setText(app["nombre"] + (f"   v{ver}" if ver else ""))
-            if estado in ("ok", "aviso"):
-                # Quedó al día: sale de pendientes, se oculta su aviso/botón y la
+            if (estado in ("ok", "aviso")
+                    and not _sigue_pendiente(self._pendientes.get(key), ver)):
+                # Quedó al día (confirmado con la versión instalada que se acaba
+                # de leer): sale de pendientes, se oculta su aviso/botón y la
                 # pill vuelve a "Al día".
                 self._pendientes.pop(key, None)
                 card["lbl"].setVisible(False)
                 card["btn"].setVisible(False)
                 self._set_pill(card["pill"], "ok", "Al día")
-            # Si hubo error, la app sigue pendiente (aviso y botón quedan).
+            # Si hubo error, si quedó retenida (otra rama / cambios locales) o si
+            # la versión instalada sigue atrás, la app sigue pendiente (aviso y
+            # botón quedan).
         for c in self._cards.values():
             c["btn"].setEnabled(True)
         self._refrescar_boton_todo()
         self._refrescar_kpis()
         if self._stack.currentIndex() == 1:
             self._rebuild_updates_page()
-        iconos = {"ok": "✅", "aviso": "⚠️", "saltada": "•", "error": "❌"}
+        iconos = {"ok": "✅", "aviso": "⚠️", "retenida": "⏸", "saltada": "•",
+                  "error": "❌"}
         cuerpo = "\n".join(f"{iconos.get(e, '•')} {n}: {d}"
                            for _k, n, e, d in resultados)
         if any(e == "error" for _k, _n, e, _d in resultados):
             QMessageBox.warning(self, "Actualizar", "Resultado:\n\n" + cuerpo)
+        elif any(e == "retenida" for _k, _n, e, _d in resultados):
+            QMessageBox.warning(self, "Actualizar",
+                                "No se actualizó todo:\n\n" + cuerpo)
         elif any(e == "aviso" for _k, _n, e, _d in resultados):
             QMessageBox.warning(self, "Actualizar",
                                 "Actualizado, con algún aviso:\n\n" + cuerpo)
@@ -2140,22 +2230,30 @@ class Launcher(QWidget):
             #  1) git normal (credential helper, si se corrió `gh auth setup-git`)
             #  2) token del `gh` logueado (cubre los repos privados del estudio)
             #  3) token del `.env` (GITHUB_TOKEN), último recurso
+            # Siempre contra `origin/main` (los dos caminos igual) y sólo si la
+            # copia está parada en main: si está en otra rama es trabajo de
+            # otra sesión y no se toca.
+            r = _git(_BASE, ["rev-parse", "--abbrev-ref", "HEAD"], timeout=30)
+            if r.returncode != 0 or (r.stdout or "").strip() != "main":
+                print("[Suite] auto-update OMITIDO: la copia no está en la rama "
+                      "main.", file=sys.stderr)
+                return
+            target = "origin/main"
+            refspec = "+refs/heads/main:refs/remotes/origin/main"
             f = _git(_BASE, ["fetch"], timeout=60)
-            target = "@{u}"
             if f.returncode != 0:
                 ght = _token_runtime()
                 if ght:
                     f = _git(_BASE, ["fetch",
                                      f"https://x-access-token:{ght}@github.com/"
-                                     f"{_REPO_OFICIAL}.git"], timeout=60)
-                    target = "FETCH_HEAD"
+                                     f"{_REPO_OFICIAL}.git", refspec], timeout=60)
             if f.returncode != 0:
                 envtok = _leer_token_env(_BASE)
                 if envtok:
                     f = _git(_BASE, ["fetch",
-                                     f"https://{envtok}@github.com/{_REPO_OFICIAL}.git"],
+                                     f"https://{envtok}@github.com/{_REPO_OFICIAL}.git",
+                                     refspec],
                              timeout=60)
-                    target = "FETCH_HEAD"
             if f.returncode != 0:
                 return
             if _git(_BASE, ["merge", "--ff-only", target], timeout=30).returncode != 0:

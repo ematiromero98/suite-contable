@@ -59,6 +59,8 @@ APPS = [
         "entradas": ["main.py"],
         "version_file": "VERSION",
         "repo": "ematiromero98/facturador-monotributistas",
+        # Rama principal (la que baja «Actualizar»). Sin esta clave: "main".
+        "rama": "master",
     },
     {
         "key": "employee",

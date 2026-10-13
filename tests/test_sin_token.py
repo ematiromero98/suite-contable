@@ -29,6 +29,9 @@ def main_mod(monkeypatch):
     import main
     monkeypatch.setattr(main, "_token_runtime", lambda: TOK)
     monkeypatch.setattr(main, "_leer_token_env", lambda d: None)
+    # Estos tests miran sólo el token: la copia se da por limpia y en su rama
+    # principal (eso se prueba en tests/test_actualizar_rama.py).
+    monkeypatch.setattr(main, "_problema_copia_local", lambda d, r: None)
     return main
 
 

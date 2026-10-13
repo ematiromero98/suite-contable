@@ -94,6 +94,7 @@ def test_actualizar_app_core_avisa_etapas_en_orden(qapp, tmp_path, monkeypatch):
     (tmp_path / ".git").mkdir()
     (tmp_path / "requirements.txt").write_text("x\n", encoding="utf-8")
     llamadas = []
+    monkeypatch.setattr(main, "_problema_copia_local", lambda d, r: None)  # copia limpia en main
     monkeypatch.setattr(main, "_git", _fake_git_ok)
 
     def fake_run(cmd, **kw):                     # venv y pip: simulados
@@ -116,6 +117,7 @@ def test_actualizar_app_core_avisa_etapas_en_orden(qapp, tmp_path, monkeypatch):
 def test_actualizar_app_core_callback_roto_no_rompe(qapp, tmp_path, monkeypatch):
     import main
     (tmp_path / ".git").mkdir()
+    monkeypatch.setattr(main, "_problema_copia_local", lambda d, r: None)  # copia limpia en main
     monkeypatch.setattr(main, "_git", _fake_git_ok)
 
     def roto(_e):
@@ -128,6 +130,7 @@ def test_actualizar_app_core_callback_roto_no_rompe(qapp, tmp_path, monkeypatch)
 def test_actualizar_app_core_error_de_fetch(qapp, tmp_path, monkeypatch):
     import main
     (tmp_path / ".git").mkdir()
+    monkeypatch.setattr(main, "_problema_copia_local", lambda d, r: None)  # copia limpia en main
     monkeypatch.setattr(main, "_git", lambda *a, **k: types.SimpleNamespace(
         returncode=1, stdout="", stderr="fatal: sin red"))
     monkeypatch.setattr(main, "_token_runtime", lambda: None)
