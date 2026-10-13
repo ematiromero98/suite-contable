@@ -24,6 +24,7 @@ congelada mientras pip trabaja. El avance es monótono (no retrocede nunca).
 Sin Qt: lo usan los tests sin GUI y el launcher (que sólo le pide números).
 """
 import math
+import re
 import time
 
 # etapa -> (inicio, techo, leyenda, tau_segundos)
@@ -66,6 +67,19 @@ def avance_en_etapa(etapa, segundos):
 def final(estado):
     """(tipo, leyenda) para un estado final; desconocido = error."""
     return FINALES.get(estado, FINALES["error"])
+
+
+# Credenciales en URLs (`https://usuario:token@host`) y tokens de GitHub sueltos.
+_RE_URL_CRED = re.compile(r"(?i)\b(https?://)[^/\s@'\"]+@")
+_RE_TOKEN_GH = re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{6,}|github_pat_[A-Za-z0-9_]{6,})")
+
+
+def tapar_credenciales(texto):
+    """Texto apto para mostrar (tooltip/leyenda): tapa con *** cualquier
+    credencial embebida en una URL o con forma de token de GitHub."""
+    texto = "" if texto is None else str(texto)
+    texto = _RE_URL_CRED.sub(r"\1***@", texto)
+    return _RE_TOKEN_GH.sub("***", texto)
 
 
 class SeguidorAvance:

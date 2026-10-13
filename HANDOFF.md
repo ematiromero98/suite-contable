@@ -101,6 +101,16 @@ siguen existiendo por si vuelven.
   `backup-local-<ts>` + stash + `reset --hard`. Después `pip install -r requirements.txt` en el
   `.venv` de la app con el **Python real** (`_python_base`, nunca el stub de la Microsoft
   Store). Devuelve ok / aviso / saltada / error con detalle.
+  **Token tapado (v1.35.1):** `_actualizar_app_core` es un envoltorio que llama a
+  `_actualizar_app_core_impl` y pasa TODO detalle (fetch colgado/fallido —`TimeoutExpired`
+  repite el comando con la URL—, merge/reset, pip, excepciones) por `_sin_token` ANTES de
+  recortarlo: tapa los tokens usados y cualquier `https://usuario:token@…` o `ghp_…`/
+  `github_pat_…`. `IconoProgreso.terminar/fallar` además tapan el tooltip
+  (`ui.avance.tapar_credenciales`). Tests: `tests/test_sin_token.py`. `ui.avance` se importa
+  protegido: si faltara, la Suite abre sin avance por etapas (`SeguidorAvance` mudo).
+  Nota: con `QT_QPA_PLATFORM=offscreen` en Windows falla
+  `test_leyendas_y_pastilla_entran_con_aire` (métricas de fuente del plugin offscreen, ya
+  pasaba en v1.35.0); con `QT_QPA_PLATFORM=windows` pasan todos.
 - **Actualización en el ícono** (v1.34.0, #082 de Lucian UX/UI Prompt, MIT): el logo de
   cada tarjeta del Panel y de cada fila de «Actualizaciones» es un `ui/icono_progreso.IconoProgreso` (QPainter): mientras la app se instala o
   actualiza, un velo oscuro se retira en sentido horario (`drawPie`) con el % encima; al

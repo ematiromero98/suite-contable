@@ -23,7 +23,7 @@ from PyQt6.QtGui import (QPainter, QPainterPath, QColor, QFont, QPen,
                          QFontMetrics, QPixmap)
 from PyQt6.QtWidgets import QWidget
 
-from ui.avance import ETAPAS, FINALES
+from ui.avance import ETAPAS, FINALES, tapar_credenciales
 
 # Todas las leyendas posibles: el ancho del widget se calcula con la más larga,
 # así ninguna queda cortada ni justa.
@@ -163,7 +163,7 @@ class IconoProgreso(QWidget):
         self._anim_avance.stop()
         self._avance = 1.0
         self._estado = AVISO if aviso else OK
-        self._texto, self._detalle = texto, detalle or ""
+        self._texto, self._detalle = texto, tapar_credenciales(detalle)
         self.setToolTip(self._detalle)
         self._rebotar()
 
@@ -171,7 +171,8 @@ class IconoProgreso(QWidget):
         """Borde e indicador rojos; el motivo va al tooltip."""
         self._anim_avance.stop()
         self._estado, self._avance = ERROR, 1.0
-        self._texto, self._detalle = texto, (detalle or "").strip()
+        # El motivo puede traer la salida de git con la URL+token: se tapa.
+        self._texto, self._detalle = texto, tapar_credenciales(detalle).strip()
         self.setToolTip("Falló: " + (self._detalle or "error desconocido"))
         self._rebotar()
 

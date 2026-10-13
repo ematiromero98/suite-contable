@@ -52,7 +52,36 @@ except Exception:                                          # noqa: BLE001
 # «Actualización en el ícono» (#082): velo cónico + % + ✓ sobre el logo de cada
 # app mientras se instala/actualiza. Import defensivo: si faltara, las tarjetas
 # vuelven al logo fijo de siempre.
-from ui.avance import SeguidorAvance, leyenda as _leyenda_etapa, final as _final
+# `ui/avance.py` (% por etapas) también va protegido: si faltara, la Suite abre
+# igual, sin el avance por etapas (y sin IconoProgreso, que lo usa).
+try:
+    from ui.avance import SeguidorAvance, leyenda as _leyenda_etapa, final as _final
+except Exception:                                          # noqa: BLE001
+    class SeguidorAvance:                                  # type: ignore[no-redef]
+        """Reemplazo mudo: no sigue nada (sin íconos de progreso)."""
+        def etapa(self, key, etapa):
+            pass
+
+        def activas(self):
+            return []
+
+        def etapa_de(self, key):
+            return None
+
+        def avance(self, key):
+            return 0.0
+
+        def terminar(self, key):
+            pass
+
+        def olvidar(self, key):
+            pass
+
+    def _leyenda_etapa(etapa):
+        return ""
+
+    def _final(estado):
+        return ("error" if estado == "error" else "ok"), estado or ""
 try:
     from ui.icono_progreso import IconoProgreso, pixmap_logo
 except Exception:                                          # noqa: BLE001
@@ -554,9 +583,23 @@ def _instalar_app_core(app, avisar=None):
     return "instalada", dest
 
 
-def _sin_token(texto, tok):
-    """Nunca mostrar el token (tooltip/mensajes) aunque git lo repita."""
-    return texto.replace(tok, "***") if tok else texto
+# Credenciales embebidas en URLs (`https://usuario:token@host/...`) y tokens de
+# GitHub sueltos (ghp_…, gho_…, ghs_…, github_pat_…): se tapan aunque no se
+# conozca el token (p. ej. git o `TimeoutExpired` repiten el comando entero).
+_RE_URL_CRED = re.compile(r"(?i)\b(https?://)[^/\s@'\"]+@")
+_RE_TOKEN_GH = re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{6,}|github_pat_[A-Za-z0-9_]{6,})")
+
+
+def _sin_token(texto, *toks):
+    """Nunca mostrar el token (tooltip/mensajes/log) aunque git lo repita:
+    reemplaza los tokens conocidos `toks` y además cualquier credencial
+    embebida en una URL o con forma de token de GitHub."""
+    texto = "" if texto is None else str(texto)
+    for tok in toks:
+        if tok:
+            texto = texto.replace(tok, "***")
+    texto = _RE_URL_CRED.sub(r"\1***@", texto)
+    return _RE_TOKEN_GH.sub("***", texto)
 
 
 def _resultado_instalacion(app, motivo, detalle):
@@ -732,9 +775,9 @@ def _pip_update(dir_, avisar=None):
                                 creationflags=_NO_WINDOW)
             if cv.returncode != 0:
                 return False, ("no pude crear el entorno .venv: "
-                               + (cv.stderr or cv.stdout or "").strip()[-200:])
+                               + _sin_token((cv.stderr or cv.stdout or "").strip())[-200:])
         except Exception as e:                          # noqa: BLE001
-            return False, f"no pude crear el entorno .venv: {e}"
+            return False, f"no pude crear el entorno .venv: {_sin_token(str(e))}"
     if not os.path.isfile(venv_py):
         return False, ("no quedó el .venv de la app; revisá que Python esté "
                        "instalado (no sólo el atajo de la Microsoft Store).")
@@ -748,14 +791,28 @@ def _pip_update(dir_, avisar=None):
                            creationflags=_NO_WINDOW)
         if r.returncode == 0:
             return True, "dependencias al día"
-        return False, (r.stderr or r.stdout or "").strip()[-250:]
+        return False, _sin_token((r.stderr or r.stdout or "").strip())[-250:]
     except subprocess.TimeoutExpired:
         return False, "se agotó el tiempo instalando dependencias (conexión lenta)"
     except Exception as e:                              # noqa: BLE001
-        return False, str(e)[:200]
+        return False, _sin_token(str(e))[:200]
 
 
 def _actualizar_app_core(app, avisar=None):
+    """Actualiza una app (ver `_actualizar_app_core_impl`). Punto ÚNICO de
+    saneamiento: el detalle que sale de acá (aviso, diálogo, tooltip del
+    ícono) nunca lleva el token, aunque git/pip/`TimeoutExpired` repitan la
+    URL con credenciales (fetch colgado o fallido, merge, reset, pip)."""
+    toks = []
+    try:
+        estado, detalle = _actualizar_app_core_impl(app, avisar, toks)
+    except Exception as e:                              # noqa: BLE001
+        estado, detalle = "error", str(e)
+    limite = 300 if estado == "error" else 600
+    return estado, _sin_token(detalle, *toks)[:limite]
+
+
+def _actualizar_app_core_impl(app, avisar=None, toks=None):
     """Actualiza una app (sin interfaz). Baja los cambios y, si la copia local
     divergió, respalda y realinea con el código oficial; después instala
     dependencias. Los DATOS no se tocan (viven en Supabase y en .env/.venv).
@@ -783,6 +840,8 @@ def _actualizar_app_core(app, avisar=None):
         if f.returncode != 0 and repo:
             ght = _token_runtime()
             if ght:
+                if toks is not None:
+                    toks.append(ght)
                 f = _git(dir_, ["fetch",
                                 f"https://x-access-token:{ght}@github.com/{repo}.git"])
                 target = "FETCH_HEAD"
@@ -791,11 +850,13 @@ def _actualizar_app_core(app, avisar=None):
         if f.returncode != 0 and repo:
             envtok = _leer_token_env(dir_)
             if envtok:
+                if toks is not None:
+                    toks.append(envtok)
                 f = _git(dir_, ["fetch",
                                 f"https://{envtok}@github.com/{repo}.git"])
                 target = "FETCH_HEAD"
         if f.returncode != 0:
-            return "error", (f.stderr or "").strip()[:300]
+            return "error", (f.stderr or "").strip()
 
         # Caso normal: avanzar en línea recta.
         _avisar_etapa(avisar, "merge")
@@ -806,11 +867,13 @@ def _actualizar_app_core(app, avisar=None):
             _git(dir_, ["stash", "push", "-u", "-m", "respaldo-antes-de-actualizar"])
             rs = _git(dir_, ["reset", "--hard", target])
             if rs.returncode != 0:
-                return "error", (rs.stderr or "").strip()[:300]
+                return "error", (rs.stderr or "").strip()
 
         deps_ok, deps_detalle = _pip_update(dir_, avisar)
     except Exception as e:                              # noqa: BLE001
-        return "error", str(e)[:300]
+        # Sin recortar acá: el recorte va DESPUÉS de tapar el token (un corte
+        # a mitad del token lo dejaría a la vista). Ver _actualizar_app_core.
+        return "error", str(e)
     if deps_ok:
         return "ok", "al día"
     return "aviso", "código al día, pero fallaron las dependencias:\n" + deps_detalle
