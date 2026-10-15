@@ -1212,10 +1212,15 @@ def _placeholder(msg):
 
 def abrir_ecosistema(parent=None):
     """Abre el HTML de la ciudad 3D con el navegador por defecto."""
-    ruta = os.path.join(_DIR, "assets", "ecosistema-3d.html")
+    abrir_html_asset("ecosistema-3d.html", "Ecosistema 3D", parent)
+
+
+def abrir_html_asset(nombre, titulo, parent=None):
+    """Abre un HTML de assets/ con el navegador por defecto."""
+    ruta = os.path.join(_DIR, "assets", nombre)
     if not os.path.isfile(ruta):
         QMessageBox.warning(
-            parent, "Ecosistema 3D",
+            parent, titulo,
             "No encontré el archivo de la visualización:\n" + ruta +
             "\n\nProbá «⟳ Actualizar todo» para bajarlo con la última "
             "versión de la Suite.")
