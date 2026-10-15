@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mapa de bases MR &amp; Asoc</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: plano técnico — una columna de lectura; cada proyecto Supabase es una "placa" con sus esquemas como bandejas y las apps enchufadas */
+:root{
+  --bg:#f6f5f3; --panel:#ffffff; --ink:#1b1c1e; --muted:#62656b; --line:#dcdad6; --tray:#efeeeb;
+  --accent:#d6232a; --ok:#1f8a4c; --warn:#b7791f; --bad:#c62828; --chip:#e8e6e2;
+  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace; --sans:"IBM Plex Sans",system-ui,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141517; --panel:#1c1e21; --ink:#ececea; --muted:#9b9ea4; --line:#2e3135; --tray:#232528;
+  --accent:#ff4a4f; --ok:#4cc27e; --warn:#e3a94a; --bad:#ff6b6b; --chip:#2a2d31; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141517; --panel:#1c1e21; --ink:#ececea; --muted:#9b9ea4; --line:#2e3135; --tray:#232528;
+  --accent:#ff4a4f; --ok:#4cc27e; --warn:#e3a94a; --bad:#ff6b6b; --chip:#2a2d31; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;padding-inline:16px;padding-block:28px 56px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:40px}
+header{display:flex;flex-direction:column;gap:10px;border-bottom:2px solid var(--ink);padding-bottom:18px}
+.mark{display:flex;gap:4px;align-items:flex-end}.mark i{display:block;width:7px;background:var(--accent)}.mark i:first-child{height:22px}.mark i:last-child{height:14px;background:var(--ink)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-size:clamp(26px,4vw,38px);line-height:1.1;margin:0;text-wrap:balance;font-weight:700}
+h2{font-size:21px;margin:0 0 4px;text-wrap:balance}
+p{margin:0;max-width:68ch}
+.lead{color:var(--muted)}
+a{color:var(--accent)}
+section{display:flex;flex-direction:column;gap:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi{background:var(--panel);border:1px solid var(--line);padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+.kpi b{font-family:var(--mono);font-size:26px;font-variant-numeric:tabular-nums}
+.kpi span{font-size:13px;color:var(--muted)}
+.kpi.bad b{color:var(--bad)}.kpi.warn b{color:var(--warn)}.kpi.ok b{color:var(--ok)}
+.boards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr));gap:16px}
+.board{background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
+.board.central{grid-column:1/-1;border-top:4px solid var(--accent)}
+.bhead{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+.bhead h3{margin:0;font-size:17px}
+.ref{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.bbody{padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.trays{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.tray{background:var(--tray);padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.tray .sch{font-family:var(--mono);font-size:12.5px;font-weight:600;display:flex;justify-content:space-between;gap:8px}
+.tray .sch em{font-style:normal;color:var(--muted);font-weight:400}
+.apps{display:flex;flex-wrap:wrap;gap:5px}
+.app{font-size:12.5px;background:var(--panel);border:1px solid var(--line);padding:2px 8px;border-radius:3px}
+.app.web{border-style:dashed}
+.fx{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.fx b{color:var(--ink);font-weight:500}
+.state{font-family:var(--mono);font-size:11.5px;padding:2px 8px;border-radius:3px;white-space:nowrap}
+.s-ok{background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ok)}
+.s-warn{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.s-bad{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.s-off{background:var(--chip);color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted)}
+.legend span{display:flex;gap:6px;align-items:center}
+.legend .app{font-size:11px}
+.finds{display:flex;flex-direction:column;gap:10px}
+.find{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--line);padding:12px 16px;display:flex;flex-direction:column;gap:4px}
+.find.bad{border-left-color:var(--bad)}.find.warn{border-left-color:var(--warn)}.find.ok{border-left-color:var(--ok)}
+.find h4{margin:0;font-size:15px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.find p{font-size:14px;color:var(--muted)}
+code{font-family:var(--mono);font-size:.88em;background:var(--chip);padding:1px 5px;border-radius:3px;overflow-wrap:anywhere}
+.tablebox{overflow-x:auto;border:1px solid var(--line);background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:560px}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500;background:var(--tray)}
+td.num{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+footer{font-size:12.5px;color:var(--muted);font-family:var(--mono);border-top:1px solid var(--line);padding-top:14px}
+</style>
+<style>body{margin:0}</style>
+</head>
+<body>
+
+
+<div class="wrap">
+<header>
+  <div class="mark" aria-hidden="true"><i></i><i></i></div>
+  <div class="eyebrow">Arquitectura · actualizado 15-oct-2026</div>
+  <h1>Mapa de bases de datos de la Suite y MR &amp; Asociados</h1>
+  <p class="lead">Qué app escribe en qué proyecto de Supabase, en qué esquema, con qué funciones en la nube, y el estado del respaldo y la seguridad de cada base. Para ver cada tabla por dentro (columnas, claves y relaciones): <a href="estructura-bases.html">Estructura de bases MR</a>.</p>
+</header>
+
+<section aria-label="Resumen">
+  <div class="kpis">
+    <div class="kpi"><b>4</b><span>proyectos Supabase activos (el Depósito viejo ya se borró)</span></div>
+    <div class="kpi"><b>325</b><span>tablas y vistas · 383 relaciones</span></div>
+    <div class="kpi ok"><b>0</b><span>tablas con RLS apagado</span></div>
+    <div class="kpi bad"><b>1</b><span>exposición abierta a quien tenga la clave pública</span></div>
+    <div class="kpi warn"><b>1</b><span>respaldo que va a fallar el domingo (Payroll)</span></div>
+  </div>
+</section>
+
+<section>
+  <div>
+    <h2>Cómo se conectan</h2>
+    <p class="lead">Cada placa es un proyecto Supabase. Las bandejas son esquemas de Postgres y adentro están las apps que los usan.</p>
+  </div>
+  <div class="legend">
+    <span><i class="app">App</i> escritorio (PyQt / PySide)</span>
+    <span><i class="app web">Web</i> página o celular</span>
+    <span class="fx">ƒ = Edge Function</span>
+  </div>
+
+  <div class="boards">
+    <article class="board central">
+      <div class="bhead"><h3>ORDENES DE PAGO – BELGRANO</h3><span class="ref">zpwccecovhjmeibxafkg · São Paulo</span><span class="state s-ok">base central · respaldada</span></div>
+      <div class="bbody">
+        <div class="trays">
+          <div class="tray"><div class="sch">public <em>93 tablas</em></div><div class="apps">
+            <span class="app">RetencionesPro</span><span class="app">Cobranzas (intercompany)</span><span class="app">Impuestos</span><span class="app">Contabilidad</span><span class="app">Control de Juicios</span><span class="app">VEP Autónomos</span><span class="app">Facturador ARCA</span><span class="app web">factura-mono</span><span class="app">Portal IVA</span><span class="app web">comprobantes-cel</span><span class="app">Suite Contable</span></div></div>
+          <div class="tray"><div class="sch">deposito <em>49 tablas</em></div><div class="apps">
+            <span class="app">Depósito Avalos</span><span class="app">Depósito Uniformes</span><span class="app">Suite Depósitos</span><span class="app web">deposito-comprobantes-web</span></div></div>
+          <div class="tray"><div class="sch">rrhh <em>26 tablas</em></div><div class="apps">
+            <span class="app">Employee Pro</span><span class="app">Calendario de Ausencias</span><span class="app web">calendario-ausencias-cel</span></div></div>
+          <div class="tray"><div class="sch">chermisqui <em>18 tablas</em></div><div class="apps">
+            <span class="app web">QB Dashboard</span><span class="app web">Control de días</span></div></div>
+          <div class="tray"><div class="sch">conciliador <em>7 tablas</em></div><div class="apps">
+            <span class="app">Conciliador Bancario</span></div></div>
+        </div>
+        <div class="fx">ƒ <b>comprobantes-cel</b> · <b>deposito-comprobante-cel</b> · <b>cal-ausencias</b> · <b>tx-api</b> · <b>chcal-api</b> · <b>qb-api</b> · <b>juicio-abogado</b> &nbsp;|&nbsp; también guarda el registro <b>suite_backup_runs</b> y recibe ahora las releases de Depósito</div>
+      </div>
+    </article>
+
+    <article class="board">
+      <div class="bhead"><h3>MRASOC</h3><span class="ref">nlnzryrwvbqigqzqkqqf · plan Free</span><span class="state s-ok">respaldada (semanal)</span></div>
+      <div class="bbody">
+        <div class="trays"><div class="tray"><div class="sch">public · pc_* <em>84 tablas</em></div><div class="apps">
+          <span class="app web">Portal Clientes</span><span class="app web">mrasoc-web</span><span class="app">mrasoc-entregables</span><span class="app web">Casamiento</span></div></div></div>
+        <p class="fx">En Supabase todavía figura como «casamiento-matilara»; el nombre se cambia desde Project Settings → General.</p>
+        <p class="fx">ƒ <b>pc-accesos</b> · <b>pc-demo</b> · <b>pc-publicar</b> · <b>pc-indices</b> · <b>pc-inquilinos</b> · <b>pc-vecinos</b> · <b>pc-jclientes</b> · <b>pc-contrato-ia</b> · <b>pc-fp-ia</b> · <b>pc-factura-ia</b> · <b>pc-escrito-ia</b> · <b>pc-lectura-ia</b> · <b>entregables-subir</b></p>
+        <p class="fx">Storage privado: 489 archivos, unos 887 MB (entregables + portal-clientes)</p>
+      </div>
+    </article>
+
+    <article class="board">
+      <div class="bhead"><h3>COBRANZAS OSECAC</h3><span class="ref">rrarmatjyvmrpohsvfzg</span><span class="state s-ok">respaldada</span></div>
+      <div class="bbody">
+        <div class="trays"><div class="tray"><div class="sch">public <em>9 tablas</em></div><div class="apps">
+          <span class="app">Cobranzas OSECAC</span><span class="app">Impuestos (lee)</span><span class="app">Contabilidad (lee)</span></div></div></div>
+        <p class="fx">Sin Edge Functions. La unión con la base central sigue postergada.</p>
+      </div>
+    </article>
+
+    <article class="board">
+      <div class="bhead"><h3>AME-PAYROLL</h3><span class="ref">vswtxuvknxsjfodgviiq · California</span><span class="state s-warn">respaldo con error</span></div>
+      <div class="bbody">
+        <div class="trays"><div class="tray"><div class="sch">app · public <em>39 tablas</em></div><div class="apps">
+          <span class="app">ame-payroll</span><span class="app web">payroll-platform (API + web)</span></div></div></div>
+        <p class="fx">payroll-platform entra con el rol propio <b>app_api</b>. El último respaldo bueno es del 13-oct; ahora la contraseña guardada en suite-backups no entra. Lo dejaste así a propósito porque hoy no hay trabajo de payroll.</p>
+      </div>
+    </article>
+  </div>
+  <p class="fx">Fuera de Supabase: Suite Contable instala y actualiza las 13 apps; mrasoc-web publica en Netlify; las páginas para celular se sirven desde GitHub Pages; factura-mono corre en Render.</p>
+</section>
+
+<section>
+  <div>
+    <h2>¿Están privadas?</h2>
+    <p class="lead">Ninguna base tiene tablas con RLS apagado. Pero la clave pública de la base central está en tres webs públicas, y con ella hoy queda una sola puerta sin iniciar sesión: crear OPs.</p>
+  </div>
+  <div class="finds">
+    <div class="find ok"><h4><span class="state s-ok">cerrado 15-oct</span> Facturador: facturas y token abiertos sin login</h4>
+      <p><code>facturador_facturas</code> (210 filas) y <code>facturador_token</code> dejaban al rol anónimo leer, crear, cambiar y borrar todo. Se quitaron esas reglas y los permisos del anónimo. Probado: sin login da «permiso denegado» y el Facturador ARCA (que entra con la cuenta compartida desde el 9-sep) sigue leyendo las 210 facturas y el token.</p></div>
+    <div class="find bad"><h4><span class="state s-bad">exposición · en curso</span> Se pueden crear OPs sin login</h4>
+      <p><code>crear_op_desde_factura</code>, <code>crear_op_desde_deposito</code> y <code>ops_desde_facturador</code> siguen abiertas al rol anónimo (verificado 15-oct). Depósito Avalos y Uniformes ya las llaman con sesión desde v0.39.3 / v0.13.2. Cuando todas las PCs tengan esas versiones (fecha prevista: alrededor del 28-oct) se cierran.</p></div>
+    <div class="find ok"><h4><span class="state s-ok">cerrado 13-oct</span> Facturas y pagos legibles sin login</h4>
+      <p>La vista <code>v_facturas_completo</code> ya respeta los permisos de quien consulta; el acceso sin login recibe «permiso denegado».</p></div>
+    <div class="find warn"><h4><span class="state s-warn">mejora</span> Protección contra contraseñas filtradas apagada</h4>
+      <p>Base central, Cobranzas y Payroll. Es un interruptor en Auth del panel de Supabase y no afecta a las apps.</p></div>
+    <div class="find ok"><h4><span class="state s-ok">ok</span> Login propio de Cobranzas</h4>
+      <p><code>login_app</code> está abierto al rol anónimo a propósito: es la pantalla de ingreso.</p></div>
+    <div class="find ok"><h4><span class="state s-ok">ok</span> Riesgos aceptados</h4>
+      <p>El modelo de «cliente confiable» de la Suite (sin RLS por usuario dentro de RetencionesPro) y suite-contable como repo público son decisiones que ya tomaste antes. Acá no se cuentan como hallazgos.</p></div>
+  </div>
+</section>
+
+<section>
+  <div>
+    <h2>¿Se puede perder información?</h2>
+    <p class="lead">El respaldo semanal cifrado corre los domingos a las 22:00, guarda 8 semanas en D:\Backups\suite y sube una copia a OneDrive. Supabase guarda además su propia copia diaria de los proyectos pagos; MRASOC está en el plan Free y no la tiene, así que depende sólo del respaldo semanal.</p>
+  </div>
+  <div class="tablebox"><table>
+    <thead><tr><th>Proyecto</th><th>Base (pg_dump)</th><th>Archivos (Storage)</th><th>Último respaldo bueno</th></tr></thead>
+    <tbody>
+      <tr><td>ORDENES DE PAGO – BELGRANO</td><td><span class="state s-ok">sí</span></td><td><span class="state s-ok">sí · 3.584 archivos</span></td><td class="num">13-oct</td></tr>
+      <tr><td>COBRANZAS OSECAC</td><td><span class="state s-ok">sí</span></td><td><span class="state s-ok">sí · 2.450 archivos</span></td><td class="num">13-oct</td></tr>
+      <tr><td>MRASOC (Portal)</td><td><span class="state s-ok">sí · obligatorio</span></td><td><span class="state s-ok">sí · 489 archivos</span></td><td class="num">14-oct</td></tr>
+      <tr><td>AME-PAYROLL</td><td><span class="state s-bad">falla la contraseña</span></td><td><span class="state s-off">no usa Storage</span></td><td class="num">13-oct</td></tr>
+    </tbody>
+  </table></div>
+  <p class="fx">Si Payroll vuelve a tener trabajo: resetear la contraseña de la base en Supabase y correr CONFIGURAR.bat en suite-backups. Mientras tanto el respaldo semanal saldrá «CON ERRORES», pero los otros tres proyectos se guardan igual.</p>
+</section>
+
+<footer>Fuentes: Supabase (proyectos, esquemas, permisos del rol anónimo, reglas RLS), logs de suite-backups del 13 y 14-oct. Primera versión 13-oct-2026; actualizado por Claude el 15-oct-2026.</footer>
+</div>
+
+</body>
+</html>

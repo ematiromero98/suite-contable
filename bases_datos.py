@@ -14,9 +14,13 @@ tocar un proyecto, la explicación pasa a describir ese proyecto.
 Mismo QGraphicsView nativo que el resto de la Suite (helpers de arquitectura.py):
 sin dependencias nuevas, porque el ERP se auto-actualiza sin pip.
 
-Estado relevado: 12-oct-2026 (DEPOSITO-AVALOS mudado al schema deposito; EMPLOYEE-PRO dado de baja y mudado al schema rrhh de la
-base compartida; Chermisqui en el schema chermisqui). Si cambia algo, se edita
-PROYECTOS_SUPA acá abajo.
+Estado relevado: 15-oct-2026 (4 proyectos: DEPOSITO-AVALOS y EMPLOYEE-PRO ya
+borrados y mudados a schemas de la base compartida; casamiento-matilara pasa a
+llamarse MRASOC). Si cambia algo, se edita PROYECTOS_SUPA acá abajo.
+
+El detalle tabla por tabla (columnas, claves y relaciones) vive en
+assets/estructura-bases.html y el mapa con seguridad y respaldos en
+assets/mapa-bases.html; se abren en el navegador desde esta pestaña.
 """
 from __future__ import annotations
 
@@ -45,7 +49,7 @@ PROYECTOS_SUPA = [
         "ref": "zpwccecovhjmeibxafkg", "region": "sa-east-1 (São Paulo)",
         "tam": "~625 MB", "backup": "semanal · prioridad alta",
         "schemas": [
-            ("public", 89,
+            ("public", 93,
              "Órdenes de Pago (pagos, facturas, ret_*, op_pagos, padrones) · Impuestos "
              "(cm03_*, iva_*, ddjj_*) · Contabilidad (cont_*) · Juicios (juicios_*) · "
              "VEP (arca_veps_*) · Facturador (facturador_*) · Factura Mono (fm_*) · "
@@ -59,11 +63,11 @@ PROYECTOS_SUPA = [
              "Employee Pro (empleados, legajos, datos salariales, objetivos, "
              "documentos…) + Calendario de Ausencias (cal_*)",
              ["Employee Pro", "Calendario de Ausencias", "Ausencias (web)"]),
-            ("chermisqui", 17,
+            ("chermisqui", 18,
              "Webs de Chermisqui & Associates: QB Dashboard (qb_*), Taxes por "
              "trimestre (tx_*) y Control de días (chcal_*)",
              ["QB Dashboard (web)", "Taxes (web)", "Control de días (web)"]),
-            ("deposito", 44,
+            ("deposito", 49,
              "Depósito Avalos (productos, stock, ingresos, egresos, inventarios, "
              "objetivos) + tablas u_* de Depósito Uniformes · 5 vistas, 23 RPC de "
              "stock atómicas, realtime en 38 tablas",
@@ -108,9 +112,9 @@ PROYECTOS_SUPA = [
         "key": "payroll", "emoji": "🌎", "color": "#5bb0ff",
         "nombre": "AME-PAYROLL", "apodo": "Payroll US",
         "ref": "vswtxuvknxsjfodgviiq", "region": "us-west-1 (California)",
-        "tam": "~14 MB", "backup": "semanal · prioridad alta (rol suite_backup)",
+        "tam": "~14 MB", "backup": "semanal · hoy falla la contraseña (último OK 13-oct)",
         "schemas": [
-            ("public", 20, "ame-payroll: payroll de EE.UU. federal + California",
+            ("public", 22, "ame-payroll: payroll de EE.UU. federal + California",
              ["ame-payroll"]),
             ("app", 17, "payroll-platform (Datatech de Chermisqui)",
              ["payroll-platform"]),
@@ -124,29 +128,28 @@ PROYECTOS_SUPA = [
     },
     {
         "key": "casamiento", "emoji": "💍", "color": "#e58fb0",
-        "nombre": "casamiento-matilara", "apodo": "Portal Clientes + casamiento",
+        "nombre": "MRASOC", "apodo": "Portal Clientes + entregables (ex casamiento-matilara)",
         "ref": "nlnzryrwvbqigqzqkqqf", "region": "sa-east-1 (São Paulo)",
-        "tam": "~23 MB", "backup": "semanal · opcional (prioridad baja)",
+        "tam": "~25 MB + ~890 MB de archivos",
+        "backup": "semanal · obligatorio (plan Free: sin copia propia de Supabase)",
         "schemas": [
-            ("public", 64, "App del casamiento + Portal Clientes (pc_*) y leads",
+            ("public", 84, "Portal Clientes (pc_*: alquileres, consorcios, estudios jurídicos, "
+             "finanzas personales), entregables, leads y la app del casamiento",
              ["Portal Clientes (web)", "casamiento-app"]),
         ],
         "edge": ["pc-* (~10, Portal Clientes)", "entregables-subir"],
         "buckets": ["casamiento", "portal-clientes", "entregables"],
         "texto": "Proyecto aparte, fuera de la Suite. Nació para la app del casamiento "
-                 "y hoy también aloja el Portal Clientes (tablas pc_*, sus Edge "
-                 "Functions pc-* y el bucket de entregables). No se borra hasta después "
-                 "del casamiento.",
+                 "y hoy es la base de MR &amp; Asociados: el Portal Clientes (tablas pc_*, "
+                 "un solo juego de tablas para todos los clientes separados por "
+                 "cliente_id), sus Edge Functions pc-* y el bucket de entregables. En "
+                 "Supabase todavía figura como «casamiento-matilara».",
     },
 ]
 
-# Proyecto viejo que quedó congelado tras la mudanza (no cuenta como activo, pero
-# se sigue pagando hasta que se borre).
-CONGELADO = {
-    "nombre": "DEPOSITO-AVALOS", "ref": "ioycuhefaalpqivhhryb",
-    "nota": "sin permisos desde el 12-oct-2026; sólo sirve de canal de update para .exe "
-            "viejos. Se borra tras ~2 semanas de gracia.",
-}
+# Páginas HTML de assets/ que se abren en el navegador desde esta pestaña.
+HTML_ESTRUCTURA = ("estructura-bases.html", "Estructura de bases")
+HTML_MAPA = ("mapa-bases.html", "Mapa de bases")
 
 # Geometría del diagrama
 _W = 1000               # ancho de la escena
@@ -252,16 +255,25 @@ class PaginaBasesDatos(QWidget):
                f"proyecto − US${CREDITO} de crédito incluido  →  {n} proyectos ≈ "
                f"US${costo_total(n)}/mes", color="#bfe9d5", size=11, bold=True)
         _texto(sc, _M + 16, cy + 33,
-               f"Hasta borrar {CONGELADO['nombre']} son {n + 1} (≈ US${costo_total(n + 1)}"
-               f"/mes). En sep-2026 eran 8 (≈ US${costo_total(8)}/mes). Cada proyecto que "
+               f"En sep-2026 eran 8 (≈ US${costo_total(8)}/mes). Cada proyecto que "
                f"se une a otro ahorra ~US${COMPUTO_PROY}/mes.", color=SUB, size=9)
 
-        # Aviso del proyecto congelado (sigue existiendo sólo por la gracia).
+        # Accesos a las páginas HTML (se abren en el navegador).
         ny = cy + 56 + 10
-        _caja(sc, _M, ny, _W - 2 * _M, 34, "#8a5a1e", radio=10, relleno="#241d10")
-        _texto(sc, _M + 16, ny + 8,
-               f"Congelado: {CONGELADO['nombre']} ({CONGELADO['ref']}) — "
-               f"{CONGELADO['nota']}", color="#f6c66b", size=9)
+        mitad = (_W - 2 * _M - 12) / 2
+        for i, (key, titulo, sub) in enumerate((
+                ("html:estructura", "Abrir la estructura tabla por tabla",
+                 "325 tablas · columnas, claves y relaciones"),
+                ("html:mapa", "Abrir el mapa de bases",
+                 "apps, seguridad y respaldos de cada proyecto"))):
+            bx = _M + i * (mitad + 12)
+            caja = _caja(sc, bx, ny, mitad, 44, MENTA, radio=10, relleno="#12202b")
+            caja.setData(0, key)
+            caja.setCursor(Qt.CursorShape.PointingHandCursor)
+            for it in (_texto(sc, bx + 16, ny + 6, titulo + "  ↗", color=TXT, size=10, bold=True),
+                       _texto(sc, bx + 16, ny + 25, sub, color=SUB, size=9)):
+                it.setParentItem(caja)
+        ny += 44 - 34
 
         y = ny + 34 + 22
         ancho_bloque = _W - 2 * _M
@@ -372,7 +384,9 @@ class PaginaBasesDatos(QWidget):
     def _on_nodo(self, key):
         if not isinstance(key, str):
             return
-        if key.startswith("proj:"):
+        if key.startswith("html:"):
+            self._abrir_html(key[5:])
+        elif key.startswith("proj:"):
             self.mostrar_proyecto(key[5:])
         elif key.startswith("app:"):
             _, pk, app = key.split(":", 2)
@@ -418,9 +432,17 @@ class PaginaBasesDatos(QWidget):
         <a href='#general' style='color:{MENTA}'>← Volver a la explicación general</a></p>
         </div>""")
 
+    def _abrir_html(self, cual):
+        from arquitectura import abrir_html_asset
+        nombre, titulo = HTML_ESTRUCTURA if cual == "estructura" else HTML_MAPA
+        abrir_html_asset(nombre, titulo, self)
+
     def _on_link(self, url):
-        if url.toString().endswith("#general"):
+        u = url.toString()
+        if u.endswith("#general"):
             self._explicacion_general()
+        elif u.endswith("#estructura") or u.endswith("#mapa"):
+            self._abrir_html(u.rsplit("#", 1)[1])
 
     def _explicacion_general(self):
         if not getattr(self, "_link_ok", False):
@@ -480,15 +502,16 @@ class PaginaBasesDatos(QWidget):
         <p style='color:{SUB};font-size:12px;margin:0'>
         Plan Pro US${PLAN_PRO}/mes + ~US${COMPUTO_PROY}/mes de cómputo por proyecto,
         con US${CREDITO} de crédito incluido: <b style='color:{TXT}'>{n} proyectos ≈
-        US${costo_total(n)}/mes</b>. Mientras siga vivo {CONGELADO['nombre']}
-        (congelado) son {n + 1} (≈ US${costo_total(n + 1)}). En sep-2026 eran 8
+        US${costo_total(n)}/mes</b>. En sep-2026 eran 8
         (≈ US${costo_total(8)}). Por eso se unen proyectos en schemas.</p>
 
-        <h3 style='color:#f6c66b;margin:12px 0 4px'>Proyecto congelado</h3>
+        <h3 style='color:{TXT};margin:12px 0 4px'>Ver por dentro</h3>
         <p style='color:{SUB};font-size:12px;margin:0'>
-        <b style='color:{TXT}'>{CONGELADO['nombre']}</b> ({CONGELADO['ref']}): el
-        Depósito se mudó al schema <i>deposito</i> de la base central. El proyecto
-        viejo quedó {CONGELADO['nota']}</p>
+        <a href='#estructura' style='color:{MENTA}'>Estructura tabla por tabla ↗</a>:
+        cada tabla con sus columnas, claves y relaciones, agrupadas por app.<br>
+        <a href='#mapa' style='color:{MENTA}'>Mapa de bases ↗</a>: qué app usa qué
+        proyecto, seguridad y estado de los respaldos. Se abren en el navegador y se
+        pueden mandar por mail tal cual.</p>
 
         <p style='color:{SUB};font-size:11px;margin-top:12px'>
         Tocá un proyecto del diagrama para ver su detalle.</p>
