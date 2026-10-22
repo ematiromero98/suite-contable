@@ -14,7 +14,7 @@ tocar un proyecto, la explicación pasa a describir ese proyecto.
 Mismo QGraphicsView nativo que el resto de la Suite (helpers de arquitectura.py):
 sin dependencias nuevas, porque el ERP se auto-actualiza sin pip.
 
-Estado relevado: 15-oct-2026 (4 proyectos: DEPOSITO-AVALOS y EMPLOYEE-PRO ya
+Estado relevado: 22-oct-2026 (4 proyectos: DEPOSITO-AVALOS y EMPLOYEE-PRO ya
 borrados y mudados a schemas de la base compartida; casamiento-matilara pasa a
 llamarse MRASOC). Si cambia algo, se edita PROYECTOS_SUPA acá abajo.
 
@@ -49,7 +49,7 @@ PROYECTOS_SUPA = [
         "ref": "zpwccecovhjmeibxafkg", "region": "sa-east-1 (São Paulo)",
         "tam": "~625 MB", "backup": "semanal · prioridad alta",
         "schemas": [
-            ("public", 93,
+            ("public", 94,
              "Órdenes de Pago (pagos, facturas, ret_*, op_pagos, padrones) · Impuestos "
              "(cm03_*, iva_*, ddjj_*) · Contabilidad (cont_*) · Juicios (juicios_*) · "
              "VEP (arca_veps_*) · Facturador (facturador_*) · Factura Mono (fm_*) · "
@@ -112,7 +112,7 @@ PROYECTOS_SUPA = [
         "key": "payroll", "emoji": "🌎", "color": "#5bb0ff",
         "nombre": "AME-PAYROLL", "apodo": "Payroll US",
         "ref": "vswtxuvknxsjfodgviiq", "region": "us-west-1 (California)",
-        "tam": "~14 MB", "backup": "semanal · hoy falla la contraseña (último OK 13-oct)",
+        "tam": "~14 MB", "backup": "semanal · falla la contraseña (último OK 13-oct; el 18-oct dio error)",
         "schemas": [
             ("public", 22, "ame-payroll: payroll de EE.UU. federal + California",
              ["ame-payroll"]),
@@ -263,7 +263,7 @@ class PaginaBasesDatos(QWidget):
         mitad = (_W - 2 * _M - 12) / 2
         for i, (key, titulo, sub) in enumerate((
                 ("html:estructura", "Abrir la estructura tabla por tabla",
-                 "325 tablas · columnas, claves y relaciones"),
+                 "326 tablas · columnas, claves y relaciones"),
                 ("html:mapa", "Abrir el mapa de bases",
                  "apps, seguridad y respaldos de cada proyecto"))):
             bx = _M + i * (mitad + 12)

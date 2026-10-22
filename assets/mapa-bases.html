@@ -82,7 +82,7 @@ footer{font-size:12.5px;color:var(--muted);font-family:var(--mono);border-top:1p
 <div class="wrap">
 <header>
   <div class="mark" aria-hidden="true"><i></i><i></i></div>
-  <div class="eyebrow">Arquitectura · actualizado 15-oct-2026</div>
+  <div class="eyebrow">Arquitectura · actualizado 22-oct-2026</div>
   <h1>Mapa de bases de datos de la Suite y MR &amp; Asociados</h1>
   <p class="lead">Qué app escribe en qué proyecto de Supabase, en qué esquema, con qué funciones en la nube, y el estado del respaldo y la seguridad de cada base. Para ver cada tabla por dentro (columnas, claves y relaciones): <a href="estructura-bases.html">Estructura de bases MR</a>.</p>
 </header>
@@ -90,10 +90,10 @@ footer{font-size:12.5px;color:var(--muted);font-family:var(--mono);border-top:1p
 <section aria-label="Resumen">
   <div class="kpis">
     <div class="kpi"><b>4</b><span>proyectos Supabase activos (el Depósito viejo ya se borró)</span></div>
-    <div class="kpi"><b>325</b><span>tablas y vistas · 383 relaciones</span></div>
+    <div class="kpi"><b>326</b><span>tablas y vistas · 383 relaciones</span></div>
     <div class="kpi ok"><b>0</b><span>tablas con RLS apagado</span></div>
     <div class="kpi bad"><b>1</b><span>exposición abierta a quien tenga la clave pública</span></div>
-    <div class="kpi warn"><b>1</b><span>respaldo que va a fallar el domingo (Payroll)</span></div>
+    <div class="kpi warn"><b>1</b><span>respaldo que falla (Payroll, desde el 18-oct)</span></div>
   </div>
 </section>
 
@@ -113,7 +113,7 @@ footer{font-size:12.5px;color:var(--muted);font-family:var(--mono);border-top:1p
       <div class="bhead"><h3>ORDENES DE PAGO – BELGRANO</h3><span class="ref">zpwccecovhjmeibxafkg · São Paulo</span><span class="state s-ok">base central · respaldada</span></div>
       <div class="bbody">
         <div class="trays">
-          <div class="tray"><div class="sch">public <em>93 tablas</em></div><div class="apps">
+          <div class="tray"><div class="sch">public <em>94 tablas</em></div><div class="apps">
             <span class="app">RetencionesPro</span><span class="app">Cobranzas (intercompany)</span><span class="app">Impuestos</span><span class="app">Contabilidad</span><span class="app">Control de Juicios</span><span class="app">VEP Autónomos</span><span class="app">Facturador ARCA</span><span class="app web">factura-mono</span><span class="app">Portal IVA</span><span class="app web">comprobantes-cel</span><span class="app">Suite Contable</span></div></div>
           <div class="tray"><div class="sch">deposito <em>49 tablas</em></div><div class="apps">
             <span class="app">Depósito Avalos</span><span class="app">Depósito Uniformes</span><span class="app">Suite Depósitos</span><span class="app web">deposito-comprobantes-web</span></div></div>
@@ -153,7 +153,7 @@ footer{font-size:12.5px;color:var(--muted);font-family:var(--mono);border-top:1p
       <div class="bbody">
         <div class="trays"><div class="tray"><div class="sch">app · public <em>39 tablas</em></div><div class="apps">
           <span class="app">ame-payroll</span><span class="app web">payroll-platform (API + web)</span></div></div></div>
-        <p class="fx">payroll-platform entra con el rol propio <b>app_api</b>. El último respaldo bueno es del 13-oct; ahora la contraseña guardada en suite-backups no entra. Lo dejaste así a propósito porque hoy no hay trabajo de payroll.</p>
+        <p class="fx">payroll-platform entra con el rol propio <b>app_api</b>. El último respaldo bueno es del 13-oct; el del 18-oct falló porque la contraseña guardada en suite-backups no entra. Lo dejaste así a propósito porque hoy no hay trabajo de payroll.</p>
       </div>
     </article>
   </div>
@@ -169,7 +169,7 @@ footer{font-size:12.5px;color:var(--muted);font-family:var(--mono);border-top:1p
     <div class="find ok"><h4><span class="state s-ok">cerrado 15-oct</span> Facturador: facturas y token abiertos sin login</h4>
       <p><code>facturador_facturas</code> (210 filas) y <code>facturador_token</code> dejaban al rol anónimo leer, crear, cambiar y borrar todo. Se quitaron esas reglas y los permisos del anónimo. Probado: sin login da «permiso denegado» y el Facturador ARCA (que entra con la cuenta compartida desde el 9-sep) sigue leyendo las 210 facturas y el token.</p></div>
     <div class="find bad"><h4><span class="state s-bad">exposición · en curso</span> Se pueden crear OPs sin login</h4>
-      <p><code>crear_op_desde_factura</code>, <code>crear_op_desde_deposito</code> y <code>ops_desde_facturador</code> siguen abiertas al rol anónimo (verificado 15-oct). Depósito Avalos y Uniformes ya las llaman con sesión desde v0.39.3 / v0.13.2. Cuando todas las PCs tengan esas versiones (fecha prevista: alrededor del 28-oct) se cierran.</p></div>
+      <p><code>crear_op_desde_factura</code>, <code>crear_op_desde_deposito</code> y <code>ops_desde_facturador</code> siguen abiertas al rol anónimo (verificado 22-oct). Depósito Avalos y Uniformes ya las llaman con sesión desde v0.39.3 / v0.13.2. Cuando todas las PCs tengan esas versiones (fecha prevista: alrededor del 28-oct) se cierran.</p></div>
     <div class="find ok"><h4><span class="state s-ok">cerrado 13-oct</span> Facturas y pagos legibles sin login</h4>
       <p>La vista <code>v_facturas_completo</code> ya respeta los permisos de quien consulta; el acceso sin login recibe «permiso denegado».</p></div>
     <div class="find warn"><h4><span class="state s-warn">mejora</span> Protección contra contraseñas filtradas apagada</h4>
@@ -189,16 +189,16 @@ footer{font-size:12.5px;color:var(--muted);font-family:var(--mono);border-top:1p
   <div class="tablebox"><table>
     <thead><tr><th>Proyecto</th><th>Base (pg_dump)</th><th>Archivos (Storage)</th><th>Último respaldo bueno</th></tr></thead>
     <tbody>
-      <tr><td>ORDENES DE PAGO – BELGRANO</td><td><span class="state s-ok">sí</span></td><td><span class="state s-ok">sí · 3.584 archivos</span></td><td class="num">13-oct</td></tr>
-      <tr><td>COBRANZAS OSECAC</td><td><span class="state s-ok">sí</span></td><td><span class="state s-ok">sí · 2.450 archivos</span></td><td class="num">13-oct</td></tr>
-      <tr><td>MRASOC (Portal)</td><td><span class="state s-ok">sí · obligatorio</span></td><td><span class="state s-ok">sí · 489 archivos</span></td><td class="num">14-oct</td></tr>
+      <tr><td>ORDENES DE PAGO – BELGRANO</td><td><span class="state s-ok">sí</span></td><td><span class="state s-ok">sí · 3.900 archivos</span></td><td class="num">18-oct</td></tr>
+      <tr><td>COBRANZAS OSECAC</td><td><span class="state s-ok">sí</span></td><td><span class="state s-ok">sí · 2.467 archivos</span></td><td class="num">18-oct</td></tr>
+      <tr><td>MRASOC (Portal)</td><td><span class="state s-ok">sí · obligatorio</span></td><td><span class="state s-ok">sí · 520 archivos</span></td><td class="num">18-oct</td></tr>
       <tr><td>AME-PAYROLL</td><td><span class="state s-bad">falla la contraseña</span></td><td><span class="state s-off">no usa Storage</span></td><td class="num">13-oct</td></tr>
     </tbody>
   </table></div>
-  <p class="fx">Si Payroll vuelve a tener trabajo: resetear la contraseña de la base en Supabase y correr CONFIGURAR.bat en suite-backups. Mientras tanto el respaldo semanal saldrá «CON ERRORES», pero los otros tres proyectos se guardan igual.</p>
+  <p class="fx">Si Payroll vuelve a tener trabajo: resetear la contraseña de la base en Supabase y correr CONFIGURAR.bat en suite-backups. Mientras tanto el respaldo semanal sale «CON ERRORES» (así salió el del 18-oct), pero los otros tres proyectos se guardan igual.</p>
 </section>
 
-<footer>Fuentes: Supabase (proyectos, esquemas, permisos del rol anónimo, reglas RLS), logs de suite-backups del 13 y 14-oct. Primera versión 13-oct-2026; actualizado por Claude el 15-oct-2026.</footer>
+<footer>Fuentes: Supabase (proyectos, esquemas, permisos del rol anónimo, reglas RLS), logs de suite-backups del 13, 14 y 18-oct. Primera versión 13-oct-2026; actualizado por Claude el 22-oct-2026.</footer>
 </div>
 
 </body>
