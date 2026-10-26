@@ -311,6 +311,35 @@ PROYECTOS = {
         ],
         "rel_datos": SUPA_COMPARTIDA,
     },
+    "cierres": {
+        "nombre": "Cierres contables", "emoji": "🧾", "color": "#7D3C98",
+        "proposito": "Guarda las revisiones de cierre de ejercicio por empresa: los "
+                     "asientos de ajuste que surgen de conciliar Tango contra ARCA / "
+                     "SIFERE / F.931, la conciliación de cada cuenta con su saldo correcto "
+                     "y las capturas de respaldo. Los ajustes se cargan en Tango con su "
+                     "propia extensión de Chrome.",
+        "stack": "Python + PyQt6. Supabase por REST (requests / PostgREST + Storage). "
+                 "openpyxl (importar/exportar). Servidor HTTP local (stdlib) + "
+                 "extensión de Chrome MV3 (chrome.debugger).",
+        "entrypoint": "run.bat → python main.py (levanta el servidor en localhost:17302)",
+        "datos": SUPA_COMPARTIDA + " · tablas cierres_* + bucket cierres-respaldos",
+        "capas": [
+            ("UI (PyQt6)", ["main.py", "ui.py (Resumen · Ajustes · Conciliación · "
+                                        "Respaldos · Cargar en Tango)"]),
+            ("Datos", ["db.py — CierresDB (REST + Storage)", "importar.py / exportar.py (Excel)"]),
+            ("Tango", ["tango_server.py (localhost:17302)",
+                       "extension/tango-cierres (motor de RetencionesPro)"]),
+        ],
+        "integraciones": ["Tango (grilla de asientos, por extensión)", "Excel", "GitHub"],
+        "flujo": [
+            "Se importa la revisión desde el Excel de trabajo (asientos + conciliación + respaldos).",
+            "Se revisan los ajustes y la conciliación (saldo ajustado vs. correcto).",
+            "La extensión trae los ajustes pendientes de la empresa abierta en Tango.",
+            "Cada asiento que cuadra se graba y su N° de Tango vuelve a la app.",
+            "Se exporta el legajo del cierre a Excel.",
+        ],
+        "rel_datos": SUPA_COMPARTIDA,
+    },
     "deposito": {
         "nombre": "Depósito Avalos", "emoji": "📦", "color": "#A04000",
         "proposito": "Controla el stock del depósito de artículos de limpieza: "
@@ -671,14 +700,15 @@ EXTERNOS = {
 BASES = {
     "compartida": ("🗄️", "Supabase COMPARTIDA", "zpwccecovhjmeibxafkg · public + 4 schemas",
                     ["reten", "impuestos", "facturador", "juicios", "contabilidad", "veps",
-                     "conciliador", "employee", "ausencias", "deposito", "uniformes"]),
+                     "conciliador", "employee", "ausencias", "deposito", "uniformes",
+                     "cierres"]),
     "cobranzas": ("🗄️", "Supabase Cobranzas", "rrarmatjyvmrpohsvfzg", ["cobranzas"]),
 }
 # Ancho de cada caja de base en la vista general (la compartida es la más grande).
 BASES_ANCHO = {"compartida": 440, "cobranzas": 280}
 APPS_ORDEN = ["reten", "impuestos", "cobranzas", "facturador",
               "employee", "juicios", "deposito", "uniformes", "contabilidad", "conciliador",
-              "ausencias", "veps", "backups"]
+              "ausencias", "veps", "cierres", "backups"]
 
 
 # ============================================================ VISTA (Qt)

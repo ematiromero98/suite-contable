@@ -49,7 +49,7 @@ CUENTA_ESTUDIO = "ematiromero98@gmail.com"
 # (mismo proyecto Supabase): RetencionesPro, Impuestos (IIBB+IVA, ex «DDJJ
 # Impuestos» — la key pasó de "ddjj" a "impuestos" al reemplazar la app),
 # Control de Juicios, Contabilidad y VEP Autónomos.
-_APPS_ENV = ("reten", "impuestos", "juicios", "contabilidad", "veps")
+_APPS_ENV = ("reten", "impuestos", "juicios", "contabilidad", "veps", "cierres")
 
 # Apps con secreto PROPIO (no usan el `.env` compartido). Cada una guarda sus
 # credenciales en un archivo aparte, gitignored, que vive PRIVADO en la carpeta
